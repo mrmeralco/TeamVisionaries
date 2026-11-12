@@ -1,0 +1,222 @@
+"""Contract C as code: one Pydantic model per response in docs/contracts/C-api.md.
+
+These models are the backend's side of the contract:
+- every route in main.py declares its `response_model`, so /docs and /openapi.json show the exact
+  shapes the Flutter app gets, and FastAPI validates each response before sending it;
+- tests/test_contract.py checks every file in docs/contracts/examples/ and every real-mode response
+  against them, so the doc, the examples and the code can't drift apart silently.
+
+Changing a model here = changing Contract C. Post in the group chat and get Aldrin's OK first,
+then update C-api.md and the matching examples/*.json in the same commit.
+"""
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+State = Literal["solar", "battery", "grid", "brownout", "fault", "offline"]
+AlertType = Literal["fault", "brownout", "grid_restored", "low_battery", "high_temp", "device_offline", "device_online"]
+Severity = Literal["info", "warning", "critical"]
+Source = Literal["llm", "fallback"]
+
+
+# ---------------------------------------------------------------- /api/live --
+class Device(BaseModel):
+    id: str
+    online: bool = Field(description="False when the MQTT last will fired or no telemetry for 30 s")
+    rssi: int | None = None
+    fw: str | None = None
+    last_seen_ts: int | None = Field(None, description="Unix s of the latest telemetry; null if none yet")
+
+
+class Telemetry(BaseModel):
+    """Contract B telemetry, as stored."""
+    ts: int
+    pv_w: int
+    load_w: int
+    grid_w: int = Field(description="+ import, − export")
+    batt_soc: int = Field(description="%")
+    batt_w: int = Field(description="+ discharging, − charging")
+    grid_on: bool = Field(description="false = brownout")
+    inv_temp_c: int
+    fault_code: int = Field(description="0 = OK")
+
+
+class Live(BaseModel):
+    device: Device
+    telemetry: Telemetry | None = Field(description="null if nothing received yet")
+    state: State
+    status_line: str
+    saved_today_php: float
+    rate_php_per_kwh: float
+
+
+# -------------------------------------------------------------- /api/energy --
+class EnergyKwh(BaseModel):
+    pv_kwh: float
+    load_kwh: float
+    grid_import_kwh: float
+    grid_export_kwh: float
+    batt_charge_kwh: float
+    batt_discharge_kwh: float
+
+
+class EnergyPoint(EnergyKwh):
+    ts: int = Field(description="Bucket start, Unix s")
+    label: str = Field(description='"14:00" (day), "Mon" (week), "Nov 3" (month)')
+
+
+class Energy(BaseModel):
+    period: Literal["day", "week", "month"]
+    bucket: Literal["hour", "day"]
+    start_ts: int
+    end_ts: int
+    points: list[EnergyPoint]
+    totals: EnergyKwh
+    self_sufficiency_pct: float = Field(description="(1 - grid_import / load) * 100")
+
+
+# ---------------------------------------------------------------- /api/bill --
+class WeeklyCost(BaseModel):
+    week_start_ts: int
+    label: str
+    php: float
+
+
+class Bill(BaseModel):
+    month: str = Field(description="YYYY-MM", pattern=r"^\d{4}-\d{2}$")
+    days_elapsed: int
+    days_in_month: int
+    rate_php_per_kwh: float
+    month_to_date_kwh: float
+    month_to_date_php: float
+    forecast_php: float
+    forecast_low_php: float
+    forecast_high_php: float
+    last_month_php: float | None = Field(description="null if no data for last month")
+    vs_last_month_pct: float | None = Field(description="forecast vs last month; null if no last month")
+    savings_today_php: float
+    savings_month_php: float
+    weekly_costs: list[WeeklyCost]
+
+
+# ------------------------------------------------------------ /api/brownout --
+class Brownout(BaseModel):
+    active: bool
+    start_ts: int | None = Field(description="Current outage, or the last one when not active; null if none")
+    duration_min: int | None
+    batt_soc: int | None
+    load_w: int | None
+    runtime_h: float | None = Field(description="(soc% x battery_kwh) / load; null if load is 0")
+    advice: str
+    outages_this_month: int
+
+
+# -------------------------------------------------------------- /api/alerts --
+class Alert(BaseModel):
+    id: int
+    ts: int
+    type: AlertType
+    severity: Severity
+    title: str
+    message: str
+    read: bool
+
+
+class AlertList(BaseModel):
+    unread: int
+    alerts: list[Alert] = Field(description="Newest first, max 100")
+
+
+class ReadAll(BaseModel):
+    unread: Literal[0]
+
+
+# ---------------------------------------------------------------- /api/chat --
+class ChatIn(BaseModel):
+    message: str = Field(min_length=1, max_length=500)
+
+
+class Chip(BaseModel):
+    label: str
+    value: str
+
+
+class Chat(BaseModel):
+    reply: str
+    chips: list[Chip]
+    source: Source = Field(description="fallback = LLM down, too slow, or failed the fact check")
+    facts_used: list[str] = Field(default_factory=list, description="Ids of the facts behind the answer")
+
+
+# ------------------------------------------------------- /api/summary/daily --
+class SummaryTotals(BaseModel):
+    pv_kwh: float
+    load_kwh: float
+    grid_import_kwh: float
+    cost_php: float
+    savings_php: float
+    self_sufficiency_pct: float
+
+
+class DailySummary(BaseModel):
+    date: str = Field(description="YYYY-MM-DD (yesterday, Asia/Manila)", pattern=r"^\d{4}-\d{2}-\d{2}$")
+    summary: str
+    totals: SummaryTotals
+    source: Source
+
+
+# ------------------------------------------------------------ /api/settings --
+class Settings(BaseModel):
+    rate_php_per_kwh: float
+    battery_kwh: float
+    user_name: str
+    device_id: str
+
+
+class SettingsIn(BaseModel):
+    """PUT body: any subset of Settings."""
+    rate_php_per_kwh: float | None = Field(None, gt=0, lt=100)
+    battery_kwh: float | None = Field(None, gt=0, lt=200)
+    user_name: str | None = Field(None, max_length=40)
+    device_id: str | None = Field(None, max_length=32)
+
+
+# -------------------------------------------------------------- /api/health --
+class Health(BaseModel):
+    ok: bool
+    mock: bool
+    llm: str | None
+    llm_provider: str
+    llm_reachable: bool
+
+
+# ----------------------------------------------------------------- /ws/live --
+class Meter(BaseModel):
+    """Contract B meter payload + device_id. Extra fields from the meter are passed through."""
+    model_config = {"extra": "allow"}
+    device_id: str
+    ts: int
+    meter_type: Literal["sdm120", "ansi-c12"]
+
+
+class WsTelemetry(BaseModel):
+    type: Literal["telemetry"]
+    data: Live
+
+
+class WsAlert(BaseModel):
+    type: Literal["alert"]
+    data: Alert
+
+
+class WsStatus(BaseModel):
+    type: Literal["status"]
+    data: Device
+
+
+class WsMeter(BaseModel):
+    type: Literal["meter"]
+    data: Meter
+
+
+WsMessage = WsTelemetry | WsAlert | WsStatus | WsMeter

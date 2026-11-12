@@ -2,6 +2,8 @@
 
 Base URL: `http://<server-laptop-ip>:8000` (the IP is entered in the app's Settings).
 Interactive docs: `http://<ip>:8000/docs` (FastAPI).
+In code: [`server/app/schemas.py`](../../server/app/schemas.py) has one Pydantic model per shape below, and
+`server/tests/test_contract.py` checks these docs' examples and the real backend against it.
 
 Conventions:
 - JSON everywhere. Field names are `snake_case`.

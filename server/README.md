@@ -7,6 +7,7 @@ Owners: **Andy** (`app/` and `ai/`; AI guide: [ai/README.md](ai/README.md)). Imp
 server/
 ├── app/            FastAPI app (Andy)
 │   ├── main.py     routes: /api/* + /ws/live
+│   ├── schemas.py  Contract C as Pydantic models (response_model on every route)
 │   ├── ingest.py   MQTT subscriber -> validate -> SQLite -> alerts -> WebSocket
 │   ├── alerts.py   fault, brownout (outage log), low battery, high temp, device offline
 │   ├── energy.py   live status line, kWh series, bill + forecast, brownout runtime
@@ -26,7 +27,7 @@ server/
 │   ├── fake_device.py    publishes Contract B every 5 s (keys: b brownout, f fault, s/S sun, l/L load)
 │   ├── seed_history.py   45 days of fake history so charts and forecast have data
 │   └── eval_ai.py        runs 15 real questions (incl. traps) against the model
-├── tests/          pytest: guard + AI pipeline with a fake model
+├── tests/          pytest: Contract C (test_contract.py), guard, AI pipeline with a fake model
 └── mosquitto.conf
 ```
 

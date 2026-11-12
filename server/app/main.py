@@ -10,12 +10,12 @@ from typing import Literal
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
 
 from ai import llm
 from ai import service as ai
 
 from . import config, db, energy, hub, ingest, mock
+from . import schemas as S  # Contract C response shapes
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("sinag")
@@ -68,48 +68,48 @@ def _dev() -> str:
 
 
 # ------------------------------------------------------------------- REST --
-@app.get("/api/health")
+@app.get("/api/health", response_model=S.Health)
 async def health():
     return {"ok": True, "mock": config.MOCK, "llm": config.LLM_MODEL if config.LLM_ENABLED else None,
             "llm_provider": config.LLM_PROVIDER, "llm_reachable": await llm.ping() if config.LLM_ENABLED else False}
 
 
-@app.get("/api/live")
+@app.get("/api/live", response_model=S.Live)
 def get_live():
     if config.MOCK:
         return mock.load("live")
     return energy.live(_dev(), _settings())
 
 
-@app.get("/api/energy")
+@app.get("/api/energy", response_model=S.Energy)
 def get_energy(period: Literal["day", "week", "month"] = "day"):
     if config.MOCK:
         return mock.load(f"energy_{period}")
     return energy.energy(_dev(), period)
 
 
-@app.get("/api/bill")
+@app.get("/api/bill", response_model=S.Bill)
 def get_bill():
     if config.MOCK:
         return mock.load("bill")
     return energy.bill(_dev(), _settings())
 
 
-@app.get("/api/brownout")
+@app.get("/api/brownout", response_model=S.Brownout)
 def get_brownout():
     if config.MOCK:
         return mock.load("brownout")
     return energy.brownout(_dev(), _settings())
 
 
-@app.get("/api/alerts")
+@app.get("/api/alerts", response_model=S.AlertList)
 def get_alerts(unread_only: bool = False):
     if config.MOCK:
         return mock.load("alerts")
     return {"unread": db.unread_count(), "alerts": db.list_alerts(unread_only)}
 
 
-@app.post("/api/alerts/{alert_id}/read")
+@app.post("/api/alerts/{alert_id}/read", response_model=S.Alert)
 def read_alert(alert_id: int):
     if config.MOCK:
         a = next((a for a in mock.load("alerts")["alerts"] if a["id"] == alert_id), None)
@@ -123,47 +123,36 @@ def read_alert(alert_id: int):
     return a
 
 
-@app.post("/api/alerts/read-all")
+@app.post("/api/alerts/read-all", response_model=S.ReadAll)
 def read_all_alerts():
     if not config.MOCK:
         db.execute("UPDATE alerts SET read=1 WHERE read=0")
     return {"unread": 0}
 
 
-class ChatIn(BaseModel):
-    message: str = Field(min_length=1, max_length=500)
-
-
-@app.post("/api/chat")
-async def post_chat(body: ChatIn):
+@app.post("/api/chat", response_model=S.Chat)
+async def post_chat(body: S.ChatIn):
     if config.MOCK:
         return mock.load("chat")
     return await ai.chat(_dev(), _settings(), body.message)
 
 
-@app.get("/api/summary/daily")
+@app.get("/api/summary/daily", response_model=S.DailySummary)
 async def get_summary(refresh: bool = False):
     if config.MOCK:
         return mock.load("summary_daily")
     return await ai.daily_summary(_dev(), _settings(), force=refresh)
 
 
-class SettingsIn(BaseModel):
-    rate_php_per_kwh: float | None = Field(None, gt=0, lt=100)
-    battery_kwh: float | None = Field(None, gt=0, lt=200)
-    user_name: str | None = Field(None, max_length=40)
-    device_id: str | None = Field(None, max_length=32)
-
-
-@app.get("/api/settings")
+@app.get("/api/settings", response_model=S.Settings)
 def get_settings():
     if config.MOCK:
         return mock.load("settings")
     return _settings()
 
 
-@app.put("/api/settings")
-def put_settings(body: SettingsIn):
+@app.put("/api/settings", response_model=S.Settings)
+def put_settings(body: S.SettingsIn):
     if config.MOCK:
         return mock.load("settings") | body.model_dump(exclude_none=True)
     return db.put_settings(body.model_dump(exclude_none=True))
