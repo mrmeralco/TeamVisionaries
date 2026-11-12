@@ -45,57 +45,57 @@ class _BillBody extends StatelessWidget {
     final weeks = listOfMaps(b['weekly_costs']);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      padding: const EdgeInsets.fromLTRB(S.gutter, S.x4, S.gutter, kFabClearance),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), gradient: gradientDeep),
+          padding: const EdgeInsets.all(S.x4),
+          decoration: BoxDecoration(borderRadius: R.card, gradient: gradientDeep),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('PREDICTED BILL THIS MONTH · ${monthNameOf(str(b['month'], '2000-01')).toUpperCase()}',
-                style: ts(11, w: FontWeight.w700, spacing: 0.2, color: Colors.white)),
-            const SizedBox(height: 8),
+            Text('Predicted bill for ${monthNameOf(str(b['month'], '2000-01'))}',
+                style: ts(13, w: FontWeight.w600, color: Colors.white)),
+            const SizedBox(height: S.x1),
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
               child: Text(_php(forecast), style: ts(34, w: FontWeight.w900, color: Colors.white)),
             ),
             if (vs != null || diff != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: S.x2),
               _TrendPill(vs: vs, diff: diff),
             ],
-            const SizedBox(height: 14),
+            const SizedBox(height: S.x4),
             Container(height: 1, color: Colors.white.withValues(alpha: 0.35)),
-            const SizedBox(height: 12),
+            const SizedBox(height: S.x3),
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(child: _Fig('Likely Bill Range', '${_php(b['forecast_low_php'])} – ${_php(b['forecast_high_php'])}')),
-              if (last != null) Expanded(child: _Fig('Last Month’s Bill', _php(last), end: true)),
+              Expanded(child: _Fig('Likely range', '${_php(b['forecast_low_php'])} – ${_php(b['forecast_high_php'])}')),
+              if (last != null) Expanded(child: _Fig('Last month’s bill', _php(last), end: true)),
             ]),
           ]),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: S.x2),
         Text(
           'So far: ${_php(b['month_to_date_php'])} · ${kwhNum(b['month_to_date_kwh'])} kWh from the grid · '
           'day ${str(b['days_elapsed'], '—')} of ${str(b['days_in_month'], '—')}',
-          style: ts(11, color: C.muted),
+          style: ts(12, color: C.muted),
         ),
-        const SizedBox(height: 22),
-        Semantics(header: true, child: Text('Your Solar Savings', style: ts(15, w: FontWeight.w700, spacing: 0.14))),
-        const SizedBox(height: 10),
+        const SizedBox(height: S.x6),
+        const SectionTitle('Your solar savings'),
+        const SizedBox(height: S.x3),
         IntrinsicHeight(
           child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Expanded(child: _Saving('Saved today', formatPhp(numOr(b['savings_today_php'])))),
-            const SizedBox(width: 13),
+            const SizedBox(width: S.x2),
             Expanded(child: _Saving('Saved this month', _php(b['savings_month_php']))),
           ]),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: S.x3),
         SCard(
-          padding: const EdgeInsets.fromLTRB(15, 16, 15, 12),
+          padding: const EdgeInsets.fromLTRB(S.x4, S.x4, S.x4, S.x3),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Semantics(header: true, child: Text('Weekly Energy Cost', style: ts(13, w: FontWeight.w700, spacing: 0.12))),
-            const SizedBox(height: 4),
-            Text('Tap a week to see its cost.', style: ts(10, color: C.muted)),
-            const SizedBox(height: 10),
+            const CardTitle('Weekly energy cost'),
+            const SizedBox(height: S.x1),
+            Text('Tap a week to see its cost.', style: ts(11, color: C.muted)),
+            const SizedBox(height: S.x3),
             if (weeks.isEmpty)
               Text('Wala pang data.', style: ts(12, color: C.muted))
             else
@@ -111,7 +111,7 @@ class _BillBody extends StatelessWidget {
               ),
           ]),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: S.x3),
         _Tip(advice: advice),
       ]),
     );
@@ -123,34 +123,33 @@ class _Tip extends StatelessWidget {
   final String advice; // from /api/outlook; empty → the general daytime-use tip
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: C.tipBg,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: C.orangeLine, width: 0.7),
-        ),
+  Widget build(BuildContext context) => SCard(
+        color: C.tipBg,
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 31,
-            height: 31,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
-            child: svg('bulb', width: 12, height: 17),
-          ),
-          const SizedBox(width: 14),
+          // Mira's own advice carries her face; the general tip keeps the bulb.
+          if (advice.isNotEmpty)
+            const MiraAvatar(mood: MiraMood.happy, size: 36, cycles: 2)
+          else
+            Container(
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: Colors.white, borderRadius: R.control),
+              child: svg('bulb', width: 12, height: 17),
+            ),
+          const SizedBox(width: S.x3),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(advice.isEmpty ? 'Tip' : 'Tip mula kay Mira', style: ts(12, w: FontWeight.w800)),
-              const SizedBox(height: 4),
+              CardTitle(advice.isEmpty ? 'Tip' : 'Tip mula kay Mira'),
+              const SizedBox(height: S.x1),
               if (advice.isNotEmpty)
-                Text(advice, style: ts(12, height: 1.45))
+                Text(advice, style: ts(13, height: 1.45))
               else
-                Text.rich(TextSpan(style: ts(12, height: 1.45), children: [
+                Text.rich(TextSpan(style: ts(13, height: 1.45), children: [
                   const TextSpan(text: 'Running your washing machine or water pump between '),
-                  TextSpan(text: '10:00 AM', style: ts(12, w: FontWeight.w700)),
+                  TextSpan(text: '10:00 AM', style: ts(13, w: FontWeight.w700)),
                   const TextSpan(text: ' and '),
-                  TextSpan(text: '2:00 PM', style: ts(12, w: FontWeight.w700)),
+                  TextSpan(text: '2:00 PM', style: ts(13, w: FontWeight.w700)),
                   const TextSpan(text: ' uses free daytime sunshine instead of paid evening electricity.'),
                 ])),
             ]),
@@ -173,8 +172,8 @@ class _TrendPill extends StatelessWidget {
         ? '${pctNum(vs!.abs())}% ${lower ? 'lower' : 'higher'} than last month'
         : '${_php(diff!.abs())} ${lower ? 'less' : 'more'} than last month$pct';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+      padding: const EdgeInsets.symmetric(horizontal: S.x3, vertical: 6),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(R.pill)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(lower ? Icons.trending_down_rounded : Icons.trending_up_rounded, size: 16, color: lower ? C.green : C.red),
         const SizedBox(width: 6),
@@ -194,9 +193,9 @@ class _Fig extends StatelessWidget {
         child: Column(
           crossAxisAlignment: end ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            Text(label, style: ts(11, w: FontWeight.w600, color: Colors.white)),
-            const SizedBox(height: 4),
-            Text(value, textAlign: end ? TextAlign.end : TextAlign.start, style: ts(14, w: FontWeight.w800, color: Colors.white)),
+            Text(label, style: ts(12, w: FontWeight.w500, color: Colors.white)),
+            const SizedBox(height: S.x1),
+            Text(value, textAlign: end ? TextAlign.end : TextAlign.start, style: ts(15, w: FontWeight.w800, color: Colors.white)),
           ],
         ),
       );
@@ -211,11 +210,10 @@ class _Saving extends StatelessWidget {
         label: label,
         value: value,
         child: SCard(
-          padding: const EdgeInsets.fromLTRB(16, 13, 12, 12),
-          border: Border.all(color: C.orangeLine, width: 0.5),
+          padding: const EdgeInsets.fromLTRB(S.x4, S.x3, S.x3, S.x3),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label, style: ts(11, w: FontWeight.w600, color: C.label)),
-            const SizedBox(height: 8),
+            const SizedBox(height: S.x2),
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,

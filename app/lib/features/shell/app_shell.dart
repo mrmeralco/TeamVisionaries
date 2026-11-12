@@ -77,7 +77,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       SnackBar(
         backgroundColor: critical ? C.red : C.ink,
         content: Text(text, maxLines: 2, overflow: TextOverflow.ellipsis),
-        action: SnackBarAction(label: 'View', textColor: C.yellow, onPressed: () => widget.shell.goBranch(4)),
+        action: SnackBarAction(label: 'View alerts', textColor: C.yellow, onPressed: () => widget.shell.goBranch(alertsTab)),
       ),
     );
   }
@@ -99,6 +99,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     return Scaffold(
       backgroundColor: C.cream,
       body: shell,
+      floatingActionButton: const MiraButton(),
       bottomNavigationBar: SolarisNavBar(
         index: shell.currentIndex,
         badge: unread,

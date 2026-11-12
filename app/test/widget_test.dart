@@ -7,10 +7,12 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solaris/core/utils/format.dart';
 import 'package:solaris/features/common/charts.dart';
+import 'package:solaris/features/ask/ask_screen.dart' show isBadNews;
 import 'package:solaris/features/common/ui.dart';
 import 'package:solaris/main.dart';
 import 'package:solaris/providers/data_providers.dart';
@@ -57,6 +59,22 @@ class StateMock extends MockApiService {
   }
 }
 
+/// Chat whose first answer is bad news (a brownout), then normal answers.
+class BadNewsChat extends StateMock {
+  bool first = true;
+  @override
+  Future<Map<String, dynamic>> chat(String message) async {
+    if (!first) return super.chat(message);
+    first = false;
+    chats++;
+    return {
+      'reply': 'May brownout ngayon. Sa gamit mo, aabot pa ng mga 3 oras ang battery mo.',
+      'chips': const [],
+      'source': 'llm',
+    };
+  }
+}
+
 /// Chat that fails until [fail] is cleared (for "Try again").
 class FailingChat extends StateMock {
   bool fail = true;
@@ -98,6 +116,10 @@ Future<ProviderContainer> pumpApp(WidgetTester t,
   t.view.physicalSize = size * 3;
   t.view.devicePixelRatio = 3;
   addTearDown(t.view.reset);
+  // Reduced motion: Mira's idle loop never settles, and pumpAndSettle waits for stillness. The loop
+  // has its own test ('Mira idles…').
+  t.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+  addTearDown(t.platformDispatcher.clearAccessibilityFeaturesTestValue);
   SharedPreferences.setMockInitialValues({'use_mock': true});
   final prefs = await SharedPreferences.getInstance();
   await t.pumpWidget(ProviderScope(
@@ -114,6 +136,12 @@ Future<ProviderContainer> pumpApp(WidgetTester t,
 
 Future<void> tab(WidgetTester t, String label) async {
   await t.tap(find.text(label).last);
+  await t.pumpAndSettle();
+}
+
+/// Ask Mira is the floating button on every tab, not a tab.
+Future<void> openMira(WidgetTester t) async {
+  await t.tap(find.byTooltip('Ask Mira'));
   await t.pumpAndSettle();
 }
 
@@ -136,10 +164,16 @@ void main() {
       expect(find.text(example('summary_daily')['summary'] as String), findsOneWidget);
     });
 
-    testWidgets('brownout: banner opens the Brownout Advisor with runtime + advice', (t) async {
+    testWidgets('brownout: the advisor card leads Home and opens the Brownout Advisor', (t) async {
       await pumpApp(t, api: StateMock(live: wsTelemetry()));
-      expect(find.text('May brownout ngayon'), findsOneWidget);
+      expect(find.text('May brownout ngayon'), findsOneWidget); // the card, in the banner's place
+      expect(find.text('Brownout advisor'), findsOneWidget);
+      expect(find.text('~7.1'), findsOneWidget); // brownout.runtime_h on the card
+      // The card pushes the tiles down: the grid tile is below it.
+      await t.scrollUntilVisible(find.text('Off'), 200, scrollable: find.byType(Scrollable).first);
       expect(find.text('Off'), findsOneWidget); // grid tile
+      await t.ensureVisible(find.text('May brownout ngayon'));
+      await t.pumpAndSettle();
       await t.tap(find.text('May brownout ngayon'));
       await t.pumpAndSettle();
       expect(find.text('Brownout Advisor'), findsOneWidget);
@@ -150,6 +184,20 @@ void main() {
           scrollable: find.byType(Scrollable).last);
       expect(find.text('Next 48 hours'), findsOneWidget);
       expect(find.text(kwhNum(example('outlook')['solar_tomorrow_kwh'])), findsOneWidget);
+    });
+
+    testWidgets('grid on: the advisor card says how long the battery would last, and opens the advisor',
+        (t) async {
+      await pumpApp(t);
+      await t.scrollUntilVisible(find.text('May kuryente mula sa grid'), 200, scrollable: find.byType(Scrollable).first);
+      await t.drag(find.byType(Scrollable).first, const Offset(0, -150)); // clear of the nav bar and Mira button
+      await t.pumpAndSettle();
+      expect(find.text('May brownout ngayon'), findsNothing); // mock /api/brownout says active; live says grid on
+      final hours = ((example('outlook')['brownout'] as Map)['hours'] as num).toStringAsFixed(1);
+      expect(find.text('~$hours'), findsOneWidget); // outlook.brownout.hours
+      await t.tap(find.text('Open Brownout Advisor'));
+      await t.pumpAndSettle();
+      expect(find.text('Brownout Advisor'), findsOneWidget);
     });
 
     testWidgets('fault: banner opens the inverter alert explained, over the Alerts tab', (t) async {
@@ -190,9 +238,9 @@ void main() {
     expect(find.text('At ₱13.00/kWh'), findsOneWidget); // live.rate_php_per_kwh
     await t.drag(find.byType(Scrollable).first, const Offset(0, -200)); // bring the money cards above the nav bar
     await t.pumpAndSettle();
-    await t.tap(find.text('Tap for Bill Details'));
+    await t.tap(find.text('See bill details'));
     await t.pumpAndSettle();
-    expect(find.text('PREDICTED BILL THIS MONTH · NOVEMBER'), findsOneWidget);
+    expect(find.text('Predicted bill for November'), findsOneWidget);
 
     await tab(t, 'Home');
     // Scroll the recap clear of the bottom nav bar, then tap the link.
@@ -296,7 +344,7 @@ void main() {
       final e = example(file);
       expect(find.text(kwhNum((e['totals'] as Map)['pv_kwh'])), findsOneWidget, reason: label);
       expect(find.text(pctNum(e['self_sufficiency_pct'])), findsOneWidget, reason: label);
-      expect(find.text('Grid Used'), findsOneWidget);
+      expect(find.text('Grid used'), findsOneWidget);
       expect(find.text(kwhNum((e['totals'] as Map)['grid_import_kwh'])), findsWidgets, reason: label);
       expect(find.text('Solar vs. Home vs. Grid (kWh)'), findsOneWidget);
     }
@@ -307,7 +355,7 @@ void main() {
     await tab(t, 'Energy');
     await t.tap(find.byTooltip('Earlier'));
     await t.pump(); // loading: the previous day's cards are still there, dimmed
-    expect(find.text('Solar Produced'), findsOneWidget);
+    expect(find.text('Solar produced'), findsOneWidget);
     await t.pumpAndSettle();
     expect(find.text('Yesterday'), findsOneWidget);
     await t.tap(find.byTooltip('Later'));
@@ -318,7 +366,7 @@ void main() {
   testWidgets('Bill: forecast, range, trend, savings, weekly costs', (t) async {
     await pumpApp(t);
     await tab(t, 'Bill');
-    expect(find.text('PREDICTED BILL THIS MONTH · NOVEMBER'), findsOneWidget);
+    expect(find.text('Predicted bill for November'), findsOneWidget);
     expect(find.text('₱1,833 – ₱2,156'), findsOneWidget);
     expect(find.text('₱186 less than last month (−8.5%)'), findsOneWidget); // pesos first, plain words
     expect(find.text('₱1,694'), findsOneWidget); // savings_month_php
@@ -335,12 +383,112 @@ void main() {
     expect(find.text('Week of ${weeks.first['label']}: ${formatPhp(weeks.first['php'] as num, whole: true)}'), findsOneWidget);
   });
 
+  testWidgets('Ask Mira: a floating button on every tab, not a tab; back returns to the tab', (t) async {
+    await pumpApp(t);
+    expect(find.text('Ask Mira'), findsNothing); // gone from the nav bar
+    for (final l in ['Home', 'Energy', 'Bill', 'Alerts']) {
+      await tab(t, l);
+      expect(find.byTooltip('Ask Mira'), findsOneWidget, reason: l);
+    }
+    await openMira(t);
+    expect(find.text('Get answers about your solar energy.'), findsOneWidget);
+    await t.tap(find.byTooltip('Back'));
+    await t.pumpAndSettle();
+    expect(find.text('Mark all read'), findsOneWidget); // back on Alerts
+  });
+
+  testWidgets('Mira idles: rays sway, she floats, she blinks; still under reduced motion', (t) async {
+    await t.pumpWidget(const MaterialApp(home: Center(child: MiraAvatar(size: 58))));
+    // Let the sprite's layers load from the asset bundle.
+    await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+    await t.pump();
+    final rays = find.descendant(of: find.byType(MiraAvatar), matching: find.byType(Transform)).first;
+    Matrix4 at() => t.widget<Transform>(rays).transform.clone();
+    final a = at();
+    await t.pump(const Duration(milliseconds: 900)); // a quarter of the loop
+    expect(at(), isNot(equals(a)), reason: 'the rays should have moved');
+    expect(find.byType(SvgPicture), findsNWidgets(4)); // rays, face, eyes, mouth
+
+    t.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(t.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await t.pumpWidget(const MaterialApp(home: Center(child: MiraAvatar(size: 58))));
+    await t.pumpAndSettle(); // settles: nothing loops
+    expect(find.byType(SvgPicture), findsOneWidget);
+  });
+
+  group('Mira moods', () {
+    test('every sprite cuts into its moving parts', () {
+      String sprite(String mood) => File('assets/images/mira-$mood.svg').readAsStringSync();
+      // rays + the mood's own pieces (eyes, mouth, waves, drop, each dot, each sparkle)
+      expect(MiraRig.cut(sprite('idle'))!.movingParts, 3); // rays, eyes, mouth
+      expect(MiraRig.cut(sprite('thinking'))!.movingParts, 6); // + 3 dots
+      expect(MiraRig.cut(sprite('talking'))!.movingParts, 4); // + waves
+      expect(MiraRig.cut(sprite('happy'))!.movingParts, 5); // mouth + 3 sparkles
+      expect(MiraRig.cut(sprite('error'))!.movingParts, 4); // + sweat drop
+      expect(MiraRig.cut('<svg viewBox="0 0 256 256"></svg>'), isNull); // no rays: she stays still
+    });
+
+    test('bad news is told with the sad face; reassurance is not bad news', () {
+      expect(isBadNews('May brownout ngayon. Aabot pa ng 7 oras ang battery mo.'), isTrue);
+      expect(isBadNews('Mas mataas ang bill mo ngayong buwan kaysa noong nakaraan.'), isTrue);
+      expect(isBadNews('Maulap bukas, kaya kaunti lang ang solar.'), isTrue);
+      expect(isBadNews('Offline ang Solaris device mo mula 8 PM.'), isTrue);
+      expect(isBadNews('Walang problema ang inverter mo. Maayos ang lahat!'), isFalse);
+      expect(isBadNews(example('chat')['reply'] as String), isFalse);
+    });
+
+    testWidgets('thinking: the dots pop up one by one, for as long as she works', (t) async {
+      await t.pumpWidget(const MaterialApp(home: Center(child: MiraAvatar(mood: MiraMood.thinking, size: 58))));
+      await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await t.pump();
+      expect(find.byType(SvgPicture), findsNWidgets(7)); // rays, face, eyes, mouth, 3 dots
+      Matrix4 lastDot() =>
+          t.widget<Transform>(find.descendant(of: find.byType(MiraAvatar), matching: find.byType(Transform)).last)
+              .transform
+              .clone();
+      final early = lastDot();
+      await t.pump(const Duration(milliseconds: 900)); // half a beat: the third dot is up
+      expect(lastDot(), isNot(equals(early)));
+      await t.pump(const Duration(seconds: 10));
+      expect(find.byType(SvgPicture), findsNWidgets(7), reason: 'still thinking: it loops');
+    });
+
+    testWidgets('talking: a few beats, then she rests idle', (t) async {
+      await t.pumpWidget(const MaterialApp(
+        home: Center(child: MiraAvatar(mood: MiraMood.talking, size: 58, cycles: 3, settleTo: MiraMood.idle)),
+      ));
+      await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await t.pump();
+      expect(find.byType(SvgPicture), findsNWidgets(5)); // rays, face, eyes, mouth, waves
+      await t.pump(const Duration(milliseconds: 1900)); // 3 beats of 600 ms
+      await t.pumpAndSettle();
+      expect(find.byType(SvgPicture), findsOneWidget); // the still idle sprite
+    });
+  });
+
+  testWidgets('Ask Mira: bad news gets the sad face; a normal answer does not', (t) async {
+    await pumpApp(t, api: BadNewsChat());
+    await openMira(t);
+    await t.enterText(find.byType(TextField), 'Kakayanin ba ng battery mamaya?');
+    await t.tap(find.text('Send'));
+    await t.pumpAndSettle();
+    bool sad(Widget w) => w is MiraAvatar && w.mood == MiraMood.error;
+    expect(find.byWidgetPredicate(sad), findsOneWidget);
+
+    await t.tap(find.byTooltip('New conversation'));
+    await t.pumpAndSettle();
+    await t.enterText(find.byType(TextField), 'Magkano ang natipid ko?');
+    await t.tap(find.text('Send'));
+    await t.pumpAndSettle();
+    expect(find.byWidgetPredicate(sad), findsNothing);
+  });
+
   testWidgets('Ask Mira: sends the question, shows reply + chips', (t) async {
     final api = StateMock();
     await pumpApp(t, api: api);
-    await tab(t, 'Ask Mira');
+    await openMira(t);
     await t.enterText(find.byType(TextField), 'Bakit mataas ang bill ko?');
-    await t.tap(find.text('SEND'));
+    await t.tap(find.text('Send'));
     await t.pumpAndSettle();
     expect(api.chats, 1);
     expect(find.text('Bakit mataas ang bill ko?'), findsOneWidget);
@@ -356,9 +504,9 @@ void main() {
   testWidgets('Ask Mira: a failed answer offers Try again, which asks the same question', (t) async {
     final api = FailingChat();
     await pumpApp(t, api: api);
-    await tab(t, 'Ask Mira');
+    await openMira(t);
     await t.enterText(find.byType(TextField), 'Magkano ang bill ko?');
-    await t.tap(find.text('SEND'));
+    await t.tap(find.text('Send'));
     await t.pumpAndSettle();
     expect(find.textContaining('Hindi ma-reach'), findsOneWidget);
     api.fail = false;
@@ -438,10 +586,12 @@ void main() {
     addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
     await pumpApp(t, size: const Size(320, 640));
     expect(t.takeException(), isNull, reason: 'Home');
-    for (final l in ['Energy', 'Bill', 'Ask Mira', 'Alerts', 'Home']) {
+    for (final l in ['Energy', 'Bill', 'Alerts', 'Home']) {
       await tab(t, l);
       expect(t.takeException(), isNull, reason: l);
     }
+    await openMira(t);
+    expect(t.takeException(), isNull, reason: 'Ask Mira');
   });
 
   testWidgets('wide screens: the app is centred at its max width', (t) async {
@@ -451,10 +601,12 @@ void main() {
 
   testWidgets('every tab fits a small phone (320 × 640) without overflow', (t) async {
     await pumpApp(t, size: const Size(320, 640));
-    for (final l in ['Energy', 'Bill', 'Ask Mira', 'Alerts', 'Home']) {
+    for (final l in ['Energy', 'Bill', 'Alerts', 'Home']) {
       await tab(t, l);
       expect(t.takeException(), isNull, reason: l);
     }
+    await openMira(t);
+    expect(t.takeException(), isNull, reason: 'Ask Mira');
   });
 
   group('format', () {

@@ -38,11 +38,17 @@ class HomeScreen extends ConsumerWidget {
     Future<void> refresh() async {
       ref.invalidate(billProvider);
       ref.invalidate(serverSettingsProvider);
+      ref.invalidate(brownoutProvider);
+      ref.invalidate(outlookProvider);
       await ref.refresh(dailySummaryProvider.future).then((_) {}, onError: (_) {});
     }
 
     final rate = (data?['rate_php_per_kwh'] as num?) ?? (bill?['rate_php_per_kwh'] as num?);
     final forecast = bill?['forecast_php'];
+    // During a brownout the advisor leads the page (it replaces the alert banner); otherwise it sits
+    // after the money cards.
+    final inBrownout = _BrownoutAdvisor.active(live);
+    const advisor = _BrownoutAdvisor();
 
     return ColoredBox(
       color: C.cream,
@@ -70,17 +76,33 @@ class HomeScreen extends ConsumerWidget {
                       children: [
                         const TopBar(onDark: true),
                         // Dark text: white on the orange → yellow header was 1.5:1 to 2.8:1.
-                        Semantics(
-                          header: true,
-                          child: Text(
-                            '${_greeting()}${name.isEmpty ? '' : ', $name'}!',
-                            style: ts(24, w: FontWeight.w700, spacing: -0.48),
+                        // The first screen arrives once per launch: greeting, then the hero card.
+                        EnterOnce(
+                          id: 'home-greeting',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Semantics(
+                                header: true,
+                                child: Text(
+                                  '${_greeting()}${name.isEmpty ? '' : ', $name'}!',
+                                  style: ts(24, w: FontWeight.w700, spacing: -0.48),
+                                ),
+                              ),
+                              const SizedBox(height: S.x1),
+                              Text('Here’s what’s happening at home.', style: ts(13, w: FontWeight.w500)),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text('Here’s what’s happening at home.', style: ts(12, w: FontWeight.w500)),
-                        const SizedBox(height: 18),
-                        Padding(padding: const EdgeInsets.only(right: 8), child: _Hero(live: data)),
+                        const SizedBox(height: S.x4),
+                        Padding(
+                          padding: const EdgeInsets.only(right: S.x2),
+                          child: EnterOnce(
+                            id: 'home-hero',
+                            delay: const Duration(milliseconds: 80),
+                            child: _Hero(live: data),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -94,38 +116,43 @@ class HomeScreen extends ConsumerWidget {
                   )
                 else ...[
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
                     child: Freshness(readingTs: intOrNull(live.telemetry?['ts']), link: live.link),
                   ),
                   _StateBanner(live: live),
+                  if (inBrownout) advisor,
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                    child: _Stats(telemetry: live.telemetry),
+                    padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
+                    child: EnterOnce(
+                      id: 'home-stats',
+                      delay: const Duration(milliseconds: 160),
+                      child: _Stats(telemetry: live.telemetry),
+                    ),
                   ),
                   if (live.telemetry != null)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                      padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
                       child: _DeviceHealth(telemetry: live.telemetry!, device: live.device),
                     ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
                     child: IntrinsicHeight(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(
                             child: _Money(
-                              'Saved Today',
+                              'Saved today',
                               formatPhp(numOr(data['saved_today_php'])),
                               caption: rate == null ? null : 'At ${formatPhp(rate)}/kWh',
                             ),
                           ),
-                          const SizedBox(width: 7),
+                          const SizedBox(width: S.x2),
                           Expanded(
                             child: _Money(
-                              'Est. Monthly Bill',
+                              'Est. monthly bill',
                               forecast is num ? formatPhp(forecast, whole: true) : '—',
-                              caption: 'Tap for Bill Details',
+                              caption: 'See bill details',
                               onTap: () => context.go(Routes.bill),
                             ),
                           ),
@@ -133,16 +160,14 @@ class HomeScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  if (!inBrownout) advisor,
                 ],
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                  child: Semantics(
-                    header: true,
-                    child: Text('Yesterday’s Summary', style: ts(13, w: FontWeight.w700, spacing: -0.24)),
-                  ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(S.gutter, S.x6, S.gutter, 0),
+                  child: SectionTitle('Yesterday’s summary'),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+                  padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, kFabClearance),
                   child: AsyncBody(
                     value: summary,
                     onRetry: () => ref.invalidate(dailySummaryProvider),
@@ -150,7 +175,7 @@ class HomeScreen extends ConsumerWidget {
                       s,
                       onAsk: () {
                         ref.read(chatProvider.notifier).send('Kumusta ang solar at kuryente ko kahapon?');
-                        context.go(Routes.ask);
+                        context.push(Routes.ask);
                       },
                     ),
                   ),
@@ -192,7 +217,7 @@ class _Hero extends StatelessWidget {
           constraints: BoxConstraints(minHeight: 154 * k.clamp(0.85, 1.2)),
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: R.card,
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -248,7 +273,8 @@ class _Hero extends StatelessWidget {
   }
 }
 
-/// Brownout / fault / offline get a tappable banner so the user knows what to do next.
+/// Fault / offline get a tappable banner so the user knows what to do next. A brownout gets the
+/// Brownout advisor card in this place instead ([_BrownoutAdvisor]).
 class _StateBanner extends ConsumerWidget {
   const _StateBanner({required this.live});
   final LiveState live;
@@ -257,13 +283,6 @@ class _StateBanner extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final lastSeen = intOrNull(live.device?['last_seen_ts']);
     final (IconData, Color, String, String, VoidCallback?)? b = switch (live.state) {
-      'brownout' => (
-        Icons.power_off_rounded,
-        C.orangeDeep,
-        'May brownout ngayon',
-        'Tingnan kung gaano katagal ang battery',
-        () => context.push(Routes.brownout),
-      ),
       'fault' => (
         Icons.warning_amber_rounded,
         C.red,
@@ -289,17 +308,14 @@ class _StateBanner extends ConsumerWidget {
     if (b == null) return const SizedBox.shrink();
     final (icon, color, title, sub, onTap) = b;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(19, 10, 19, 0),
-      child: Material(
+      padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
+      child: PressCard(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Container(
-            constraints: const BoxConstraints(minHeight: kMinTap),
-            padding: const EdgeInsets.all(12),
-            child: Row(
+        side: BorderSide(color: color.withValues(alpha: 0.35), width: 0.5),
+        onTap: onTap,
+        minHeight: kMinTap,
+        padding: const EdgeInsets.all(S.x3),
+        child: Row(
               children: [
                 Icon(icon, color: color),
                 const SizedBox(width: 10),
@@ -309,15 +325,109 @@ class _StateBanner extends ConsumerWidget {
                     children: [
                       Text(title, style: ts(13, w: FontWeight.w700, color: color == C.muted ? C.ink : color)),
                       const SizedBox(height: 2),
-                      Text(sub, style: ts(11)),
+                      Text(sub, style: ts(12)),
                     ],
                   ),
                 ),
                 if (onTap != null) Icon(Icons.chevron_right_rounded, color: color),
               ],
             ),
+      ),
+    );
+  }
+}
+
+/// The Brownout Advisor on the dashboard: is the grid on, and how long the battery would carry the
+/// house. Brownout or not comes from the live reading (state, grid_on), so it never disagrees with the
+/// tiles above it. During a brownout: hours left at today's use and Mira's advice (GET /api/brownout,
+/// refetched on every reading). Otherwise: how long the battery would last if one hit (GET
+/// /api/outlook). Tap: the full advisor with the 48-hour outlook.
+class _BrownoutAdvisor extends ConsumerWidget {
+  const _BrownoutAdvisor();
+
+  static bool active(LiveState live) => live.state == 'brownout' || live.telemetry?['grid_on'] == false;
+
+  static String _hours(num? h) => h == null ? '—' : '~${h.toStringAsFixed(1)}';
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final live = ref.watch(liveProvider);
+    final on = active(live);
+    ref.listen(liveProvider.select((s) => s.telemetry?['ts']), (prev, next) {
+      if (prev != null && next != prev && active(ref.read(liveProvider))) ref.invalidate(brownoutProvider);
+    });
+    final b = ref.watch(brownoutProvider).value;
+    final outlook = ref.watch(outlookProvider).value;
+    final ifHits = outlook?['brownout'] is Map ? mapOf(outlook!['brownout']) : null;
+    final soc = live.telemetry?['batt_soc'];
+    final outages = b?['outages_this_month'];
+
+    final color = on ? C.orangeDeep : C.green;
+    final title = on ? 'May brownout ngayon' : 'May kuryente mula sa grid';
+    final value = on
+        ? _hours(b?['runtime_h'] as num?)
+        : (ifHits == null ? '—' : (ifHits['hours'] == null ? '48+' : _hours(ifHits['hours'] as num)));
+    final caption = on ? 'tatagal pa ang battery sa kasalukuyang gamit' : 'kakayanin ng battery kung mag-brownout';
+    final start = intOrNull(b?['start_ts']);
+    final facts = [
+      if (on && start != null) 'Nagsimula ${formatClock(start)}',
+      if (soc is num) 'Battery ${pctNum(soc)}%',
+      if (outages != null) '$outages brownout ngayong buwan',
+    ].join(' · ');
+    final advice = on ? str(b?['advice']) : '';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(S.gutter, S.x6, S.gutter, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle('Brownout advisor'),
+          const SizedBox(height: S.x3),
+          Semantics(
+            button: true,
+            label: '$title. $value hours: $caption.${facts.isEmpty ? '' : ' $facts.'} Open Brownout Advisor',
+            excludeSemantics: true,
+            child: PressCard(
+              color: on ? C.orangeDeep.withValues(alpha: 0.08) : C.card,
+              side: on ? BorderSide(color: C.orangeDeep.withValues(alpha: 0.5), width: 0.5) : kCardLine,
+              onTap: () => context.push(Routes.brownout),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: R.control),
+                      child: Icon(on ? Icons.power_off_rounded : Icons.power_rounded, size: 18, color: color),
+                    ),
+                    const SizedBox(width: S.x3),
+                    Expanded(child: Text(title, style: ts(14, w: FontWeight.w700, color: on ? C.orangeDeep : C.ink))),
+                    Icon(Icons.chevron_right_rounded, color: color),
+                  ]),
+                  const SizedBox(height: S.x3),
+                  Reading(value, 'hrs', size: 28, valueColor: on ? C.orangeDeep : C.ink),
+                  const SizedBox(height: S.x1),
+                  Text(caption, style: ts(12, color: C.label)),
+                  if (advice.isNotEmpty) ...[
+                    const SizedBox(height: S.x3),
+                    Text(advice, maxLines: 3, overflow: TextOverflow.ellipsis, style: ts(13, height: 1.45)),
+                  ],
+                  if (facts.isNotEmpty) ...[
+                    const SizedBox(height: S.x3),
+                    Text(facts, style: ts(11, color: C.muted)),
+                  ],
+                  const SizedBox(height: S.x3),
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text('Open Brownout Advisor', style: ts(12, w: FontWeight.w700, color: C.orangeText)),
+                    const SizedBox(width: S.x1),
+                    const Icon(Icons.arrow_forward_rounded, size: 14, color: C.orangeText),
+                  ]),
+                ],
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -363,14 +473,14 @@ class _Stats extends StatelessWidget {
       final gridOn = t['grid_on'] != false;
       final soc = t['batt_soc'];
       body = TwoCol(
-        gap: 7,
-        runGap: 9,
+        gap: S.x2,
+        runGap: S.x2,
         children: [
-          _Tile('Solar Production', kwNum(t['pv_w']), 'kW'),
-          _Tile('Home Usage', kwNum(t['load_w']), 'kW'),
-          _Tile('Battery Level', soc is num ? pctNum(soc) : '—', '%', note: _battNote(t['batt_w'] as num?)),
+          _Tile('Solar production', kwNum(t['pv_w']), 'kW'),
+          _Tile('Home usage', kwNum(t['load_w']), 'kW'),
+          _Tile('Battery level', soc is num ? pctNum(soc) : '—', '%', note: _battNote(t['batt_w'] as num?)),
           _Tile(
-            'Grid Power',
+            'Grid power',
             gridOn ? kwNum(t['grid_w']) : 'Off',
             gridOn ? 'kW' : '',
             note: gridOn ? _gridNote(t['grid_w'] as num?) : 'Brownout',
@@ -378,12 +488,12 @@ class _Stats extends StatelessWidget {
         ],
       );
     }
-    // Figma 22:122: yellow panel, 353 × 192, radius 15, drop shadow 0 2 4 rgba(0,0,0,.25).
+    // Figma 22:122: yellow panel, 353 × 192, drop shadow 0 2 4 rgba(0,0,0,.25).
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
+      padding: const EdgeInsets.all(S.x3),
       decoration: BoxDecoration(
         color: C.yellow,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: R.card,
         boxShadow: const [BoxShadow(color: C.shadow, blurRadius: 4, offset: Offset(0, 2))],
       ),
       child: body,
@@ -404,10 +514,10 @@ class _Tile extends StatelessWidget {
     note: note,
     child: Container(
       constraints: const BoxConstraints(minHeight: 77),
-      padding: const EdgeInsets.fromLTRB(13, 11, 10, 10),
+      padding: const EdgeInsets.fromLTRB(S.x3, S.x3, S.x2, S.x2),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: R.tile,
         border: Border.all(color: C.tileBorder, width: 0.5),
       ),
       child: Column(
@@ -436,19 +546,11 @@ class _Money extends StatelessWidget {
     button: onTap != null,
     label: '$label: $value${caption == null ? '' : '. $caption'}',
     excludeSemantics: true,
-    child: Material(
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-        side: const BorderSide(color: C.orangeLine, width: 0.5),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(15),
-        onTap: onTap,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 76),
-          padding: const EdgeInsets.fromLTRB(16, 11, 12, 10),
-          child: Column(
+    child: PressCard(
+      onTap: onTap,
+      minHeight: 76,
+      padding: const EdgeInsets.fromLTRB(S.x4, S.x3, S.x3, S.x3),
+      child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -473,8 +575,6 @@ class _Money extends StatelessWidget {
               ],
             ],
           ),
-        ),
-      ),
     ),
   );
 }
@@ -489,8 +589,8 @@ class _Summary extends StatelessWidget {
   static final _figure = RegExp(r'₱\s?[\d,]+(?:\.\d+)?|\d[\d,]*(?:\.\d+)?\s?(?:%|kWh)');
 
   List<TextSpan> _spans(String text) {
-    final light = ts(12, height: 1.45);
-    final bold = ts(12, w: FontWeight.w700, height: 1.45);
+    final light = ts(13, height: 1.45);
+    final bold = ts(13, w: FontWeight.w700, height: 1.45);
     final out = <TextSpan>[];
     var i = 0;
     for (final m in _figure.allMatches(text)) {
@@ -506,13 +606,12 @@ class _Summary extends StatelessWidget {
   Widget build(BuildContext context) {
     final summary = str(s['summary']);
     return SCard(
-      padding: const EdgeInsets.fromLTRB(16, 15, 8, 4),
-      border: Border.all(color: C.orangeLine, width: 0.5),
+      padding: const EdgeInsets.fromLTRB(S.x4, S.x4, S.x2, S.x1),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(padding: const EdgeInsets.only(top: 2), child: svg('sparkles', width: 15, height: 15)),
-          const SizedBox(width: 11),
+          const MiraAvatar(size: 32), // Mira wrote the recap
+          const SizedBox(width: S.x3),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -520,7 +619,7 @@ class _Summary extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: summary.isEmpty
-                      ? Text('Wala pang buod para kahapon.', style: ts(12, color: C.muted))
+                      ? Text('Wala pang buod para kahapon.', style: ts(13, color: C.muted))
                       : Text.rich(TextSpan(children: _spans(summary))),
                 ),
                 Transform.translate(offset: const Offset(-8, 0), child: LinkButton('Ask Mira about yesterday', onTap: onAsk)),
@@ -560,7 +659,7 @@ class _DeviceHealth extends StatelessWidget {
             label: '$label: $value',
             excludeSemantics: true,
             child: InkWell(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: R.control,
               onTap: onTap,
               child: Container(
                 constraints: const BoxConstraints(minHeight: kMinTap),
@@ -584,13 +683,8 @@ class _DeviceHealth extends StatelessWidget {
           ),
         );
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: C.orangeLine, width: 0.5),
-      ),
+    return SCard(
+      padding: const EdgeInsets.symmetric(horizontal: S.x3, vertical: S.x1),
       child: Row(children: [
         item(Icons.thermostat_rounded, tempColor, 'Inverter', temp == null ? '—' : '${temp.round()}°C'),
         item(

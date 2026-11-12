@@ -158,17 +158,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         children: [
           const BackHeader('Settings', 'Server connection, alerts and your household.'),
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(S.gutter, S.x4, S.gutter, S.x6),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Semantics(
-                  header: true,
-                  child: Text('SERVER', style: ts(11, w: FontWeight.w700, color: C.label, spacing: 0.6)),
-                ),
-                const SizedBox(height: 8),
+                const SectionTitle('Server'),
+                const SizedBox(height: S.x3),
                 SCard(
-                  border: Border.all(color: C.orangeLine, width: 0.5),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -196,7 +192,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          FilledButton(onPressed: cfg.useMock ? null : _saveUrl, child: const Text('Save')),
+                          FilledButton(onPressed: cfg.useMock ? null : _saveUrl, child: const Text('Save address')),
                           OutlinedButton.icon(
                             onPressed: _testing ? null : _test,
                             icon: _testing
@@ -220,14 +216,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
-                Semantics(
-                  header: true,
-                  child: Text('ALERTS', style: ts(11, w: FontWeight.w700, color: C.label, spacing: 0.6)),
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: S.x6),
+                const SectionTitle('Alerts'),
+                const SizedBox(height: S.x3),
                 SCard(
-                  border: Border.all(color: C.orangeLine, width: 0.5),
                   child: Material(
                     type: MaterialType.transparency,
                     child: SwitchListTile(
@@ -259,17 +251,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                Semantics(
-                  header: true,
-                  child: Text('HOUSEHOLD', style: ts(11, w: FontWeight.w700, color: C.label, spacing: 0.6)),
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: S.x6),
+                const SectionTitle('Household'),
+                const SizedBox(height: S.x3),
                 AsyncBody(
                   value: household,
                   onRetry: () => ref.invalidate(serverSettingsProvider),
                   data: (s) => SCard(
-                    border: Border.all(color: C.orangeLine, width: 0.5),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -292,7 +280,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         const SizedBox(height: 12),
                         FilledButton(
                           onPressed: _saving ? null : _saveHousehold,
-                          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+                          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(kMinTap)),
                           child: Text(_saving ? 'Saving…' : 'Save household'),
                         ),
                       ],

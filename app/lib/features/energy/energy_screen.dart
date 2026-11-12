@@ -81,7 +81,7 @@ class _EnergyScreenState extends ConsumerState<EnergyScreen> {
       child: ListView(padding: EdgeInsets.zero, children: [
         SafeArea(bottom: false, child: PageHeader('Energy', _sub())),
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+          padding: const EdgeInsets.fromLTRB(S.gutter, S.x4, S.gutter, 0),
           child: _PeriodSwitch(
             options: _periods,
             value: _period,
@@ -114,12 +114,35 @@ class _PeriodSwitch extends StatelessWidget {
   final String value;
   final ValueChanged<String> onChanged;
 
+  /// One indicator slides to the tapped period (240 ms, the UI ease); it jumps under reduced motion.
   @override
-  Widget build(BuildContext context) => Container(
-        constraints: const BoxConstraints(minHeight: 52),
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), gradient: gradientOrange),
-        child: Row(children: [
+  Widget build(BuildContext context) {
+    final n = options.length;
+    final i = options.indexWhere((o) => o.$1 == value).clamp(0, n - 1);
+    return Container(
+      constraints: const BoxConstraints(minHeight: 52),
+      padding: const EdgeInsets.all(S.x1),
+      decoration: BoxDecoration(borderRadius: R.tile, gradient: gradientOrange),
+      child: Stack(children: [
+        Positioned.fill(
+          child: AnimatedAlign(
+            alignment: Alignment(n == 1 ? 0 : -1 + 2 * i / (n - 1), 0),
+            duration: reduceMotion(context) ? Duration.zero : M.slide,
+            curve: M.ease,
+            child: FractionallySizedBox(
+              widthFactor: 1 / n,
+              heightFactor: 1,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: C.cream.withValues(alpha: 0.9),
+                  borderRadius: R.control,
+                  boxShadow: const [BoxShadow(color: Color(0x1F000000), blurRadius: 3, offset: Offset(0, 1))],
+                ),
+              ),
+            ),
+          ),
+        ),
+        Row(children: [
           for (final (key, label) in options)
             Expanded(
               child: Semantics(
@@ -129,16 +152,11 @@ class _PeriodSwitch extends StatelessWidget {
                 child: Material(
                   type: MaterialType.transparency,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(7),
+                    borderRadius: R.control,
                     onTap: () => onChanged(key),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
+                    child: Container(
                       constraints: const BoxConstraints(minHeight: kMinTap),
                       alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: key == value ? C.cream.withValues(alpha: 0.85) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(7),
-                      ),
                       child: Text(label, style: ts(13, w: key == value ? FontWeight.w800 : FontWeight.w600)),
                     ),
                   ),
@@ -146,7 +164,9 @@ class _PeriodSwitch extends StatelessWidget {
               ),
             ),
         ]),
-      );
+      ]),
+    );
+  }
 }
 
 /// ‹  Yesterday  › under the period switch.
@@ -204,15 +224,15 @@ class _EnergyBody extends StatelessWidget {
     List<double> col(String k) => [for (final p in points) numOr(p[k]).toDouble()];
     // Figma 22:160 / 41:492 / 41:497 / 41:507 (Grid Used = what the household paid for).
     final cards = [
-      ('Solar Produced', kwhNum(t['pv_kwh']), 'kWh', C.yellowCard),
-      ('Grid Used', kwhNum(t['grid_import_kwh']), 'kWh', C.yellowCard),
-      ('Battery Used', kwhNum(t['batt_discharge_kwh']), 'kWh', C.yellowCard),
-      ('Self-Sufficiency', pctNum(e['self_sufficiency_pct']), '%', C.peach),
+      ('Solar produced', kwhNum(t['pv_kwh']), 'kWh', C.yellowCard),
+      ('Grid used', kwhNum(t['grid_import_kwh']), 'kWh', C.yellowCard),
+      ('Battery used', kwhNum(t['batt_discharge_kwh']), 'kWh', C.yellowCard),
+      ('Self-sufficiency', pctNum(e['self_sufficiency_pct']), '%', C.peach),
     ];
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+      padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, kFabClearance),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        TwoCol(gap: 9, runGap: 10, children: [
+        TwoCol(gap: S.x2, runGap: S.x2, children: [
           for (final (label, value, unit, color) in cards)
             Readout(
               label: label,
@@ -220,8 +240,8 @@ class _EnergyBody extends StatelessWidget {
               unit: unit,
               child: Container(
                 constraints: const BoxConstraints(minHeight: 78),
-                padding: const EdgeInsets.fromLTRB(18, 14, 12, 14),
-                decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(15)),
+                padding: const EdgeInsets.fromLTRB(S.x4, S.x3, S.x3, S.x3),
+                decoration: BoxDecoration(color: color, borderRadius: R.card),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -234,10 +254,9 @@ class _EnergyBody extends StatelessWidget {
               ),
             ),
         ]),
-        const SizedBox(height: 24),
+        const SizedBox(height: S.x4),
         SCard(
-          padding: const EdgeInsets.fromLTRB(14, 14, 12, 12),
-          border: Border.all(color: C.orangeLine, width: 0.5),
+          padding: const EdgeInsets.fromLTRB(S.x3, S.x4, S.x3, S.x3),
           child: points.isEmpty
               ? Text('Wala pang data para sa panahong ito.', style: ts(12, color: C.muted))
               : LineChartView(
@@ -250,12 +269,11 @@ class _EnergyBody extends StatelessWidget {
                   ],
                 ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: S.x3),
         SCard(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Semantics(header: true, child: Text('Where your power went', style: ts(13, w: FontWeight.w700, spacing: 0.1))),
-            const SizedBox(height: 8),
+            const CardTitle('Where your power went'),
+            const SizedBox(height: S.x2),
             _Row('Home used', '${kwhNum(t['load_kwh'])} kWh'),
             _Row('Bought from the grid', '${kwhNum(t['grid_import_kwh'])} kWh'),
             _Row('Battery charged', '${kwhNum(t['batt_charge_kwh'])} kWh'),
@@ -273,10 +291,10 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MergeSemantics(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
+          padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(children: [
-            Expanded(child: Text(label, style: ts(12, color: C.label))),
-            Text(value, style: ts(12, w: FontWeight.w700)),
+            Expanded(child: Text(label, style: ts(13, color: C.label))),
+            Text(value, style: ts(13, w: FontWeight.w700)),
           ]),
         ),
       );

@@ -12,6 +12,36 @@ const kMinTap = 44.0;
 /// Widest the app lays out; on tablets and laptops it is centred at this width.
 const kMaxAppWidth = 480.0;
 
+/// One spacing scale for every margin, gap and padding. [gutter] is the page's left and right edge,
+/// the same on every screen, so cards, headings and banners all line up.
+class S {
+  static const x1 = 4.0, x2 = 8.0, x3 = 12.0, x4 = 16.0, x6 = 24.0, x8 = 32.0;
+  static const gutter = 20.0;
+}
+
+/// One radius family: cards and hero panels [lg], tiles inside a card [md], controls, icon tiles and
+/// buttons [sm], chips and status pills [pill].
+class R {
+  static const lg = 16.0, md = 12.0, sm = 8.0, pill = 999.0;
+  static final card = BorderRadius.circular(lg);
+  static final tile = BorderRadius.circular(md);
+  static final control = BorderRadius.circular(sm);
+}
+
+/// Motion: one UI ease-out for every step, a softer one for the entrance, and short durations.
+/// Everything rests at once when the system asks for reduced motion ([reduceMotion]).
+class M {
+  static const ease = Cubic(0.2, 0.8, 0.2, 1);
+  static const easeEnter = Cubic(0.22, 1, 0.36, 1);
+  static const press = Duration(milliseconds: 90);
+  static const release = Duration(milliseconds: 120);
+  static const step = Duration(milliseconds: 150);
+  static const slide = Duration(milliseconds: 240);
+  static const enter = Duration(milliseconds: 600);
+}
+
+bool reduceMotion(BuildContext context) => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
 /// Figma palette, adjusted where the original failed contrast.
 class C {
   // Brand
@@ -113,6 +143,13 @@ const gradientGreen = LinearGradient(
 );
 
 class AppTheme {
+  /// One button pair for the whole app: a solid brand fill and an outline, same height, shape and
+  /// type; text buttons share the type. Sentence case everywhere.
+  static final _buttonShape = RoundedRectangleBorder(borderRadius: R.control);
+  static final _buttonText = ts(13, w: FontWeight.w700);
+  static const _buttonSize = Size(kMinTap, kMinTap);
+  static const _buttonPad = EdgeInsets.symmetric(horizontal: S.x4);
+
   /// The design is light-only, so there is no dark variant.
   static ThemeData light() => ThemeData(
         useMaterial3: true,
@@ -124,12 +161,57 @@ class AppTheme {
           surface: C.cream,
         ),
         materialTapTargetSize: MaterialTapTargetSize.padded,
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: C.brandDark,
+            foregroundColor: Colors.white,
+            minimumSize: _buttonSize,
+            padding: _buttonPad,
+            shape: _buttonShape,
+            textStyle: _buttonText,
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: C.brandDark,
+            backgroundColor: Colors.white,
+            minimumSize: _buttonSize,
+            padding: _buttonPad,
+            shape: _buttonShape,
+            side: const BorderSide(color: C.brandDark),
+            textStyle: _buttonText,
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: C.orangeText,
+            minimumSize: _buttonSize,
+            padding: const EdgeInsets.symmetric(horizontal: S.x3),
+            shape: _buttonShape,
+            textStyle: _buttonText,
+          ),
+        ),
+        chipTheme: ChipThemeData(
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: C.orangeLine, width: 0.5),
+          shape: const StadiumBorder(),
+          labelStyle: ts(12, w: FontWeight.w700),
+        ),
+        snackBarTheme: SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: C.ink,
+          contentTextStyle: ts(13, color: Colors.white, height: 1.35),
+          shape: RoundedRectangleBorder(borderRadius: R.tile),
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(R.lg))),
+        ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: Colors.white,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: C.tileBorder)),
-          enabledBorder:
-              OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: C.tileBorder)),
+          border: OutlineInputBorder(borderRadius: R.control, borderSide: const BorderSide(color: C.tileBorder)),
+          enabledBorder: OutlineInputBorder(borderRadius: R.control, borderSide: const BorderSide(color: C.tileBorder)),
+          focusedBorder: OutlineInputBorder(borderRadius: R.control, borderSide: const BorderSide(color: C.brandDark, width: 1.5)),
           isDense: true,
         ),
       );

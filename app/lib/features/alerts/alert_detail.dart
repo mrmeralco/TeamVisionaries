@@ -9,6 +9,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../providers/chat_providers.dart';
 import '../../providers/data_providers.dart';
+import '../common/ui.dart';
 
 /// Icon and colour for an alert type / severity.
 (IconData, Color) alertLook(String type, String severity) => (
@@ -110,7 +111,7 @@ class _AlertSheet extends StatelessWidget {
 
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        padding: const EdgeInsets.fromLTRB(S.gutter, 0, S.gutter, S.x4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -118,10 +119,10 @@ class _AlertSheet extends StatelessWidget {
               Container(
                 width: 36,
                 height: 36,
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: R.control),
                 child: Icon(icon, color: color),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: S.x3),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Semantics(header: true, child: Text(title, style: ts(17, w: FontWeight.w700))),
@@ -132,14 +133,14 @@ class _AlertSheet extends StatelessWidget {
                 ]),
               ),
             ]),
-            const SizedBox(height: 14),
-            if (message.isNotEmpty) Text(message, style: ts(13, height: 1.45)),
-            const SizedBox(height: 16),
+            const SizedBox(height: S.x4),
+            if (message.isNotEmpty) Text(message, style: ts(14, height: 1.45)),
+            const SizedBox(height: S.x4),
             _Section('Ano ang ibig sabihin nito?', meaning),
-            const SizedBox(height: 12),
+            const SizedBox(height: S.x2),
             _Section('Ano ang gagawin?', todo),
-            const SizedBox(height: 20),
-            Wrap(spacing: 8, runSpacing: 8, children: [
+            const SizedBox(height: S.x6),
+            Wrap(spacing: S.x2, runSpacing: S.x2, children: [
               if (action != null)
                 FilledButton(
                   onPressed: () {
@@ -149,12 +150,12 @@ class _AlertSheet extends StatelessWidget {
                   child: Text(action.$1),
                 ),
               OutlinedButton.icon(
-                icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
+                icon: const MiraAvatar(size: 22),
                 label: const Text('Ask Mira about this'),
                 onPressed: () {
                   close();
                   ref.read(chatProvider.notifier).send('Ipaliwanag mo ang alert na ito: $title. $message');
-                  outer.go(Routes.ask);
+                  outer.push(Routes.ask);
                 },
               ),
               TextButton(onPressed: close, child: const Text('Close')),
@@ -172,12 +173,12 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: C.cream, borderRadius: BorderRadius.circular(10)),
+        padding: const EdgeInsets.all(S.x3),
+        decoration: BoxDecoration(color: C.cream, borderRadius: R.tile),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: ts(12, w: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text(body, style: ts(12, height: 1.45)),
+          Text(title, style: ts(13, w: FontWeight.w700)),
+          const SizedBox(height: S.x1),
+          Text(body, style: ts(13, height: 1.45)),
         ]),
       );
 }
