@@ -5,6 +5,23 @@ from ai import llm, service
 from app import db
 
 
+def test_cached_recap_is_repriced_after_a_rate_update(device, monkeypatch):
+    from datetime import timedelta
+    from app import config, energy
+    monkeypatch.setattr(config, "LLM_ENABLED", False)
+    settings = db.get_settings() | {"device_id": device, "rate_php_per_kwh": 10.0}
+    ts = energy.local_midnight(energy.today() - timedelta(days=1)) + 12 * 3600
+    sample = {"pv_w": 0, "load_w": 1000, "grid_w": 1000, "batt_soc": 50,
+              "batt_w": 0, "grid_on": True, "inv_temp_c": 40, "fault_code": 0}
+    for offset in (0, 600):
+        db.insert_telemetry(device, sample | {"ts": ts + offset})
+    before = asyncio.run(service.daily_summary(device, settings, force=True))
+    after = asyncio.run(service.daily_summary(device, settings | {"rate_php_per_kwh": 20.0}))
+    assert before["totals"]["cost_php"] > 0
+    assert abs(after["totals"]["cost_php"] - 2 * before["totals"]["cost_php"]) <= 0.01
+    assert "_rate_php_per_kwh" not in after
+
+
 def run(replies, question="Bakit mataas ang bill ko?", monkeypatch=None):
     """replies: list of dicts (model output) or Exception, consumed one per LLM call."""
     calls = []

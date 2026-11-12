@@ -18,6 +18,12 @@ _online: dict[str, bool] = {}
 TELEMETRY_INT = ("pv_w", "load_w", "grid_w", "batt_soc", "batt_w", "inv_temp_c", "fault_code")
 
 
+def _publish_live(device_id: str) -> None:
+    settings = db.get_settings()
+    if device_id == settings["device_id"]:
+        hub.publish_threadsafe("telemetry", energy.live(device_id, settings))
+
+
 def validate_telemetry(p: dict) -> dict:
     """Contract B -> clean dict. Raises ValueError on a bad payload."""
     t = {k: int(round(float(p[k]))) for k in TELEMETRY_INT}
@@ -49,13 +55,13 @@ def handle_message(topic: str, payload: bytes) -> None:
             log.warning("rejected telemetry from %s: %s", device_id, e)
             return
         db.insert_telemetry(device_id, t)
+        db.set_status(device_id, True)
         if _online.get(device_id) is False:
             hub.publish_threadsafe("alert", alerts.device_online_changed(device_id, True, t["ts"]))
         _online[device_id] = True
         for a in alerts.evaluate(device_id, t):
             hub.publish_threadsafe("alert", a)
-        if device_id == db.get_settings()["device_id"]:
-            hub.publish_threadsafe("telemetry", energy.live(device_id, db.get_settings()))
+        _publish_live(device_id)
 
     elif kind == "meter":
         db.insert_meter(device_id, int(p.get("ts") or 0) or int(time.time()), p)
@@ -64,10 +70,13 @@ def handle_message(topic: str, payload: bytes) -> None:
     elif kind == "status":
         online = bool(p.get("online"))
         db.set_status(device_id, online, p.get("rssi"), p.get("fw"))
+        if device_id not in _online and energy.device_info(device_id, db.latest_telemetry(device_id))["online"]:
+            _online[device_id] = True
         if not online and _online.get(device_id):
             _online[device_id] = False
             hub.publish_threadsafe("alert", alerts.device_online_changed(device_id, False, int(time.time())))
         hub.publish_threadsafe("status", energy.device_info(device_id, db.latest_telemetry(device_id)))
+        _publish_live(device_id)
 
 
 def check_stale() -> None:
@@ -77,6 +86,7 @@ def check_stale() -> None:
             _online[device_id] = False
             hub.publish_threadsafe("alert", alerts.device_online_changed(device_id, False, int(time.time())))
             hub.publish_threadsafe("status", energy.device_info(device_id, db.latest_telemetry(device_id)))
+            _publish_live(device_id)
 
 
 def _on_connect(client, userdata, flags, reason_code, properties):

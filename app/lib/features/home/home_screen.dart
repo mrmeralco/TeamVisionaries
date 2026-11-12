@@ -32,6 +32,7 @@ class HomeScreen extends ConsumerWidget {
     final summary = ref.watch(dailySummaryProvider);
     final name = str(ref.watch(serverSettingsProvider).value?['user_name']);
     final data = live.live;
+    final offline = live.state == 'offline' || live.device?['online'] == false;
     final w = MediaQuery.sizeOf(context).width;
     final top = MediaQuery.paddingOf(context).top; // status bar
 
@@ -117,7 +118,8 @@ class HomeScreen extends ConsumerWidget {
                 else ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
-                    child: Freshness(readingTs: intOrNull(live.telemetry?['ts']), link: live.link),
+                    child: Freshness(readingTs: intOrNull(live.telemetry?['ts']), link: live.link,
+                        deviceOnline: live.device?['online'] as bool?),
                   ),
                   _StateBanner(live: live),
                   if (inBrownout) advisor,
@@ -126,13 +128,13 @@ class HomeScreen extends ConsumerWidget {
                     child: EnterOnce(
                       id: 'home-stats',
                       delay: const Duration(milliseconds: 160),
-                      child: _Stats(telemetry: live.telemetry),
+                      child: _Stats(telemetry: live.telemetry, outdated: offline),
                     ),
                   ),
-                  if (live.telemetry != null)
+                  if (live.telemetry != null || offline)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
-                      child: _DeviceHealth(telemetry: live.telemetry!, device: live.device),
+                      child: _DeviceHealth(telemetry: live.telemetry ?? const {}, device: live.device, offline: offline),
                     ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
@@ -201,7 +203,9 @@ class _Hero extends StatelessWidget {
     final state = str(live?['state'], 'offline');
     final t = mapOf(live?['telemetry']);
     final sunny = numOr(t['pv_w']) > 0;
-    final text = str(live?['status_line'], 'Kumokonekta sa Solaris… Ilang saglit lang.');
+    final text = state == 'offline' && t.isNotEmpty
+        ? 'Offline ang Solaris device. Huling reading ang ipinapakita.'
+        : str(live?['status_line'], 'Kumokonekta sa Solaris… Ilang saglit lang.');
     final colors = switch (state) {
       'brownout' => C.heroBrownout,
       'fault' => C.heroFault,
@@ -281,7 +285,6 @@ class _StateBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final lastSeen = intOrNull(live.device?['last_seen_ts']);
     final (IconData, Color, String, String, VoidCallback?)? b = switch (live.state) {
       'fault' => (
         Icons.warning_amber_rounded,
@@ -300,7 +303,7 @@ class _StateBanner extends ConsumerWidget {
         Icons.cloud_off_rounded,
         C.muted,
         'Offline ang Solaris device',
-        lastSeen != null ? 'Huling reading: ${formatAgo(lastSeen)}' : 'Wala pang natatanggap na reading',
+        'Walang bagong data. Tingnan kung naka-on ang Solaris at konektado sa hotspot.',
         null,
       ),
       _ => null,
@@ -345,13 +348,15 @@ class _StateBanner extends ConsumerWidget {
 class _BrownoutAdvisor extends ConsumerWidget {
   const _BrownoutAdvisor();
 
-  static bool active(LiveState live) => live.state == 'brownout' || live.telemetry?['grid_on'] == false;
+  static bool active(LiveState live) => live.state != 'offline' && live.device?['online'] != false &&
+      (live.state == 'brownout' || live.telemetry?['grid_on'] == false);
 
   static String _hours(num? h) => h == null ? '—' : '~${h.toStringAsFixed(1)}';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final live = ref.watch(liveProvider);
+    if (live.state == 'offline' || live.device?['online'] == false) return const SizedBox.shrink();
     final on = active(live);
     ref.listen(liveProvider.select((s) => s.telemetry?['ts']), (prev, next) {
       if (prev != null && next != prev && active(ref.read(liveProvider))) ref.invalidate(brownoutProvider);
@@ -434,8 +439,9 @@ class _BrownoutAdvisor extends ConsumerWidget {
 }
 
 class _Stats extends StatelessWidget {
-  const _Stats({required this.telemetry});
+  const _Stats({required this.telemetry, this.outdated = false});
   final Map<String, dynamic>? telemetry;
+  final bool outdated;
 
   /// Contract B: grid_w is + import, − export. The tile shows the size; the note says which way.
   static String? _gridNote(num? w) {
@@ -476,14 +482,16 @@ class _Stats extends StatelessWidget {
         gap: S.x2,
         runGap: S.x2,
         children: [
-          _Tile('Solar production', kwNum(t['pv_w']), 'kW'),
-          _Tile('Home usage', kwNum(t['load_w']), 'kW'),
-          _Tile('Battery level', soc is num ? pctNum(soc) : '—', '%', note: _battNote(t['batt_w'] as num?)),
+          _Tile('Solar production', kwNum(t['pv_w']), 'kW', outdated: outdated),
+          _Tile('Home usage', kwNum(t['load_w']), 'kW', outdated: outdated),
+          _Tile('Battery level', soc is num ? pctNum(soc) : '—', '%',
+              note: _battNote(t['batt_w'] as num?), outdated: outdated),
           _Tile(
             'Grid power',
             gridOn ? kwNum(t['grid_w']) : 'Off',
             gridOn ? 'kW' : '',
             note: gridOn ? _gridNote(t['grid_w'] as num?) : 'Brownout',
+            outdated: outdated,
           ),
         ],
       );
@@ -502,16 +510,17 @@ class _Stats extends StatelessWidget {
 }
 
 class _Tile extends StatelessWidget {
-  const _Tile(this.label, this.value, this.unit, {this.note});
+  const _Tile(this.label, this.value, this.unit, {this.note, this.outdated = false});
   final String label, value, unit;
   final String? note;
+  final bool outdated;
 
   @override
   Widget build(BuildContext context) => Readout(
     label: label,
     value: value,
     unit: unit,
-    note: note,
+    note: outdated ? 'Last reading, outdated' : note,
     child: Container(
       constraints: const BoxConstraints(minHeight: 77),
       padding: const EdgeInsets.fromLTRB(S.x3, S.x3, S.x2, S.x2),
@@ -525,9 +534,12 @@ class _Tile extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: ts(11, w: FontWeight.w600, color: C.label, spacing: -0.1)),
-          if (note != null) Text(note!, style: ts(10, w: FontWeight.w700, color: C.orangeText)),
+          if (outdated)
+            Text('Outdated', style: ts(10, w: FontWeight.w700, color: C.muted))
+          else if (note != null)
+            Text(note!, style: ts(10, w: FontWeight.w700, color: C.orangeText)),
           const SizedBox(height: 8),
-          Reading(value, unit, valueColor: C.orangeDeep, unitWeight: FontWeight.w700),
+          Reading(value, unit, valueColor: outdated ? C.muted : C.orangeDeep, unitWeight: FontWeight.w700),
         ],
       ),
     ),
@@ -635,9 +647,10 @@ class _Summary extends StatelessWidget {
 /// Inverter + Solaris device status (presentation slide 5): inverter temperature, fault code, Wi-Fi signal.
 /// Temperature colours follow the server's high-temp alert (on above 60 °C, warning from 55 °C).
 class _DeviceHealth extends StatelessWidget {
-  const _DeviceHealth({required this.telemetry, this.device});
+  const _DeviceHealth({required this.telemetry, this.device, this.offline = false});
   final Map<String, dynamic> telemetry;
   final Map<String, dynamic>? device;
+  final bool offline;
 
   static (String, Color) _signal(num? rssi) => switch (rssi) {
         null => ('—', C.muted),
@@ -650,13 +663,15 @@ class _DeviceHealth extends StatelessWidget {
   Widget build(BuildContext context) {
     final temp = telemetry['inv_temp_c'] as num?;
     final fault = (telemetry['fault_code'] as num?)?.toInt() ?? 0;
-    final tempColor = temp == null ? C.muted : (temp > 60 ? C.red : (temp >= 55 ? C.amber : C.green));
-    final (signal, signalColor) = _signal(device?['rssi'] as num?);
+    final tempColor = offline || temp == null ? C.muted : (temp > 60 ? C.red : (temp >= 55 ? C.amber : C.green));
+    final (signal, signalColor) = offline || device?['online'] == false
+        ? ('Offline', C.red)
+        : _signal(device?['rssi'] as num?);
 
-    Widget item(IconData icon, Color color, String label, String value, {VoidCallback? onTap}) => Expanded(
+    Widget item(IconData icon, Color color, String label, String value, {String? note, VoidCallback? onTap}) => Expanded(
           child: Semantics(
             button: onTap != null,
-            label: '$label: $value',
+            label: '$label: $value${note == null ? '' : '. $note'}',
             excludeSemantics: true,
             child: InkWell(
               borderRadius: R.control,
@@ -673,7 +688,9 @@ class _DeviceHealth extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(label, style: ts(10, w: FontWeight.w600, color: C.label)),
-                        Text(value, overflow: TextOverflow.ellipsis, style: ts(11, w: FontWeight.w700, color: color)),
+                        Text(value, overflow: offline ? TextOverflow.visible : TextOverflow.ellipsis,
+                            style: ts(11, w: FontWeight.w700, color: color)),
+                        if (note != null) Text(note, style: ts(10, color: C.muted)),
                       ],
                     ),
                   ),
@@ -685,16 +702,21 @@ class _DeviceHealth extends StatelessWidget {
 
     return SCard(
       padding: const EdgeInsets.symmetric(horizontal: S.x3, vertical: S.x1),
-      child: Row(children: [
-        item(Icons.thermostat_rounded, tempColor, 'Inverter', temp == null ? '—' : '${temp.round()}°C'),
-        item(
-          fault == 0 ? Icons.check_circle_rounded : Icons.error_rounded,
-          fault == 0 ? C.green : C.red,
-          'Status',
-          fault == 0 ? 'No issues' : 'Fault $fault',
-          onTap: fault == 0 ? null : () => context.go(Routes.alerts),
-        ),
-        item(Icons.wifi_rounded, signalColor, 'Solaris device', signal),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          item(Icons.thermostat_rounded, tempColor, 'Inverter', temp == null ? '—' : '${temp.round()}°C',
+              note: offline && temp != null ? 'Last reading' : null),
+          item(
+            offline ? Icons.help_outline_rounded : (fault == 0 ? Icons.check_circle_rounded : Icons.error_rounded),
+            offline ? C.muted : (fault == 0 ? C.green : C.red),
+            'Inverter status',
+            offline ? 'Unavailable' : (fault == 0 ? 'No issues' : 'Fault $fault'),
+            onTap: !offline && fault != 0 ? () => context.go(Routes.alerts) : null,
+          ),
+          item(offline ? Icons.wifi_off_rounded : Icons.wifi_rounded, signalColor, 'Solaris device', signal),
+        ]),
+        if (offline && fault != 0)
+          LinkButton('Last reported fault: $fault', onTap: () => context.go(Routes.alerts)),
       ]),
     );
   }

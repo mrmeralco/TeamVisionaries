@@ -8,6 +8,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import socket
 import subprocess
 import sys
@@ -55,7 +56,7 @@ def main():
         conf.write_text(f"listener {broker_port} 127.0.0.1\nallow_anonymous true\npersistence false\n")
         env = dict(os.environ, SOLARIS_DB=str(tmp / "test.db"), MQTT_HOST="127.0.0.1",
                    MQTT_PORT=str(broker_port), MQTT_ENABLED="1", SOLARIS_MOCK="0", PYTHONUTF8="1",
-                   LLM_ENABLED="1", LLM_PROVIDER="ollama", OFFLINE_AFTER_S="5",
+                   LLM_ENABLED="1", LLM_PROVIDER="ollama", OFFLINE_AFTER_S="5", MERALCO_RATE_ENABLED="0",
                    AI_LOG=str(tmp / "ai.jsonl"))
         if args.model:
             env["LLM_MODEL"] = args.model
@@ -103,7 +104,11 @@ def main():
                     assert "brownout" in chat("Magkano na ang bill ko ngayong buwan?").split(".")[0]
                     publish(pv_w=500, fault_code=21, inv_temp_c=78)
                     wait(lambda: api.get("/api/live").json()["telemetry"]["fault_code"] == 21)
-                    assert "21" in chat("Kumusta ang solar ko?").split(".")[0]
+                    reply = chat("Kumusta ang solar ko?")
+                    # Both urgent alerts may occupy separate opening sentences, in either order.
+                    opening = re.split(r"[.!?]\s+", reply)[:2]
+                    assert any(word in opening[0] for word in ("fault", "brownout")), reply
+                    assert all(word in " ".join(opening) for word in ("fault", "21", "brownout")), reply
                     publish(pv_w=700, grid_on=True, fault_code=0)
                     wait(lambda: not api.get("/api/live").json()["device"]["online"], seconds=15)
                     reply = chat("Kumusta ang solar ko?")
@@ -122,7 +127,14 @@ def main():
                 client.disconnect()
                 client.loop_stop()
                 for process in reversed(processes):
-                    process.terminate()
+                    if process.poll() is not None:
+                        continue
+                    if os.name == "nt":
+                        # A venv's Windows Python launcher owns a child that also holds the log open.
+                        subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                                       stdout=log, stderr=log, check=True, **hidden)
+                    else:
+                        process.terminate()
                     try:
                         process.wait(timeout=10)
                     except subprocess.TimeoutExpired:

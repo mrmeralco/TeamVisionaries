@@ -22,6 +22,13 @@ class LLMUnavailable(Exception):
     pass
 
 
+def _ollama_options(max_tokens: int) -> dict:
+    options = {"temperature": 0, "seed": 7, "num_predict": max_tokens, "num_ctx": 4096}
+    if config.LLM_GPU_LAYERS >= 0:
+        options["num_gpu"] = config.LLM_GPU_LAYERS
+    return options
+
+
 async def complete_json(system: str, messages: list[dict], schema: dict, max_tokens: int = 220) -> dict:
     if not config.LLM_ENABLED:
         raise LLMUnavailable("LLM_ENABLED=0")
@@ -33,7 +40,7 @@ async def complete_json(system: str, messages: list[dict], schema: dict, max_tok
                 r = await client.post(f"{config.OLLAMA_URL}/api/chat", json={
                     "model": config.LLM_MODEL, "messages": msgs, "stream": False, "think": False,
                     "format": schema, "keep_alive": config.LLM_KEEP_ALIVE,
-                    "options": {"temperature": 0, "seed": 7, "num_predict": max_tokens, "num_ctx": 4096},
+                    "options": _ollama_options(max_tokens),
                 })
                 r.raise_for_status()
                 text = r.json()["message"]["content"]
@@ -84,7 +91,7 @@ async def warmup(system: str = "") -> None:
             await client.post(f"{config.OLLAMA_URL}/api/chat", json={
                 "model": config.LLM_MODEL, "stream": False, "think": False, "keep_alive": config.LLM_KEEP_ALIVE,
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": "FACTS:"}],
-                "options": {"temperature": 0, "seed": 7, "num_predict": 1, "num_ctx": 4096}})
+                "options": _ollama_options(1)})
         log.info("LLM %s loaded", config.LLM_MODEL)
     except httpx.HTTPError as e:
         log.warning("LLM warmup failed: %s", e)

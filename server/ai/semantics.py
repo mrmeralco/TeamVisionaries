@@ -7,7 +7,30 @@ ROLES = {
     "saved": r"\b(?:natipid|savings|saved)\b",
     "cost": r"\b(?:nagastos|ginastos|gastos|spent|cost)\b",
     "forecast": r"\b(?:forecast|inaasahang|projected)\b",
+    "last_month": r"\b(?:nakaraang buwan|last month|previous month)\b",
 }
+COMPARISON = re.compile(
+    r"\s+(?:kumpara\s+sa|kaysa(?:\s+(?:sa|noong))?|compared\s+(?:to|with)|versus|vs\.?|than)\s+")
+MONEY_BREAK = re.compile(
+    r"(?<!\bvs)[.!?;]\s+|,\s+|\s+(?:at|pero|habang|ngunit|and|but)\s+")
+
+
+def _money_roles(clause):
+    # "Nagastos na, hindi forecast" correctly distinguishes the periods.
+    positive = re.sub(r"\b(?:hindi|not)\s+(?:a\s+)?forecast\b", "", clause)
+    return {role for role, pattern in ROLES.items() if re.search(pattern, positive)}
+
+
+def _money_clauses(reply):
+    # English "last month at ₱..." uses a price preposition, not Tagalog's conjunction "at".
+    reply = re.sub(r"(\b(?:last|previous) month)\s+at\s+(?=₱|php\b|pesos?\b|\d)", r"\1: ", reply.lower())
+    for clause in MONEY_BREAK.split(reply):
+        parts = COMPARISON.split(clause)
+        # An unlabeled compared amount must not escape the original role check.
+        if any(MONEY.search(part) and not _money_roles(part) for part in parts):
+            yield clause
+        else:
+            yield from parts
 
 
 def money_role(fact_id):
@@ -25,15 +48,20 @@ def problems(reply, fact_ids, facts, numbers_in, matches):
     cited = [by[i] for i in fact_ids if i in by]
     errors = []
     clauses = re.split(r"[.!?;]\s+|,\s+|\s+(?:at|pero|habang|ngunit|and|but)\s+", reply.lower())
-    for clause in clauses:
-        # "Nagastos na, hindi forecast" correctly distinguishes the periods.
-        positive = re.sub(r"\b(?:hindi|not)\s+(?:a\s+)?forecast\b", "", clause)
-        roles = {role for role, pattern in ROLES.items() if re.search(pattern, positive)}
+    for clause in _money_clauses(reply):
+        roles = _money_roles(clause)
         amounts = [n for m in MONEY.finditer(clause) for n in numbers_in(m.group())]
         if not amounts or not roles:
             continue
         for role in roles:
-            allowed = [v for f in cited if money_role(f.id) == role
+            supporting = ([f for f in facts if f.id == "bill.last_month_php"] if role == "last_month"
+                          else [f for f in facts if money_role(f.id) == role])
+            role_facts = [f for f in supporting if f.id in fact_ids]
+            if supporting and not role_facts:
+                errors.append(f"money amount labelled {role} must cite the matching fact: "
+                              + ", ".join(f.id for f in supporting))
+                continue
+            allowed = [v for f in role_facts
                        for v in (f.values[:3] if role == "forecast" else f.values[:1])]
             # System-check facts hold both: savings at values[0], installed cost at values[1].
             upgrades = [f for f in cited if f.id.startswith("upgrade.") and len(f.values) >= 2]

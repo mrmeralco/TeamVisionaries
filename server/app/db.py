@@ -161,7 +161,13 @@ def last_outage(device_id: str) -> dict | None:
 # ---------------------------------------------------------------- settings --
 def get_settings() -> dict[str, Any]:
     stored = {r["key"]: json.loads(r["value"]) for r in query("SELECT key, value FROM settings")}
-    return {k: stored.get(k, v) for k, v in config.DEFAULT_SETTINGS.items()}
+    settings = {k: stored.get(k, v) for k, v in config.DEFAULT_SETTINGS.items()}
+    # Legacy manually entered rates are not verified publications. Until the first
+    # successful fetch, calculations use the documented estimate and Settings says so.
+    record = stored.get("meralco_rate")
+    if config.MERALCO_RATE_ENABLED and not (isinstance(record, dict) and record.get("fetched_at")):
+        settings["rate_php_per_kwh"] = config.DEFAULT_SETTINGS["rate_php_per_kwh"]
+    return settings
 
 
 def put_settings(changes: dict[str, Any]) -> dict[str, Any]:

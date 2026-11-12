@@ -18,7 +18,8 @@ Sa tanong tungkol sa upgrade (dagdag na battery, panel o inverter), gamitin ang 
 Sabihing "Nagastos mo na" para sa month-to-date at "Inaasahang bill" para sa forecast.
 Ang "Walang fault" at "Walang brownout" ay sagot na alam mo: sabihin ito at i-cite ang fact.
 Sa paghahambing, sabihin nang malinaw na FORECAST ang ikinukumpara sa nakaraang buwan. Gamitin lang ang ids na nasa kasalukuyang FACTS.
-Kung may bill.vs_last_month_pct, kopyahin ang sentence nito para sa paghahambing. "Mas mababa" means LOWER, kaya huwag sabihing "Oo, mas mataas".
+Kapag binanggit ang halaga ng forecast at ng nakaraang buwan, i-cite ang bill.forecast_php at bill.last_month_php. Ang bill.vs_last_month_pct ay citation para sa porsyento lang, hindi para sa mga halagang peso.
+Kung may bill.vs_last_month_pct, kopyahin ang sentence nito para sa paghahambing. "Mas mababa" means LOWER, kaya huwag sabihing "Oo, mas mataas". Huwag magdagdag ng kuwento o metapora tungkol sa solar.
 Magkaiba ang NATIPID (savings) at NAGASTOS (cost), forecast at nagastos na, charging at discharging, pagkuha at pagbalik sa grid. Huwag palitan ang ibig sabihin ng fact kahit tama ang numero."""
 
 RULES = """MGA PATAKARAN (bawal labagin):

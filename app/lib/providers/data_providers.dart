@@ -93,7 +93,25 @@ final unreadAlertsProvider = Provider<int>(
 /// GET / PUT /api/settings (rate ₱/kWh, battery kWh, user name, device id).
 class SettingsNotifier extends AsyncNotifier<Json> {
   @override
-  Future<Json> build() => ref.watch(apiServiceProvider).getSettings();
+  Future<Json> build() {
+    ref.listen(liveProvider.select((s) => s.live?['rate_php_per_kwh']), (prev, next) {
+      if (prev != null && next != prev) {
+        ref.invalidateSelf();
+        ref.invalidate(billProvider);
+        ref.invalidate(upgradeProvider);
+        ref.invalidate(dailySummaryProvider);
+      }
+    });
+    return ref.watch(apiServiceProvider).getSettings();
+  }
+
+  Future<void> refreshRate() async {
+    final saved = await ref.read(apiServiceProvider).refreshMeralcoRate();
+    state = AsyncData(saved);
+    ref.invalidate(billProvider);
+    ref.invalidate(upgradeProvider);
+    ref.invalidate(dailySummaryProvider);
+  }
 
   /// PUT takes any subset of fields and returns the full object.
   Future<void> save(Json changes) async {

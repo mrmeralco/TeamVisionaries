@@ -268,16 +268,26 @@ class DailySummary(BaseModel):
 
 
 # ------------------------------------------------------------ /api/settings --
+class MeralcoRate(BaseModel):
+    status: Literal["published", "cached", "unavailable", "sample"]
+    billing_month: str | None
+    source_url: str
+    reference_kwh: Literal[200] = 200
+    fetched_at: int | None
+    checked_at: int | None
+
+
 class Settings(BaseModel):
     rate_php_per_kwh: float
     battery_kwh: float
     user_name: str
     device_id: str
+    meralco_rate: MeralcoRate
 
 
 class SettingsIn(BaseModel):
-    """PUT body: any subset of Settings."""
-    rate_php_per_kwh: float | None = Field(None, gt=0, lt=100)
+    """Household inputs; the Meralco rate is managed automatically."""
+    model_config = {"extra": "forbid"}
     battery_kwh: float | None = Field(None, gt=0, lt=200)
     user_name: str | None = Field(None, max_length=40)
     device_id: str | None = Field(None, max_length=32)

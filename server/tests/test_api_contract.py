@@ -93,22 +93,23 @@ def test_chat_rejects_empty_message(client):
 
 def test_settings_put_is_partial_and_returns_full_object(client):
     before = client.get("/api/settings").json()
-    r = client.put("/api/settings", json={"rate_php_per_kwh": 12.5})
+    r = client.put("/api/settings", json={"battery_kwh": 12.5})
     validate("settings", r.json())
-    assert r.json() == before | {"rate_php_per_kwh": 12.5}
-    client.put("/api/settings", json={"rate_php_per_kwh": before["rate_php_per_kwh"]})
+    assert r.json() == before | {"battery_kwh": 12.5}
+    client.put("/api/settings", json={"battery_kwh": before["battery_kwh"]})
 
 
 def test_settings_rejects_nonsense(client):
     assert client.put("/api/settings", json={"rate_php_per_kwh": -1}).status_code == 422
 
 
-def test_rate_change_changes_the_bill(client):
+def test_manual_rate_change_is_rejected_without_changing_the_bill(client):
     before = client.get("/api/bill").json()
-    client.put("/api/settings", json={"rate_php_per_kwh": before["rate_php_per_kwh"] * 2})
+    response = client.put("/api/settings", json={"rate_php_per_kwh": before["rate_php_per_kwh"] * 2})
     after = client.get("/api/bill").json()
-    client.put("/api/settings", json={"rate_php_per_kwh": before["rate_php_per_kwh"]})
-    assert after["month_to_date_php"] == pytest.approx(before["month_to_date_php"] * 2, rel=0.01)
+    assert response.status_code == 422
+    assert after["rate_php_per_kwh"] == before["rate_php_per_kwh"]
+    assert after["month_to_date_php"] == before["month_to_date_php"]
 
 
 def test_alert_read_flow(client):

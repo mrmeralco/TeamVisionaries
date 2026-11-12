@@ -77,7 +77,14 @@ class LiveNotifier extends Notifier<LiveState> {
       case 'status':
         final live = state.live;
         if (live != null) {
-          state = state.copyWith(link: state.link, live: {...live, 'device': data}, updatedAt: DateTime.now());
+          state = state.copyWith(link: state.link, live: {
+            ...live,
+            'device': data,
+            if (data['online'] == false) ...{
+              'state': 'offline',
+              'status_line': 'Offline ang Solaris device. Huling reading ang ipinapakita.',
+            },
+          }, updatedAt: DateTime.now());
         }
       case 'alert':
         state = state.copyWith(link: state.link, lastAlert: data);
