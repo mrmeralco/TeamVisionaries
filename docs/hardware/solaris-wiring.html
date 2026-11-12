@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Solaris Device Wiring</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..800&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one reading column; the schematic breaks out to full width and scrolls sideways on phones. */
+:root {
+  --bg: #fff8ef;          /* Solaris cream (app) */
+  --panel: #ffffff;
+  --fg: #292929;
+  --muted: #6f6a63;
+  --line: #ecdcc8;
+  --accent: #f47721;      /* Solaris orange */
+  --accent-2: #ffc857;    /* Solaris yellow */
+  --board: #23262b;       /* ESP32 dev board */
+  --board-ink: #f2f2f2;
+  --module: #1f5fa8;      /* MAX3485 module */
+  --inv: #eef0f2;         /* inverter enclosure */
+  --inv-ink: #2b2f36;
+  --meter: #f4f4f1;
+  --pin: #c9cdd3;
+  --power: #b9aea0;       /* AC/DC power side, not touched by Solaris */
+  --w-tx: #f47721; --w-rx: #2f7fe0; --w-gnd: #3a3a3a; --w-3v3: #d93b30;
+  --w-de: #d99a00; --w-a: #22a04b; --w-b: #8193a3;
+  --warn: #c2410c;
+  --font: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #17140f; --panel: #211d17; --fg: #f3ece2; --muted: #b3a999; --line: #3a3127;
+  --accent: #ff8a3d; --accent-2: #ffcf6b; --board: #0d0f12; --board-ink: #e9e9e9; --module: #2b6fc0; --pin: #8a9099;
+  --inv: #2c3036; --inv-ink: #eef0f2; --meter: #2a2924; --power: #6d6458;
+  --w-tx: #ff8a3d; --w-rx: #5ea2ff; --w-gnd: #cfcfcf; --w-3v3: #ff6b5e; --w-de: #ffc23d; --w-a: #4fd07a; --w-b: #a9bccb;
+  --warn: #ff9a62;
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #17140f; --panel: #211d17; --fg: #f3ece2; --muted: #b3a999; --line: #3a3127;
+  --accent: #ff8a3d; --accent-2: #ffcf6b; --board: #0d0f12; --board-ink: #e9e9e9; --module: #2b6fc0; --pin: #8a9099;
+  --inv: #2c3036; --inv-ink: #eef0f2; --meter: #2a2924; --power: #6d6458;
+  --w-tx: #ff8a3d; --w-rx: #5ea2ff; --w-gnd: #cfcfcf; --w-3v3: #ff6b5e; --w-de: #ffc23d; --w-a: #4fd07a; --w-b: #a9bccb;
+  --warn: #ff9a62;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 16px/1.6 var(--font); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 48px; }
+.col { max-width: 760px; }
+h1, h2, h3 { line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(32px, 5vw, 48px); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: 26px; font-weight: 750; letter-spacing: -0.01em; }
+h3 { font-size: 17px; font-weight: 700; }
+p { margin: 0; }
+.eyebrow { font: 700 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.lede { color: var(--muted); font-size: 18px; max-width: 62ch; }
+.stack { display: grid; gap: 14px; }
+code, .mono { font-family: var(--mono); font-size: .88em; }
+code { background: color-mix(in srgb, var(--accent-2) 22%, transparent); padding: 1px 6px; border-radius: 5px; }
+
+.flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
+.node { flex: 1 1 150px; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 14px 12px; display: grid; gap: 4px; align-content: start; }
+.node b { font-size: 15px; }
+.node span { color: var(--muted); font-size: 13px; line-height: 1.4; }
+.node.hi { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.link { flex: 0 0 auto; align-self: center; font: 700 11px/1.3 var(--mono); color: var(--accent); text-align: center; text-transform: uppercase; letter-spacing: .06em; }
+@media (max-width: 720px) { .flow { flex-direction: column; } .link { align-self: flex-start; padding-left: 14px; } }
+
+.switch { justify-self: start; display: inline-flex; flex-wrap: wrap; padding: 4px; gap: 4px; border-radius: 10px; background: linear-gradient(180deg, var(--accent), var(--accent-2) 140%); }
+.switch button { font: 700 14px/1 var(--font); border: 0; border-radius: 7px; padding: 10px 14px; cursor: pointer; color: #292929; background: transparent; }
+.switch button[aria-pressed="true"] { background: color-mix(in srgb, #fff3e5 80%, transparent); }
+.switch button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+
+.figure { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px; }
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+svg.sch { display: block; width: 100%; min-width: 900px; height: auto; font-family: var(--mono); }
+.sch .board { fill: var(--board); }
+.sch .module { fill: var(--module); }
+.sch .inv { fill: var(--inv); stroke: var(--inv-ink); stroke-width: 1.4; }
+.sch .meter { fill: var(--meter); stroke: var(--fg); stroke-width: 1.4; }
+.sch .bt { fill: var(--board-ink); font-size: 13px; font-weight: 700; font-family: var(--font); }
+.sch .bs { fill: var(--board-ink); opacity: .75; font-size: 10.5px; }
+.sch .it { fill: var(--inv-ink); font-size: 14px; font-weight: 700; font-family: var(--font); }
+.sch .is { fill: var(--inv-ink); opacity: .75; font-size: 10.5px; }
+.sch .pin { fill: var(--pin); }
+.sch .pl { fill: var(--board-ink); font-size: 11px; }
+.sch .tl { fill: var(--inv-ink); font-size: 11px; font-weight: 700; }
+.sch .lbl { fill: var(--fg); font-size: 11.5px; }
+.sch .lbl-b { fill: var(--fg); font-size: 13px; font-weight: 700; font-family: var(--font); }
+.sch .lbl-m { fill: var(--muted); font-size: 10.5px; }
+.sch .warn { fill: var(--warn); font-size: 10.5px; font-weight: 700; }
+.sch .ink { fill: var(--fg); }
+.sch .pw { stroke: var(--power); stroke-width: 6; fill: none; stroke-linecap: round; }
+.sch .term { fill: var(--panel); stroke: var(--inv-ink); stroke-width: 1.2; }
+.sch .w { fill: none; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; transition: opacity .15s, stroke-width .15s; }
+.w.tx { stroke: var(--w-tx); } .w.rx { stroke: var(--w-rx); } .w.gnd { stroke: var(--w-gnd); } .w.v33 { stroke: var(--w-3v3); }
+.w.de { stroke: var(--w-de); } .w.a { stroke: var(--w-a); } .w.b { stroke: var(--w-b); stroke-dasharray: 7 4; }
+.w.ref { stroke: var(--w-gnd); stroke-width: 1.8; stroke-dasharray: 3 4; }
+.sch .res { fill: var(--panel); stroke: var(--fg); stroke-width: 1.4; }
+.sch.focus .w { opacity: .15; }
+.sch.focus .w.on { opacity: 1; stroke-width: 5; }
+.sch .led { fill: #3b82f6; }
+.sch .wifi { stroke: var(--accent); fill: none; stroke-width: 2.2; stroke-linecap: round; }
+.sch .lcd { fill: #7fd36b; }
+.sch .lcd-txt { fill: #12320c; font-size: 10px; font-weight: 700; }
+@media (prefers-reduced-motion: no-preference) { .sch .led { animation: blink 1.4s steps(1) infinite; } }
+@keyframes blink { 50% { opacity: .25; } }
+[hidden] { display: none !important; }
+.cap { color: var(--muted); font-size: 13.5px; padding: 8px 6px 2px; }
+
+.tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.tcard { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 16px 8px; min-width: 0; }
+.tcard h3 { margin-bottom: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font: 700 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 8px 6px; border-bottom: 1px solid var(--line); }
+td { padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+tbody tr[data-net]:hover, tbody tr[data-net]:focus { background: color-mix(in srgb, var(--accent-2) 18%, transparent); outline: none; }
+.sw { display: inline-block; width: 22px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+.sw.dash { background: repeating-linear-gradient(90deg, var(--w-b) 0 6px, transparent 6px 9px) !important; }
+td.mono { white-space: nowrap; }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.leds { display: grid; gap: 10px; }
+.ledrow { display: grid; grid-template-columns: 74px 1fr; gap: 12px; align-items: center; }
+.pat { display: flex; gap: 3px; height: 14px; align-items: center; }
+.pat i { display: block; height: 10px; border-radius: 2px; background: #3b82f6; }
+.pat i.off { background: var(--line); }
+ol.check { margin: 0; padding-left: 1.2em; display: grid; gap: 10px; }
+.note { border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; color: var(--muted); }
+.safety { border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); background: color-mix(in srgb, var(--warn) 7%, var(--panel)); border-radius: 14px; padding: 16px 18px; display: grid; gap: 6px; }
+.safety b { color: var(--warn); }
+pre.code { margin: 0; background: var(--board); color: var(--board-ink); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font: 500 12.5px/1.55 var(--mono); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="col stack">
+    <span class="eyebrow">Solaris · hardware</span>
+    <h1>Solaris device wiring</h1>
+    <p class="lede">The <b>Solaris device</b> is one ESP32 with an RS485 transceiver. It plugs into the hybrid inverter's communication port, reads its Modbus registers every few seconds, and publishes them to the server laptop over Wi-Fi. A kWh smart meter can share the same two-wire bus.</p>
+  </header>
+
+  <section class="stack" aria-labelledby="flow-h">
+    <h2 id="flow-h">Where the data goes</h2>
+    <div class="flow">
+      <div class="node"><b>Hybrid inverter</b><span>Solar, battery and grid in one box · Modbus RTU slave 1 on its RS485/COM port</span></div>
+      <div class="link">RS485 · A/B<br>9600 8N1</div>
+      <div class="node hi"><b>Solaris device</b><span>ESP32 + MAX3485 · polls the inverter (and meter), status LED on GPIO2</span></div>
+      <div class="link">Wi-Fi · MQTT</div>
+      <div class="node"><b>Server laptop</b><span>Mosquitto <span class="mono">:1883</span> → FastAPI <span class="mono">:8000</span> → SQLite, forecasts, Mira</span></div>
+      <div class="link">REST + WS</div>
+      <div class="node"><b>Solaris app</b><span>Phone or browser on the same hotspot</span></div>
+    </div>
+    <p class="cap">Topics: <code>solaris/solaris-001/telemetry</code> (inverter), <code>/meter</code> (smart meter), <code>/status</code> (retained, with last will).</p>
+  </section>
+
+  <section class="stack" aria-labelledby="wire-h">
+    <div class="col stack">
+      <h2 id="wire-h">Wiring</h2>
+      <p>Solaris only touches the inverter's low-voltage communication port. Hover a row in the pin tables to trace its wire. Pin positions differ between ESP32 boards, so follow the GPIO numbers.</p>
+      <div class="switch" role="group" aria-label="Devices on the RS485 bus">
+        <button type="button" id="mode-inv" aria-pressed="true">Inverter only</button>
+        <button type="button" id="mode-meter" aria-pressed="false">Inverter + smart meter</button>
+      </div>
+    </div>
+
+    <div class="figure">
+      <div class="scroll">
+        <svg class="sch" id="sch" viewBox="0 0 1200 620" role="img" aria-labelledby="sch-t">
+          <title id="sch-t">A hybrid inverter's RS485 port wired over an A/B twisted pair to a MAX3485 module and the Solaris ESP32, which sends data over Wi-Fi to the server laptop</title>
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" class="ink"/></marker>
+          </defs>
+
+          <!-- ===== Power side (installer's wiring, shown for context) ===== -->
+          <g>
+            <text class="lbl-m" x="40" y="70">POWER SIDE · installer's wiring</text>
+            <path class="pw" d="M120 108 V150"/><text class="lbl" x="130" y="102">Solar panels (PV in)</text>
+            <rect x="70" y="84" width="46" height="24" rx="3" fill="none" stroke="var(--power)" stroke-width="2"/>
+            <line x1="85" y1="84" x2="85" y2="108" stroke="var(--power)" stroke-width="1.5"/><line x1="100" y1="84" x2="100" y2="108" stroke="var(--power)" stroke-width="1.5"/>
+            <path class="pw" d="M60 300 H90"/><text class="lbl" x="18" y="284">Battery</text>
+            <rect x="22" y="290" width="38" height="22" rx="3" fill="none" stroke="var(--power)" stroke-width="2"/>
+            <path class="pw" d="M60 400 H90"/><text class="lbl" x="18" y="384">Grid</text><text class="lbl-m" x="18" y="418">Meralco</text>
+            <path class="pw" d="M60 490 H90"/><text class="lbl" x="18" y="474">Home</text><text class="lbl-m" x="18" y="508">loads</text>
+          </g>
+
+          <!-- ===== Hybrid inverter ===== -->
+          <rect class="inv" x="90" y="150" width="240" height="390" rx="14"/>
+          <text class="it" x="210" y="186" text-anchor="middle">Hybrid inverter</text>
+          <text class="is" x="210" y="204" text-anchor="middle">Modbus RTU · slave 1</text>
+          <rect class="lcd" x="150" y="220" width="120" height="44" rx="4"/>
+          <text class="lcd-txt" x="160" y="238">PV 3.2kW BAT 78%</text>
+          <text class="lcd-txt" x="160" y="254">GRID 0.0kW  OK</text>
+          <!-- COM / RS485 terminal on the right edge -->
+          <rect x="268" y="290" width="62" height="100" rx="6" fill="none" stroke="var(--inv-ink)" stroke-width="1.2" stroke-dasharray="4 3"/>
+          <text class="is" x="299" y="284" text-anchor="middle">RS485 / COM</text>
+          <rect class="term" x="318" y="304" width="16" height="16" rx="3"/><text class="tl" x="312" y="316" text-anchor="end">A+</text>
+          <rect class="term" x="318" y="334" width="16" height="16" rx="3"/><text class="tl" x="312" y="346" text-anchor="end">B−</text>
+          <rect class="term" x="318" y="364" width="16" height="16" rx="3"/><text class="tl" x="312" y="376" text-anchor="end">GND</text>
+          <text class="is" x="210" y="424" text-anchor="middle">RJ45 or screw terminal:</text>
+          <text class="is" x="210" y="440" text-anchor="middle">pinout is in the</text>
+          <text class="is" x="210" y="456" text-anchor="middle">brand's manual</text>
+          <text class="warn" x="210" y="510" text-anchor="middle">Do not open · comms port only</text>
+
+          <!-- ===== RS485 bus ===== -->
+          <path class="w a" data-net="bus-a" d="M334 312 H660"/>
+          <path class="w b" data-net="bus-b" d="M334 342 H660"/>
+          <path class="w ref" data-net="bus-gnd" d="M334 372 H620 V384 H660"/>
+          <text class="lbl" x="440" y="302" text-anchor="middle">A ↔ A · twisted pair</text>
+          <text class="lbl" x="440" y="362" text-anchor="middle">B ↔ B</text>
+          <text class="lbl-m" x="445" y="420" text-anchor="middle">GND/COM ref. (if present)</text>
+          <!-- 120 ohm termination at the Solaris end -->
+          <g>
+            <path d="M640 312 V320" stroke="var(--fg)" stroke-width="1.4"/>
+            <rect class="res" x="633" y="320" width="14" height="14" rx="2"/>
+            <path d="M640 334 V342" stroke="var(--fg)" stroke-width="1.4"/>
+            <text class="lbl-m" x="648" y="262" text-anchor="end">120 Ω across A–B</text>
+            <text class="lbl-m" x="648" y="276" text-anchor="end">at each end of a long cable</text>
+          </g>
+
+          <!-- ===== Optional smart meter on the same bus ===== -->
+          <g class="only-meter">
+            <path class="w a" data-net="meter-a" d="M560 312 V470"/>
+            <path class="w b" data-net="meter-b" d="M600 342 V470"/>
+            <rect class="meter" x="515" y="470" width="130" height="96" rx="10"/>
+            <rect class="term" x="552" y="462" width="16" height="16" rx="3"/><rect class="term" x="592" y="462" width="16" height="16" rx="3"/>
+            <text class="lbl" x="560" y="494" text-anchor="middle" style="font-weight:700">A</text>
+            <text class="lbl" x="600" y="494" text-anchor="middle" style="font-weight:700">B</text>
+            <text class="lbl-b" x="580" y="522" text-anchor="middle">SDM120 meter</text>
+            <text class="lbl-m" x="580" y="540" text-anchor="middle">slave 2 · 9600 baud</text>
+            <text class="lbl-m" x="580" y="556" text-anchor="middle">set via its menu</text>
+          </g>
+
+          <!-- ===== MAX3485 module ===== -->
+          <rect class="module" x="660" y="190" width="100" height="250" rx="8"/>
+          <text class="lbl-b" x="710" y="462" text-anchor="middle">MAX3485</text>
+          <text class="lbl-m" x="710" y="478" text-anchor="middle">TTL ↔ RS485, 3.3 V</text>
+          <text class="pl" x="668" y="316">A</text><text class="pl" x="668" y="346">B</text><text class="pl" x="668" y="388">GND</text>
+          <text class="pl" x="752" y="214" text-anchor="end">VCC</text><text class="pl" x="752" y="254" text-anchor="end">DI</text><text class="pl" x="752" y="304" text-anchor="end">RO</text><text class="pl" x="752" y="354" text-anchor="end">GND</text><text class="pl" x="752" y="404" text-anchor="end">DE+RE</text>
+
+          <!-- module <-> ESP32 -->
+          <path class="w v33" data-net="m-3v3" d="M836 210 H760"/>
+          <path class="w tx" data-net="m-di" d="M836 250 H760" marker-end="url(#arr)"/>
+          <path class="w rx" data-net="m-ro" d="M760 300 H836" marker-end="url(#arr)"/>
+          <path class="w gnd" data-net="m-gnd" d="M760 350 H836"/>
+          <path class="w de" data-net="m-de" d="M836 400 H760"/>
+
+          <!-- ===== Solaris device (ESP32 #1) ===== -->
+          <text class="lbl-b" x="945" y="122" text-anchor="middle">Solaris device</text>
+          <text class="lbl-m" x="945" y="138" text-anchor="middle">ESP32 Dev Module</text>
+          <rect class="board" x="840" y="150" width="210" height="330" rx="14"/>
+          <rect x="985" y="270" width="44" height="60" rx="4" fill="#b8bec7"/>
+          <circle class="led" cx="1020" cy="452" r="6"/>
+          <text class="bs" x="1008" y="456" text-anchor="end">LED GPIO2</text>
+          <rect class="pin" x="836" y="204" width="10" height="12" rx="2"/><text class="pl" x="852" y="214">3V3</text>
+          <rect class="pin" x="836" y="244" width="10" height="12" rx="2"/><text class="pl" x="852" y="254">GPIO25 TX</text>
+          <rect class="pin" x="836" y="294" width="10" height="12" rx="2"/><text class="pl" x="852" y="304">GPIO26 RX</text>
+          <rect class="pin" x="836" y="344" width="10" height="12" rx="2"/><text class="pl" x="852" y="354">GND</text>
+          <rect class="pin" x="836" y="394" width="10" height="12" rx="2"/><text class="pl" x="852" y="404">GPIO4 DE/RE</text>
+          <text class="bs" x="945" y="436" text-anchor="middle">USB 5V power</text>
+
+          <!-- ===== Network side ===== -->
+          <g>
+            <path class="wifi" d="M1062 300 a14 14 0 0 1 0 -20"/><path class="wifi" d="M1070 306 a24 24 0 0 1 0 -32"/><path class="wifi" d="M1078 312 a34 34 0 0 1 0 -44"/>
+            <rect x="1092" y="246" width="96" height="78" rx="10" fill="var(--panel)" stroke="var(--fg)" stroke-width="1.4"/>
+            <text class="lbl" x="1140" y="270" text-anchor="middle" style="font-weight:700">Server laptop</text>
+            <text class="lbl-m" x="1140" y="288" text-anchor="middle">MQTT :1883</text>
+            <text class="lbl-m" x="1140" y="304" text-anchor="middle">API :8000</text>
+            <text class="lbl-m" x="1140" y="342" text-anchor="middle">same hotspot</text>
+          </g>
+        </svg>
+      </div>
+      <p class="cap" id="cap-inv">The inverter's A and B go to the module's A and B over a twisted pair. The ESP32 drives the module: TX → DI, RO → RX, and GPIO4 switches it between sending and listening.</p>
+      <p class="cap" id="cap-meter" hidden>The SDM120 joins the same pair (A to A, B to B) as slave 2. The Solaris device polls both each cycle and publishes the meter on <code>/meter</code>.</p>
+    </div>
+  </section>
+
+  <section class="stack" aria-labelledby="pins-h">
+    <h2 id="pins-h">Pin map</h2>
+    <div class="tables">
+      <div class="tcard">
+        <h3>ESP32 ↔ MAX3485 module</h3>
+        <table>
+          <thead><tr><th>Signal</th><th>ESP32</th><th>Module</th></tr></thead>
+          <tbody>
+            <tr data-net="m-di"><td><span class="sw" style="background:var(--w-tx)"></span>Transmit</td><td class="mono">GPIO25 TX</td><td class="mono">DI</td></tr>
+            <tr data-net="m-ro"><td><span class="sw" style="background:var(--w-rx)"></span>Receive</td><td class="mono">GPIO26 RX</td><td class="mono">RO</td></tr>
+            <tr data-net="m-de"><td><span class="sw" style="background:var(--w-de)"></span>Direction</td><td class="mono">GPIO4</td><td class="mono">DE + RE (tied)</td></tr>
+            <tr data-net="m-3v3"><td><span class="sw" style="background:var(--w-3v3)"></span>Power</td><td class="mono">3V3</td><td class="mono">VCC</td></tr>
+            <tr data-net="m-gnd"><td><span class="sw" style="background:var(--w-gnd)"></span>Ground</td><td class="mono">GND</td><td class="mono">GND</td></tr>
+          </tbody>
+        </table>
+        <p class="cap">Modules with automatic direction control have no DE/RE pins: skip that wire and keep <code>RS485_DE_PIN -1</code>.</p>
+      </div>
+      <div class="tcard">
+        <h3>RS485 bus</h3>
+        <table>
+          <thead><tr><th>Wire</th><th>Inverter</th><th>Module</th></tr></thead>
+          <tbody>
+            <tr data-net="bus-a"><td><span class="sw" style="background:var(--w-a)"></span>A</td><td class="mono">A+ / D+ / 485A</td><td class="mono">A</td></tr>
+            <tr data-net="bus-b"><td><span class="sw dash"></span>B</td><td class="mono">B− / D− / 485B</td><td class="mono">B</td></tr>
+            <tr data-net="bus-gnd"><td><span class="sw" style="background:var(--w-gnd)"></span>Reference</td><td class="mono">GND / COM</td><td class="mono">GND</td></tr>
+          </tbody>
+          <tbody class="meter-rows" hidden>
+            <tr data-net="meter-a"><td><span class="sw" style="background:var(--w-a)"></span>A</td><td colspan="2">SDM120 terminal A, on the same A line</td></tr>
+            <tr data-net="meter-b"><td><span class="sw dash"></span>B</td><td colspan="2">SDM120 terminal B, on the same B line</td></tr>
+          </tbody>
+        </table>
+        <p class="cap">Brands label A and B differently, and some swap them. If nothing answers, swap A and B first.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack" aria-labelledby="fw-h">
+    <h2 id="fw-h">Teach Solaris your inverter</h2>
+    <p class="col">Every brand keeps its readings at different Modbus addresses. Copy the simulator profile in <code>firmware/solaris-device/profiles.h</code>, fill in the eight registers from the inverter's Modbus manual, then point <code>config.h</code> at it.</p>
+    <pre class="code">// profiles.h: name, slave id, baud, function (3 = holding, 4 = input), grid-on threshold
+static const BrandProfile PROFILE_MY_INVERTER = {
+  "my-inverter", 1, 9600, 3, 150.0f,      // grid_on from grid voltage: above 150 V = grid up
+  {
+    /* pv_w       */ { 186, 1.0f, false },   // register, scale, signed?  (example numbers:
+    /* load_w     */ { 178, 1.0f, false },   //  take yours from the manual)
+    /* grid_w     */ { 169, 1.0f, true  },   // + import, − export
+    /* batt_soc   */ { 184, 1.0f, false },
+    /* batt_w     */ { 190, 1.0f, true  },   // + discharging, − charging
+    /* grid_on    */ { 150, 0.1f, false },
+    /* inv_temp_c */ {  90, 0.1f, true  },
+    /* fault_code */ { 103, 1.0f, false },
+  }
+};
+
+// config.h
+#define PROFILE        PROFILE_MY_INVERTER
+#define RS485_DE_PIN   4</pre>
+  </section>
+
+  <section class="two" aria-label="Status light and first power-up">
+    <div class="stack">
+      <h2>Status light</h2>
+      <p class="cap" style="padding:0">The on-board LED (GPIO2) says what's wrong without a laptop.</p>
+      <div class="leds">
+        <div class="ledrow"><div class="pat" aria-hidden="true"><i style="width:8px"></i><i class="off" style="width:8px"></i><i style="width:8px"></i><i class="off" style="width:8px"></i><i style="width:8px"></i></div><div><b>Fast blink</b> · no Wi-Fi</div></div>
+        <div class="ledrow"><div class="pat" aria-hidden="true"><i style="width:26px"></i><i class="off" style="width:26px"></i></div><div><b>Slow blink</b> · no MQTT broker</div></div>
+        <div class="ledrow"><div class="pat" aria-hidden="true"><i style="width:8px"></i><i class="off" style="width:4px"></i><i style="width:8px"></i><i class="off" style="width:30px"></i></div><div><b>Double blink</b> · inverter or meter not answering</div></div>
+        <div class="ledrow"><div class="pat" aria-hidden="true"><i style="width:60px"></i></div><div><b>Solid</b> · all good (flicks off on each publish)</div></div>
+      </div>
+    </div>
+    <div class="stack">
+      <h2>First power-up</h2>
+      <ol class="check">
+        <li>Find the inverter's Modbus settings in its menu or manual: slave ID (usually 1), baud (usually 9600, 8N1) and which port pins carry A and B.</li>
+        <li>In <code>solaris-device/config.h</code> set <code>WIFI_SSID</code>, <code>WIFI_PASS</code>, <code>DEVICE_ID</code> (<code>solaris-001</code>), the laptop's name in <code>MQTT_MDNS_HOST</code>, and your <code>PROFILE</code>.</li>
+        <li>Flash the ESP32 as <span class="mono">ESP32 Dev Module</span>, wire it as above, and power it from USB.</li>
+        <li>Start Mosquitto and the server on the laptop. Readings on <code>solaris/solaris-001/telemetry</code> should match the inverter's own screen.</li>
+      </ol>
+      <p class="note">No reply? Check the shared ground, swap A and B, then check the slave ID and baud. The serial monitor prints a hint for each read error.</p>
+    </div>
+  </section>
+
+  <section class="safety" aria-label="Safety">
+    <p><b>Safety.</b> Solaris connects only to the inverter's communication port, which is low voltage. Never open the inverter or touch its PV, battery or AC terminals: those carry dangerous DC and mains voltage even when the grid is off. For a permanent installation, use an isolated RS485 transceiver and have a licensed electrician check the setup.</p>
+  </section>
+</div>
+
+<script>
+(() => {
+  const sch = document.getElementById('sch');
+  const invBtn = document.getElementById('mode-inv');
+  const meterBtn = document.getElementById('mode-meter');
+
+  function setMode(mode) {
+    const meter = mode === 'meter';
+    sch.querySelectorAll('.only-meter').forEach(el => el.style.display = meter ? '' : 'none');
+    document.querySelector('.meter-rows').hidden = !meter;
+    document.getElementById('cap-meter').hidden = !meter;
+    document.getElementById('cap-inv').hidden = meter;
+    invBtn.setAttribute('aria-pressed', String(!meter));
+    meterBtn.setAttribute('aria-pressed', String(meter));
+    try { localStorage.setItem('solaris-wiring-bus', mode); } catch (_) {}
+  }
+  invBtn.addEventListener('click', () => setMode('inverter'));
+  meterBtn.addEventListener('click', () => setMode('meter'));
+  let saved = 'inverter';
+  try { saved = localStorage.getItem('solaris-wiring-bus') || 'inverter'; } catch (_) {}
+  setMode(saved);
+
+  // Trace a wire: hovering or focusing a pin-table row highlights that net.
+  function focusNet(net) {
+    sch.classList.toggle('focus', !!net);
+    sch.querySelectorAll('.w').forEach(w => w.classList.toggle('on', !!net && w.dataset.net === net));
+  }
+  document.querySelectorAll('tr[data-net]').forEach(tr => {
+    tr.tabIndex = 0;
+    tr.addEventListener('mouseenter', () => focusNet(tr.dataset.net));
+    tr.addEventListener('mouseleave', () => focusNet(null));
+    tr.addEventListener('focus', () => focusNet(tr.dataset.net));
+    tr.addEventListener('blur', () => focusNet(null));
+  });
+})();
+</script>
+</body>
+</html>

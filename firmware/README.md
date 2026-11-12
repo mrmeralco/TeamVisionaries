@@ -5,6 +5,8 @@
 | `inverter-sim/` | ESP32 #2 | Simulator with two modes. **Inverter** = hybrid solar inverter, slave 1 (Contract A). **Smart meter** = SDM120-style kWh meter, slave 2 (Contract A2). LCD, 1 knob, 1 button, live web dashboard |
 | `solaris-device/` | ESP32 #1 | The connector. Modbus RTU **master** that polls the inverter and the meter every 5 s and publishes each one that answers over MQTT (Contract B) |
 
+Interactive wiring diagram (real inverter over RS485, MAX3485, optional SDM120 meter): open [`docs/hardware/solaris-wiring.html`](../docs/hardware/solaris-wiring.html) in a browser.
+
 ## Wiring (no RS485 modules yet: direct UART)
 
 Modbus RTU is just bytes on a serial line. Until the MAX3485 modules arrive, wire
