@@ -30,7 +30,8 @@ void main() {
       // The house without panels or battery, labelled from the meter.
       expect(find.text('HOME'), findsOneWidget);
       expect(find.text('${((m['power_w'] as num) / 1000).toStringAsFixed(1)} kW'), findsOneWidget);
-      expect(find.text('METER'), findsOneWidget);
+      expect(find.text('GRID'), findsOneWidget);
+      expect(find.text('SOLAR'), findsNothing); // no panels on a meter-only house
       expect(find.text('${(m['voltage_v'] as num).round()} V'), findsOneWidget);
       // Under it, what the labels don't say.
       expect(find.text('Current'), findsOneWidget);
@@ -58,7 +59,7 @@ void main() {
       expect(find.text('May brownout ngayon'), findsOneWidget);
       expect(find.text(example('brownout_meter_only')['advice'] as String), findsOneWidget);
       expect(find.text('hrs'), findsNothing);
-      expect(find.text('Off'), findsNWidgets(2)); // the HOME and METER labels on the house
+      expect(find.text('Off'), findsNWidgets(2)); // the HOME and GRID labels on the house
     });
 
     testWidgets('Energy: use, busiest time and the typical day; no solar or self-sufficiency', (t) async {

@@ -1,7 +1,7 @@
 # Solaris Presentation Outline and Speaker Script
 
-**Recommended length:** 7–9 minutes  
-**Format:** 13 slides followed by a live demonstration
+**Recommended length:** 8–10 minutes  
+**Format:** 14 slides followed by a live demonstration
 
 ---
 
@@ -290,6 +290,10 @@ For solar homes that also have a meter, Solaris uses the meter for the bill, bec
 
 Smart meter mode also opens a path for the business: start with a meter-only home today, and when the family is ready for solar, Solaris already knows their usage and can show what size of system would fit.
 
+### Suggested visual
+
+Show the app in smart meter mode: the house on Home without panels or battery, labelled **HOME** (what the house uses now) and **GRID** (the Meralco supply’s voltage), with the live meter card below it, and the **Meralco level this month** card from the Bill screen.
+
 ---
 
 ## Slide 11 — Meet Mira
@@ -349,7 +353,58 @@ This allows customers to respond before a small issue becomes a larger and more 
 
 ---
 
-## Slide 13 — Why Solaris Matters
+## Slide 13 — How Solaris Helps Meralco Serve Its Customers
+
+### Title
+
+**A better-informed customer is an easier customer to serve**
+
+### On-screen points
+
+- **Fewer “bakit mataas ang bill ko?” calls:** the customer sees the bill coming, and why, before it arrives
+- **First-line answers at home:** Mira explains bills, rate levels, and usage in Taglish, with sources
+- **Usage tracking:** hourly use, peak hours, night share, and the Meralco level the month is heading for
+- **Customer profiling, with consent:** household type, always-on load, and new appliances, for better-targeted programs
+- **Power-quality evidence:** brownout start and restore times, and low or high voltage, recorded at the home
+
+### Speaker script
+
+Solaris was built for the household, but the same information can help Meralco serve its customers better.
+
+The most common customer-service question is “Why is my bill so high?” Solaris answers it before the bill arrives. The customer sees the forecast, which Meralco consumption level the month is heading for, and what changed, such as a new air conditioner or an always-on load. A customer who already understands the bill is less likely to call the hotline or dispute it.
+
+Mira handles those first questions at home, in Taglish, and shows where every number comes from. When a customer does need to contact Meralco, they arrive with facts, not frustration.
+
+Solaris also tracks usage hour by hour: the busiest hours, how much is used at night, and weekdays versus weekends. With the household’s permission, a summary of this profile could help Meralco offer the right programs to the right homes: energy-efficiency advice for homes with a high always-on load, or usage-shifting tips for homes that peak in the evening.
+
+Finally, Solaris records brownouts and voltage quality at the home itself. A customer can report an outage or a low-voltage problem with exact times and readings, which helps Meralco find and fix the issue faster.
+
+Privacy comes first. By default, everything stays inside the home. The household decides what to share. The daily routine, such as when the family is away, is never shared, because that would be unsafe.
+
+### What works today, and what needs a partnership
+
+| Customer-service need | How Solaris helps | Status |
+|---|---|---|
+| High-bill inquiries and disputes | Month-to-date cost, month-end forecast with a range, Meralco level warning, “what changed” | Works today, in the app and in Mira |
+| Explaining rate levels | Shows the level the month is heading for, and how many kWh a day to cut to stay below the next one | Works today |
+| Usage tracking | Hourly use, peak hours, night share, weekday vs weekend, always-on load, the meter’s import reading | Works today |
+| Customer profiling and segmentation | Household type, always-on load, and new-appliance detection, shared only as an opt-in summary | Profile works today; sharing with Meralco needs a consent flow and a data link |
+| Outage and voltage reports | Brownout start and restore times; low or high voltage with the last 24 hours’ minimum and maximum | Recorded today; sending reports to Meralco needs a partnership |
+| Outage awareness by area | Opted-in homes report a brownout the moment it starts | Future: needs many homes and a Meralco data link |
+| Peak demand and usage shifting | Tips to move appliance use away from peak hours; solar homes see when they export | Tips work today; Meralco-led programs are future |
+| Net-metering questions | Solar + meter mode uses the meter’s billed kWh and shows exports | Works today |
+
+### Suggested visual
+
+A two-sided diagram. On the left, the household’s phone with the bill forecast and Mira. On the right, a Meralco customer-service agent. Between them, a gate labelled “Customer consent” that lets through only opt-in summaries, such as usage by hour, always-on load, and outage times.
+
+### If asked: “Does Meralco see my data?”
+
+No, not by default. Solaris runs on a computer inside the home, and nothing leaves the house unless the customer chooses to share it. Any sharing would be opt-in, a summary rather than raw readings, and it would never include when the family is home or away.
+
+---
+
+## Slide 14 — Why Solaris Matters
 
 ### Title
 
@@ -394,10 +449,11 @@ With Solaris, customers can understand whether their energy is being used well, 
 7. **Trigger a brownout.** Show the alert and the estimated battery runtime.
 8. **Open the solar and battery outlook.** Explain the forecast and projected battery level.
 9. **Ask Mira a question.** Use: “Mira, bakit mataas ang bill ko?” or “May bago ba kaming appliance?” Open “Where this answer comes from” under the reply.
-10. **Switch to smart meter mode.** Set the household setup to `meter_only` (`PUT /api/settings {"setup": "meter_only"}`) and ask Mira: “Nasaang Meralco level na ako ngayong buwan?” Mira answers from the meter, without mentioning solar or battery.
-11. **Return to the closing slide.** End with the benefit to the customer rather than the technology.
+10. **Switch to smart meter mode.** In **Settings → Household setup**, choose **Smart meter only** and save. Home now shows the house without panels or battery, labelled **HOME** and **GRID**, with the live meter card and ways to save below it. Open the Bill screen for the **Meralco level this month** card, then ask Mira: “Nasaang Meralco level na ako ngayong buwan?” Mira answers from the meter, without mentioning solar or battery.
+11. **Show the Meralco slide.** Use the level card and Mira’s answer from step 10 as the example of a high-bill question answered at home.
+12. **Return to the closing slide.** End with the benefit to the customer rather than the technology.
 
-> **Demo note:** Smart meter mode is complete on the server and in Mira. The app does not yet have its own meter screens, so show it through Mira (step 10) rather than the Home screen.
+> **Demo note:** Smart meter mode needs meter readings. Seed them with `python tools/seed_history.py --reset --meter` (add `--new-load-days 5` for step 4), or run the simulator in meter mode. Switch the setup back to **Solar** in Settings before you rerun the demo.
 
 ---
 
@@ -405,13 +461,20 @@ With Solaris, customers can understand whether their energy is being used well, 
 
 ## Customer features
 
-- App screens for smart meter mode (meter reading, voltage, Meralco level)
 - Monthly electricity budget and savings goals
 - Notifications when consumption is likely to cross the customer’s target or the next Meralco level
 - Appliance-level monitoring through smart plugs or circuit sensors
 - Personalized schedules for high-consumption appliances, built from the household routine
 - Downloadable monthly energy and savings reports
-- Solar sizing for meter-only homes, based on their measured usage
+- An opt-in “Go solar” page for meter-only homes. The sizing, savings, and payback are already calculated on the server from the household’s measured use (`/api/solar-plan`), and the app card is built but not yet shown
+
+## Utility (Meralco) features
+
+- Opt-in sharing: the household chooses which summaries to send to Meralco, such as hourly usage, always-on load, or outage times
+- One-tap outage and low-voltage reports to Meralco, with exact times and readings attached
+- An area outage map built from opted-in homes that report brownouts as they start
+- Customer segments for energy-efficiency and usage-shifting programs, built from opt-in household profiles
+- Meralco advisories, such as scheduled interruptions and rate changes, delivered through the app and explained by Mira
 
 ## Installer and business features
 
@@ -440,5 +503,6 @@ With Solaris, customers can understand whether their energy is being used well, 
 - Spend most of the demonstration on the bill forecast, live monitoring, the household profile, brownout runtime, and Mira.
 - Mention privacy when presenting the household profile: it is computed on the home’s own computer and never leaves the house.
 - Present smart meter mode as a way to reach the many homes without solar, not as a side feature.
+- On the Meralco slide, be clear about what works today and what needs a partnership. Do not claim that Meralco already receives Solaris data, or quote call-volume savings we have not measured.
 - Avoid claiming guaranteed savings. Explain that Solaris gives customers the information and recommendations needed to make better decisions, and that upgrade prices are estimates.
 - End with the customer benefit: visibility, preparation, and control over household energy costs.
