@@ -1,12 +1,22 @@
 #pragma once
+// Private per-network values (Wi-Fi password, broker IP) go in secrets.h next to this file.
+// It is gitignored; anything it #defines wins over the defaults below.
+#if __has_include("secrets.h")
+#include "secrets.h"
+#endif
+
 // ===================== Solaris inverter simulator — config =====================
 // ESP32 #2. Edit these, then upload.
 
 // ---- Wi-Fi (the team hotspot). If it can't connect in 15 s, the simulator
 //      starts its own AP "Solaris-Sim" (password below) at http://192.168.4.1 and
 //      keeps looking for the hotspot every WIFI_RETRY_MS. Once it joins, the AP closes.
+#ifndef WIFI_SSID
 #define WIFI_SSID       "YOUR_HOTSPOT_SSID"
+#endif
+#ifndef WIFI_PASS
 #define WIFI_PASS       "YOUR_HOTSPOT_PASSWORD"
+#endif
 #define WIFI_RETRY_MS   30000              // hotspot retry while in AP mode (AP clients blip briefly)
 #define AP_SSID         "Solaris-Sim"
 #define AP_PASS         "solaris1234"        // min 8 chars

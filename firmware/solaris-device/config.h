@@ -1,13 +1,27 @@
 #pragma once
+// Private per-network values (Wi-Fi password, broker IP) go in secrets.h next to this file.
+// It is gitignored; anything it #defines wins over the defaults below.
+#if __has_include("secrets.h")
+#include "secrets.h"
+#endif
+
 // ======================= Solaris device (connector) — config ===================
 // ESP32 #1. Edit these, then upload.
 
 // ---- Wi-Fi (team hotspot) and MQTT broker (Mosquitto on the server laptop)
+#ifndef WIFI_SSID
 #define WIFI_SSID     "YOUR_HOTSPOT_SSID"
+#endif
+#ifndef WIFI_PASS
 #define WIFI_PASS     "YOUR_HOTSPOT_PASSWORD"
+#endif
+#ifndef MQTT_MDNS_HOST
 #define MQTT_MDNS_HOST ""                  // server laptop's name, e.g. "ANDY-LAPTOP" -> found as ANDY-LAPTOP.local
+#endif
                                            // on any hotspot IP (the start script prints it). "" = MQTT_HOST only
+#ifndef MQTT_HOST
 #define MQTT_HOST     "192.168.43.100"     // fallback: server laptop IP on the hotspot
+#endif
 #define MQTT_PORT     1883
 #define MDNS_TIMEOUT_MS 1500               // how long to wait for the laptop to answer its .local name
 #define MQTT_USER     ""                   // empty = no auth
