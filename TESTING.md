@@ -115,6 +115,6 @@ simulator box.
 - [ ] **Bill**: month-to-date, forecast with range, vs last month, weekly bars
 - [ ] **Ask Mira**: answer + chips appear; spinner while waiting (up to ~10 s); off-topic question gets the polite refusal
 - [ ] **Alerts**: list, tap marks read, badge count goes down; "mark all read"
-- [ ] **Settings**: change server IP → reconnects; "Test connection" uses `/api/health`; rate change updates the Bill tab
+- [ ] **Settings**: change server IP → reconnects; "Test connection" uses `/api/health`; Meralco rate is read-only; Refresh rate shows its month/source and updates the Bill tab
 - [ ] **Server restarts** mid-demo → app reconnects the WebSocket on its own
 - [ ] ₱ sign and Taglish text render correctly everywhere

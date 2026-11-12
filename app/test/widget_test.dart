@@ -143,6 +143,25 @@ class FailingChat extends StateMock {
   }
 }
 
+class RateMock extends StateMock {
+  bool refreshed = false;
+  @override
+  Future<Map<String, dynamic>> getSettings() async => {
+    ...await super.getSettings(),
+    'rate_php_per_kwh': 15.0615,
+    'meralco_rate': {
+      'status': refreshed ? 'cached' : 'published', 'billing_month': '2026-10',
+      'source_url': 'https://www.meralco.com.ph/', 'reference_kwh': 200,
+      'fetched_at': 1791835200, 'checked_at': 1791835200,
+    },
+  };
+  @override
+  Future<Map<String, dynamic>> refreshMeralcoRate() async {
+    refreshed = true;
+    return getSettings();
+  }
+}
+
 /// Records notifications instead of calling the browser.
 class FakeNotifier implements SystemNotifier {
   FakeNotifier({this.supported = true, this.grant = true});
@@ -513,6 +532,86 @@ void main() {
 
 
   group('Inverter health on Home', () {
+    testWidgets('device disconnect updates Home and signal while the server stays connected', (t) async {
+      final api = StateMock();
+      final container = await pumpApp(t, api: api);
+      await container.read(serverConfigProvider.notifier).setUseMock(false);
+      await t.pumpAndSettle();
+      expect(find.text('Strong'), findsOneWidget);
+      expect(find.text('Live'), findsOneWidget);
+
+      // Older servers can send just a Device status message; RSSI can still be cached.
+      api.push({'type': 'status', 'data': {...example('live')['device'] as Map<String, dynamic>, 'online': false}});
+      await t.pumpAndSettle();
+      expect(find.text('Strong'), findsNothing);
+      expect(find.text('Device offline'), findsOneWidget);
+      expect(find.text('Offline ang Solaris device'), findsOneWidget);
+      expect(find.textContaining('Device offline · last received'), findsOneWidget);
+      expect(find.text('Outdated'), findsNWidgets(4));
+      await t.scrollUntilVisible(find.text('Unavailable'), 200,
+          scrollable: find.byType(Scrollable).first);
+      expect(find.text('Offline'), findsOneWidget);
+      expect(find.text('No issues'), findsNothing);
+      expect(find.text('Unavailable'), findsOneWidget);
+      expect(find.text('42°C'), findsOneWidget);
+      expect(find.text('Last reading'), findsOneWidget);
+      expect(find.text('Live'), findsNothing);
+
+      api.push({'type': 'telemetry', 'data': example('live')});
+      await t.pumpAndSettle();
+      await t.drag(find.byType(Scrollable).first, const Offset(0, 1000));
+      await t.pumpAndSettle();
+      expect(find.text('Strong'), findsOneWidget);
+      expect(find.text('Live'), findsOneWidget);
+      expect(find.text('Offline ang Solaris device'), findsNothing);
+      expect(find.text('No issues'), findsOneWidget);
+      expect(find.text('Outdated'), findsNothing);
+    });
+
+    for (final fault in [0, 21]) {
+      testWidgets('offline history stays clear on a small phone with large text, fault $fault', (t) async {
+        t.platformDispatcher.textScaleFactorTestValue = 2;
+        addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
+        final live = example('live')
+          ..['state'] = 'offline'
+          ..['device'] = {...example('live')['device'] as Map<String, dynamic>, 'online': false};
+        (live['telemetry'] as Map)['fault_code'] = fault;
+        (live['telemetry'] as Map)['grid_on'] = false;
+        (live['telemetry'] as Map)['ts'] = DateTime.now().millisecondsSinceEpoch ~/ 1000 - 120;
+        await pumpApp(t, api: StateMock(live: live), size: const Size(320, 640));
+        await t.scrollUntilVisible(find.text('Device offline · last received 2 min ago'), 150,
+            scrollable: find.byType(Scrollable).first);
+        expect(find.text('Device offline · last received 2 min ago'), findsOneWidget);
+        await t.scrollUntilVisible(find.text('SOLAR'), 150, // the house's labels hold the readings
+            scrollable: find.byType(Scrollable).first);
+        expect(find.text('Outdated'), findsNWidgets(4));
+        await t.scrollUntilVisible(find.text('Unavailable'), 200,
+            scrollable: find.byType(Scrollable).first);
+        expect(find.text('No issues'), findsNothing);
+        expect(find.text('42°C'), findsOneWidget);
+        expect(find.text('Last reading'), findsOneWidget);
+        final inverter = t.getTopLeft(find.text('Inverter'));
+        final status = t.getTopLeft(find.text('Inverter status'));
+        final signal = t.getTopLeft(find.text('Solaris device'));
+        expect(inverter.dx, lessThan(status.dx));
+        expect(status.dx, lessThan(signal.dx));
+        expect(find.text('Strong'), findsNothing);
+        expect(find.text('May brownout ngayon'), findsNothing);
+        expect(find.text('May kuryente mula sa grid'), findsNothing);
+        if (fault != 0) {
+          await t.scrollUntilVisible(find.text('Last reported fault: $fault'), 150,
+              scrollable: find.byType(Scrollable).first);
+          expect(find.text('Last reported fault: $fault'), findsOneWidget);
+          await t.ensureVisible(find.text('Last reported fault: $fault'));
+          await t.pumpAndSettle();
+          await t.tap(find.text('Last reported fault: $fault'));
+          await t.pumpAndSettle();
+          expect(find.text('Mark all read'), findsOneWidget);
+        }
+        expect(t.takeException(), isNull);
+      });
+    }
+
     testWidgets('normal: temperature, no fault, Wi-Fi signal', (t) async {
       await pumpApp(t);
       expect(find.text('42°C'), findsOneWidget); // live.telemetry.inv_temp_c
@@ -567,6 +666,27 @@ void main() {
       await t.pump();
       expect(n.shown, isEmpty);
       expect(find.textContaining('Brownout: Nawalan'), findsOneWidget);
+    });
+
+    testWidgets('device connection toast dismisses automatically and can be closed', (t) async {
+      final api = StateMock();
+      await pumpApp(t, api: api);
+      Map<String, dynamic> connected(int id) => {
+        ...newAlert(id), 'type': 'device_online', 'severity': 'info',
+        'title': 'Konektado na ang Solaris device', 'message': 'Tumatanggap na ulit ng data.',
+      };
+      api.push({'type': 'alert', 'data': connected(102)});
+      await t.pumpAndSettle();
+      expect(find.text('View alerts'), findsOneWidget);
+      await t.pump(const Duration(seconds: 5));
+      await t.pumpAndSettle();
+      expect(find.byType(SnackBar), findsNothing);
+
+      api.push({'type': 'alert', 'data': connected(103)});
+      await t.pumpAndSettle();
+      await t.tap(find.byTooltip('Close'));
+      await t.pumpAndSettle();
+      expect(find.byType(SnackBar), findsNothing);
     });
 
     testWidgets('coming back to the app reports alerts missed while away', (t) async {
@@ -925,31 +1045,58 @@ void main() {
     await t.tap(find.bySemanticsLabel('Settings').first);
     await t.pumpAndSettle();
     expect(find.text('Test connection'), findsOneWidget);
-    await t.enterText(find.widgetWithText(TextField, '13.0'), '12.5');
+    expect(find.text('₱13.0000 / kWh'), findsOneWidget);
+    expect(find.widgetWithText(TextField, '13.0'), findsNothing);
+    await t.enterText(find.widgetWithText(TextField, '10.0'), '12.5');
     await t.ensureVisible(find.text('Save household'));
     await t.pumpAndSettle();
     await t.tap(find.text('Save household'));
     await t.pumpAndSettle();
-    expect(c.read(serverSettingsProvider).value!['rate_php_per_kwh'], 12.5);
+    expect(c.read(serverSettingsProvider).value!['battery_kwh'], 12.5);
+    expect(c.read(serverSettingsProvider).value!['rate_php_per_kwh'], 13.0);
   });
 
   testWidgets('Settings: invalid household values say why instead of doing nothing', (t) async {
     final c = await pumpApp(t);
     await t.tap(find.bySemanticsLabel('Settings').first);
     await t.pumpAndSettle();
-    await t.enterText(find.widgetWithText(TextField, '13.0'), 'abc');
+    await t.enterText(find.widgetWithText(TextField, '10.0'), 'abc');
     await t.ensureVisible(find.text('Save household'));
     await t.pumpAndSettle();
     await t.tap(find.text('Save household'));
     await t.pumpAndSettle();
-    expect(find.textContaining('Numero mula 1 hanggang 100'), findsOneWidget);
+    expect(find.textContaining('Numero mula 1 hanggang 200'), findsOneWidget);
     expect(c.read(serverSettingsProvider).value!['rate_php_per_kwh'], 13.0);
-    await t.enterText(find.widgetWithText(TextField, 'abc'), '13.0');
+    await t.enterText(find.widgetWithText(TextField, 'abc'), '10.0');
     await t.ensureVisible(find.text('Save household'));
     await t.pumpAndSettle();
     await t.tap(find.text('Save household'));
     await t.pumpAndSettle();
     expect(find.textContaining('Walang binago'), findsOneWidget);
+  });
+
+  testWidgets('Settings: published Meralco rate is read-only and refresh retains cached data', (t) async {
+    final api = RateMock();
+    await pumpApp(t, api: api);
+    await t.tap(find.bySemanticsLabel('Settings').first);
+    await t.pumpAndSettle();
+    await t.enterText(find.widgetWithText(TextField, 'Juan'), 'Maria');
+    await t.scrollUntilVisible(find.text('Refresh rate'), 200,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('₱15.0615 / kWh'), findsOneWidget);
+    expect(find.text('October 2026 billing'), findsOneWidget);
+    expect(find.text('Source: Meralco'), findsOneWidget);
+    expect(find.widgetWithText(TextField, '15.0615'), findsNothing);
+    await t.ensureVisible(find.text('Refresh rate'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Refresh rate'));
+    await t.pumpAndSettle();
+    expect(api.refreshed, isTrue);
+    expect(find.text('₱15.0615 / kWh'), findsOneWidget);
+    expect(find.textContaining('huling verified na rate'), findsOneWidget);
+    await t.scrollUntilVisible(find.text('Name'), -150, scrollable: find.byType(Scrollable).first);
+    expect(find.widgetWithText(TextField, 'Maria'), findsOneWidget);
+    expect(t.takeException(), isNull);
   });
 
   testWidgets('Home says how old the reading is', (t) async {

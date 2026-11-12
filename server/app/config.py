@@ -37,6 +37,7 @@ EXAMPLES_DIR = REPO_DIR / "docs" / "contracts" / "examples"
 MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
 MQTT_ENABLED = _bool("MQTT_ENABLED", "1")
+MERALCO_RATE_ENABLED = _bool("MERALCO_RATE_ENABLED", "1")
 
 # Device is "offline" if no telemetry for this long, even without a last-will message.
 OFFLINE_AFTER_S = int(os.getenv("OFFLINE_AFTER_S", "30"))
@@ -52,6 +53,8 @@ LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_TIMEOUT_S = float(os.getenv("LLM_TIMEOUT_S", "20"))   # per LLM call
 CHAT_BUDGET_S = float(os.getenv("CHAT_BUDGET_S", "25"))   # whole /api/chat incl. one retry
 LLM_KEEP_ALIVE = os.getenv("LLM_KEEP_ALIVE", "60m")
+# -1 leaves GPU allocation to Ollama; 0 uses CPU only.
+LLM_GPU_LAYERS = int(os.getenv("LLM_GPU_LAYERS", "-1"))
 AI_LOG = Path(os.getenv("AI_LOG", SERVER_DIR / "logs" / "ai.jsonl"))
 
 # Bill forecast of daily kWh: "sarima" (weekly SARIMA, falls back to averages with < 4 weeks of history

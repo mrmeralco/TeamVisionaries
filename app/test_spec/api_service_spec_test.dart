@@ -35,6 +35,7 @@ class FakeServer {
     if (req.method == 'POST' && p == '/api/chat') body = example('chat');
     if (req.method == 'GET' && p == '/api/summary/daily') body = example('summary_daily');
     if (req.method == 'GET' && p == '/api/settings') body = example('settings');
+    if (req.method == 'POST' && p == '/api/settings/rate/refresh') body = example('settings');
     if (req.method == 'PUT' && p == '/api/settings') body = {...example('settings'), ...jsonDecode(req.body) as Map};
     if (req.method == 'GET' && p == '/api/health') body = {'ok': true, 'mock': false, 'llm': 'qwen3.5:4b', 'llm_reachable': true};
     if (body == null) return http.Response('{"detail":"Not Found"}', 404);
@@ -145,11 +146,16 @@ void main() {
 
     test('getSettings / updateSettings -> GET, PUT /api/settings (partial body)', () async {
       expectContract('settings', await api.getSettings());
-      final r = asJson(await api.updateSettings({'rate_php_per_kwh': 12.5})) as Map;
+      final r = asJson(await api.updateSettings({'battery_kwh': 12.5})) as Map;
       expectRequest('PUT', '/api/settings');
-      expect(jsonDecode(server.last.body), {'rate_php_per_kwh': 12.5});
-      expect(r['rate_php_per_kwh'], 12.5);
+      expect(jsonDecode(server.last.body), {'battery_kwh': 12.5});
+      expect(r['battery_kwh'], 12.5);
       expectContract('settings', r);
+    });
+
+    test('refreshMeralcoRate -> POST /api/settings/rate/refresh', () async {
+      expectContract('settings', await api.refreshMeralcoRate());
+      expectRequest('POST', '/api/settings/rate/refresh');
     });
 
     test('health -> GET /api/health (Settings "Test connection")', () async {

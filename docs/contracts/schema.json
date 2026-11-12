@@ -727,13 +727,25 @@
     "settings": {
       "description": "GET|PUT /api/settings",
       "type": "object",
-      "required": ["rate_php_per_kwh", "battery_kwh", "user_name", "device_id", "setup"],
+      "required": ["rate_php_per_kwh", "battery_kwh", "user_name", "device_id", "setup", "meralco_rate"],
       "properties": {
         "rate_php_per_kwh": { "type": "number", "exclusiveMinimum": 0 },
         "battery_kwh": { "type": "number", "exclusiveMinimum": 0 },
         "user_name": { "type": "string" },
         "device_id": { "type": "string", "minLength": 1 },
-        "setup": { "$ref": "#/$defs/setup" }
+        "setup": { "$ref": "#/$defs/setup" },
+        "meralco_rate": {
+          "type": "object",
+          "required": ["status", "billing_month", "source_url", "reference_kwh", "fetched_at", "checked_at"],
+          "properties": {
+            "status": { "enum": ["published", "cached", "unavailable", "sample"] },
+            "billing_month": { "type": ["string", "null"] },
+            "source_url": { "type": "string" },
+            "reference_kwh": { "type": "integer", "enum": [200] },
+            "fetched_at": { "type": ["integer", "null"] },
+            "checked_at": { "type": ["integer", "null"] }
+          }
+        }
       }
     },
     "health": {

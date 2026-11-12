@@ -1,12 +1,15 @@
 // Settings: server address (the laptop's IP on the hotspot), mock toggle, "Test connection"
-// (GET /api/health), appearance (auto / light / dark), and the server-side settings (rate, battery size, name, household setup) via PUT /api/settings.
+// (GET /api/health), appearance (auto / light / dark), the automatic Meralco rate (read-only, from the server),
+// and the household settings (name, battery size, household setup) via PUT /api/settings.
 // Household setup: solar (inverter) | meter_only (smart meter, no solar) | solar_and_meter. It decides where
 // every number comes from, so saving a new one refreshes every tab.
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../providers/appearance_providers.dart';
+import '../../core/utils/format.dart';
 import '../../providers/data_providers.dart';
 import '../../providers/notification_providers.dart';
 import '../../providers/server_providers.dart';
@@ -22,7 +25,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final _url = TextEditingController(text: ref.read(serverConfigProvider).baseUrl);
   final _name = TextEditingController();
-  final _rate = TextEditingController();
   final _batt = TextEditingController();
   Map<String, dynamic>? _loaded; // server settings the household fields were filled from
   String _setup = 'solar';
@@ -33,15 +35,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ('solar_and_meter', 'Solar + smart meter', 'Pareho: ang inverter para sa solar at battery, ang meter para sa bill.'),
   ];
   String? _urlError;
-  String? _nameError, _rateError, _battError;
+  String? _nameError, _battError;
+  bool _refreshingRate = false;
   bool _testing = false;
   String? _testResult;
   bool _testOk = false;
   bool _saving = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Home also uses household settings; fetch current rate provenance when this page opens.
+    Future.microtask(() { if (mounted) ref.invalidate(serverSettingsProvider); });
+  }
+
+  @override
   void dispose() {
-    for (final c in [_url, _name, _rate, _batt]) {
+    for (final c in [_url, _name, _batt]) {
       c.dispose();
     }
     super.dispose();
@@ -49,10 +59,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _fill(Map<String, dynamic> s) {
     if (identical(s, _loaded)) return;
+    if (_loaded == null || _name.text == '${_loaded!['user_name'] ?? ''}') {
+      _name.text = '${s['user_name'] ?? ''}';
+    }
+    if (_loaded == null || _batt.text == '${_loaded!['battery_kwh'] ?? ''}') {
+      _batt.text = '${s['battery_kwh'] ?? ''}';
+    }
     _loaded = s;
-    _name.text = '${s['user_name'] ?? ''}';
-    _rate.text = '${s['rate_php_per_kwh'] ?? ''}';
-    _batt.text = '${s['battery_kwh'] ?? ''}';
     _setup = setups.any((x) => x.$1 == s['setup']) ? s['setup'] as String : 'solar';
   }
 
@@ -91,21 +104,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final s = _loaded ?? const {};
     final messenger = ScaffoldMessenger.of(context);
     final name = _name.text.trim();
-    final rate = double.tryParse(_rate.text.trim());
     final batt = double.tryParse(_batt.text.trim());
     // Say what's wrong instead of quietly ignoring a bad value.
     setState(() {
       _nameError = name.isEmpty ? 'Ilagay ang pangalan.' : null;
-      _rateError = rate == null || rate <= 0 || rate > 100 ? 'Numero mula 1 hanggang 100, hal. 13.5' : null;
       // No battery in a meter-only home: its (hidden) field isn't checked.
       _battError = _setup != 'meter_only' && (batt == null || batt <= 0 || batt > 200)
           ? 'Numero mula 1 hanggang 200, hal. 10'
           : null;
     });
-    if (_nameError != null || _rateError != null || _battError != null) return;
+    if (_nameError != null || _battError != null) return;
     final changes = <String, dynamic>{
       if (name != s['user_name']) 'user_name': name,
-      if (rate != s['rate_php_per_kwh']) 'rate_php_per_kwh': rate,
       if (_setup != 'meter_only' && batt != s['battery_kwh']) 'battery_kwh': batt,
       if (_setup != (s['setup'] ?? 'solar')) 'setup': _setup,
     };
@@ -122,6 +132,72 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       messenger.showSnackBar(SnackBar(content: Text('Hindi na-save. ${f.title}${e is SettingsNotKept ? ' ${f.hint}' : ''}')));
     }
     if (mounted) setState(() => _saving = false);
+  }
+
+  Future<void> _refreshRate() async {
+    setState(() => _refreshingRate = true);
+    try {
+      await ref.read(serverSettingsProvider.notifier).refreshRate();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Hindi ma-refresh ang rate. Nananatili ang huling naka-save na halaga.'),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _refreshingRate = false);
+    }
+  }
+
+  Widget _meralcoRate(Map<String, dynamic> settings) {
+    final info = mapOf(settings['meralco_rate']);
+    final status = str(info['status'], 'unavailable');
+    final available = status != 'unavailable';
+    final rate = settings['rate_php_per_kwh'];
+    final month = str(info['billing_month']);
+    final source = str(info['source_url'], 'https://www.meralco.com.ph/');
+    final fetched = intOrNull(info['fetched_at']);
+    final period = RegExp(r'^20\d{2}-(0[1-9]|1[0-2])$').hasMatch(month)
+        ? '${monthNameOf(month)} ${month.substring(0, 4)} billing' : null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Meralco rate', style: ts(12, w: FontWeight.w700)),
+        const SizedBox(height: 6),
+        Text(available && rate is num && rate.isFinite ? '₱${rate.toStringAsFixed(4)} / kWh' : 'Rate unavailable',
+            style: ts(18, w: FontWeight.w700)),
+        const SizedBox(height: 4),
+        Text(status == 'sample' ? 'Sample rate · mock data'
+            : (available ? 'Latest published overall residential rate' : 'Automatic Meralco rate'),
+            style: ts(11, color: C.label)),
+        if (period != null) Text(period, style: ts(12, w: FontWeight.w600)),
+        Text('200 kWh reference household. Actual bills depend on consumption and other charges.',
+            style: ts(11, color: C.muted)),
+        if (fetched != null) Text('Verified ${formatWhen(fetched)}', style: ts(11, color: C.muted)),
+        if (status == 'cached')
+          Text('Hindi ma-update ngayon. Ginagamit ang huling verified na rate.',
+              style: ts(12, color: C.orangeText)),
+        if (status == 'unavailable')
+          Text('Wala pang verified na rate. Pansamantalang estimate ang ginagamit sa bill.',
+              style: ts(12, color: C.orangeText)),
+        Text('Source: Meralco', style: ts(11, color: C.label)),
+        if (status != 'sample') Text('Checked automatically every 6 hours.', style: ts(11, color: C.muted)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          OutlinedButton.icon(
+            onPressed: _refreshingRate || _saving ? null : _refreshRate,
+            icon: _refreshingRate
+                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.refresh_rounded, size: 16),
+            label: Text(_refreshingRate ? 'Checking…' : 'Refresh rate'),
+          ),
+          TextButton(onPressed: () async {
+            await Clipboard.setData(ClipboardData(text: source));
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Source link copied.')));
+          }, child: const Text('Copy source link')),
+        ]),
+      ]),
+    );
   }
 
   Widget _field(
@@ -322,13 +398,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         Text(setups.firstWhere((x) => x.$1 == _setup).$3, style: ts(11, color: C.muted)),
                         const SizedBox(height: 14),
                         _field('Name', _name, error: _nameError),
-                        _field(
-                          'Meralco rate',
-                          _rate,
-                          type: const TextInputType.numberWithOptions(decimal: true),
-                          suffix: '₱/kWh',
-                          error: _rateError,
-                        ),
+                        _meralcoRate(s),
                         if (_setup != 'meter_only')
                           _field(
                             'Battery size',

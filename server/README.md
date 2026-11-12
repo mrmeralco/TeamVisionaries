@@ -72,6 +72,39 @@ python tools/fake_device.py          # or the real Solaris device pointed at thi
 Open `http://localhost:8000/docs` to try every endpoint. `GET /api/health` shows whether the LLM is reachable
 and the model is pulled.
 
+## Chatbot test data
+
+From `server/`, create fictional fixtures in a fresh output folder:
+
+```powershell
+.\.venv\Scripts\python.exe tools/seed_ai_chat.py --output-dir logs/ai-chat-seed/demo
+```
+
+This creates separate databases for `normal`, `high-bill`, `brownout`, `fault`, `low-battery`,
+`offline`, `fault-brownout`, and `empty`. Each populated database has 90 days of history and known
+current readings. `manifest.json` contains the readings, expected states, settings, and Taglish test
+questions. Money amounts come from backend calculations. Use `--scenario brownout` to generate only
+one case. Existing files are preserved; use a new output folder to regenerate with fresh dates.
+
+To test a fixture through the API or app, open a separate PowerShell terminal in `server/`:
+
+```powershell
+$env:SOLARIS_DB = (Resolve-Path logs/ai-chat-seed/demo/normal.db).Path
+$env:SOLARIS_MOCK = "0"
+$env:MQTT_ENABLED = "0"
+$env:WEATHER_ENABLED = "0"
+$env:MERALCO_RATE_ENABLED = "0"
+$env:LLM_ENABLED = "1"
+$env:OFFLINE_AFTER_S = "86400"
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8001
+```
+
+Choose another `.db` and restart that test server to switch scenarios. On this computer, point the
+app's Settings server URL to `http://localhost:8001`, or use `http://localhost:8001/docs` to send
+`POST /api/chat` questions. MQTT is disabled on this test server so real readings cannot replace the
+fixture. The snapshot stays fresh for 24 hours; `offline` is explicitly marked offline. Real weather
+is disabled so the solar outlook uses seeded history. The existing host on port 8000 is unaffected.
+
 ## How the numbers work
 
 - **kWh**: each 5 s power sample is counted until the next one (gaps over 15 min are not counted).
@@ -98,3 +131,11 @@ and the model is pulled.
 - **AI**: the backend computes every number; the model only phrases cited facts in Taglish, and a guard
   rejects any reply with a number that isn't in the facts. If the LLM is off, slow or fails the guard twice,
   a rule-based answer is returned (`"source": "fallback"`). Full guide: [ai/README.md](ai/README.md).
+
+## Automatic Meralco rate
+
+Settings fetch Meralco's published overall residential rate from https://www.meralco.com.ph/ through the backend. It uses the 200-kWh reference rate expected by the existing tariff model, not the generation charge alone. The billing month, source and last verification are shown in Settings; there is no editable rate field. Manual rate changes through `PUT /api/settings` return 422.
+
+The host checks on startup and every six hours. `POST /api/settings/rate/refresh` requests an earlier check (at most once per minute). A failed request or unrecognized page preserves the last verified SQLite snapshot. Before the first successful check, the configured estimate is used and is marked unverified. Offline use needs no Meralco connection once a rate is cached. Bill and savings estimates use the managed rate; tariff component tables and historical billing assumptions are unchanged.
+
+`MERALCO_RATE_ENABLED=0` disables public-source checks for isolated fixtures and tests. It is enabled by default for the real host. API responses retain `rate_php_per_kwh` and add `meralco_rate` provenance; see `docs/contracts/C-api.md`.

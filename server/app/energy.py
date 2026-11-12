@@ -144,7 +144,8 @@ def device_info(device_id: str, latest: dict | None) -> dict:
     last_seen = latest["ts"] if latest else None
     fresh = last_seen is not None and time.time() - last_seen <= config.OFFLINE_AFTER_S
     online = fresh and st.get("online", 1) != 0
-    return {"id": device_id, "online": bool(online), "rssi": st.get("rssi"), "fw": st.get("fw"), "last_seen_ts": last_seen}
+    return {"id": device_id, "online": bool(online), "rssi": st.get("rssi") if online else None,
+            "fw": st.get("fw"), "last_seen_ts": last_seen}
 
 
 def runtime_hours(soc: int, load_w: int, battery_kwh: float) -> float | None:

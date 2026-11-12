@@ -125,7 +125,22 @@ class SpotInfo {
 
 String _kw(num w) => '${(w.abs() / 1000).toStringAsFixed(1)} kW';
 
+/// A label's reading. [offline]: the device stopped sending; its last reading stays, marked Outdated, so
+/// the house never shows old numbers as if they were live.
 SpotInfo spotInfo(Spot s, Map<String, dynamic> t, {bool offline = false}) {
+  final now = _spotNow(s, t);
+  if (!offline || t.isEmpty) return now;
+  return SpotInfo(
+    title: now.title,
+    value: now.value,
+    state: 'Outdated',
+    note: 'Last reading, outdated',
+    detail: 'Offline ang Solaris device, kaya ito ang huling reading nito. ${now.detail}',
+    color: C.muted,
+  );
+}
+
+SpotInfo _spotNow(Spot s, Map<String, dynamic> t) {
   final color = C.orangeText; // small text on white: 6.0:1
   final title = switch (s) {
     Spot.solar => 'Solar',
@@ -133,7 +148,7 @@ SpotInfo spotInfo(Spot s, Map<String, dynamic> t, {bool offline = false}) {
     Spot.battery => 'Battery',
     Spot.grid => 'Grid',
   };
-  if (offline || t.isEmpty) {
+  if (t.isEmpty) {
     return SpotInfo(
       title: title,
       value: '—',

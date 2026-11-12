@@ -527,7 +527,7 @@ class ChargesCard extends StatelessWidget {
         _Levels(rates: rates, level: level, kwh: numOr(d['kwh'])),
         const SizedBox(height: S.x3),
         Text(
-          'Rates: ${str(rates['source'])}. Overall rate ${_rate(rates['overall_php_per_kwh'])}/kWh from Settings. '
+          'Rates: ${str(rates['source'])}. Overall rate ${_rate(rates['overall_php_per_kwh'])}/kWh: Meralco’s latest published rate (see Settings). '
           'Not included: lifeline and senior citizen discounts.',
           style: ts(10, height: 1.4, color: C.muted),
         ),

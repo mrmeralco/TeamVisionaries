@@ -52,9 +52,11 @@ class LinkIndicator extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final link = ref.watch(liveProvider.select((s) => s.link));
+    final live = ref.watch(liveProvider);
+    final link = live.link;
     final mock = ref.watch(serverConfigProvider.select((c) => c.useMock));
     final (color, label) = switch (link) {
+      LinkStatus.connected when !mock && live.device?['online'] == false => (C.red, 'Device offline'),
       LinkStatus.connected => (C.green, mock ? 'Mock' : 'Live'),
       LinkStatus.connecting => (C.amber, 'Connecting'),
       LinkStatus.waiting => (C.red, 'Reconnecting'),
@@ -437,7 +439,8 @@ class _EveryState extends State<Every> {
 /// "Updated 2 min ago" for live readings. When the socket is down or the reading is old it says so,
 /// so the user knows the numbers on screen may not be current.
 class Freshness extends StatelessWidget {
-  const Freshness({super.key, required this.readingTs, required this.link});
+  const Freshness({super.key, required this.readingTs, required this.link, this.deviceOnline});
+  final bool? deviceOnline;
   final int? readingTs; // telemetry.ts, Unix seconds
   final LinkStatus link;
 
@@ -448,7 +451,10 @@ class Freshness extends StatelessWidget {
       final t = readingTs;
       final age = t == null ? null : DateTime.now().millisecondsSinceEpoch ~/ 1000 - t;
       final when = t == null ? '' : (age! < 60 ? 'just now' : formatAgo(t).toLowerCase());
+      final lastReceived = age != null && age < 60 ? '${age.clamp(0, 59)} sec ago' : when;
       final (icon, color, text) = switch (link) {
+        LinkStatus.connected when deviceOnline == false => (
+          Icons.cloud_off_rounded, C.red, t == null ? 'Device offline' : 'Device offline · last received $lastReceived'),
         LinkStatus.connected when age != null && age > 120 => (Icons.schedule_rounded, C.amber, 'Last reading $when'),
         LinkStatus.connected => (Icons.check_circle_outline_rounded, C.muted, t == null ? 'Live' : 'Updated $when'),
         _ => (

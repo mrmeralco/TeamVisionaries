@@ -47,6 +47,7 @@ class HomeScreen extends ConsumerWidget {
     // A meter-only home has nothing "saved": the first money card is what the house used today instead.
     final today = hasSolar ? null : ref.watch(energyProvider(('day', 0))).value;
     final data = live.live;
+    final offline = live.state == 'offline' || live.device?['online'] == false;
 
     Future<void> refresh() async {
       ref.invalidate(billProvider);
@@ -109,7 +110,10 @@ class HomeScreen extends ConsumerWidget {
                                   child: Semantics(
                                     liveRegion: true,
                                     child: Text(
-                                      str(data?['status_line'], 'Kumokonekta sa Solaris… Ilang saglit lang.'),
+                                      // The device dropped off: say the numbers are its last ones.
+                                      offline && (live.telemetry != null || live.meter != null)
+                                          ? 'Offline ang Solaris device. Huling reading ang ipinapakita.'
+                                          : str(data?['status_line'], 'Kumokonekta sa Solaris… Ilang saglit lang.'),
                                       style: ts(13, w: FontWeight.w500, height: 1.4, color: night ? C.onNightMuted : C.ink),
                                     ),
                                   ),
@@ -125,7 +129,7 @@ class HomeScreen extends ConsumerWidget {
                       delay: const Duration(milliseconds: 80),
                       child: HouseScene(
                         telemetry: mapOf(data?['telemetry']),
-                        offline: str(data?['state'], 'offline') == 'offline' || live.telemetry == null,
+                        offline: offline || live.telemetry == null,
                         night: night,
                         // No solar: the house without panels or battery, labelled from the meter.
                         meterOnly: !hasSolar,
@@ -164,7 +168,7 @@ class HomeScreen extends ConsumerWidget {
             else ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
-                child: Freshness(readingTs: live.readingTs, link: live.link),
+                child: Freshness(readingTs: live.readingTs, link: live.link, deviceOnline: live.device?['online'] as bool?),
               ),
               _StateBanner(live: live),
               if (inBrownout) advisor,
@@ -176,13 +180,13 @@ class HomeScreen extends ConsumerWidget {
                   child: EnterOnce(
                     id: 'home-meter-stats',
                     delay: const Duration(milliseconds: 160),
-                    child: _MeterStats(meter: live.meter),
+                    child: _MeterStats(meter: live.meter, outdated: offline),
                   ),
                 ),
-              if (live.telemetry != null)
+              if (live.telemetry != null || (offline && hasSolar))
                 Padding(
                   padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
-                  child: _DeviceHealth(telemetry: live.telemetry!, device: live.device),
+                  child: _DeviceHealth(telemetry: live.telemetry ?? const {}, device: live.device, offline: offline),
                 ),
               if (setup == 'solar_and_meter')
                 const Padding(padding: EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0), child: MeterNowCard()),
@@ -318,7 +322,6 @@ class _StateBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final lastSeen = intOrNull(live.device?['last_seen_ts']);
     final (IconData, Color, String, String, VoidCallback?)? b = switch (live.state) {
       'fault' => (
         Icons.warning_amber_rounded,
@@ -337,7 +340,7 @@ class _StateBanner extends ConsumerWidget {
         Icons.cloud_off_rounded,
         C.muted,
         'Offline ang Solaris device',
-        lastSeen != null ? 'Huling reading: ${formatAgo(lastSeen)}' : 'Wala pang natatanggap na reading',
+        'Walang bagong data. Tingnan kung naka-on ang Solaris at konektado sa hotspot.',
         null,
       ),
       _ => null,
@@ -385,13 +388,15 @@ class _StateBanner extends ConsumerWidget {
 class _BrownoutAdvisor extends ConsumerWidget {
   const _BrownoutAdvisor();
 
-  static bool active(LiveState live) => live.state == 'brownout' || live.telemetry?['grid_on'] == false;
+  static bool active(LiveState live) => live.state != 'offline' && live.device?['online'] != false &&
+      (live.state == 'brownout' || live.telemetry?['grid_on'] == false);
 
   static String _hours(num? h) => h == null ? '—' : '~${h.toStringAsFixed(1)}';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final live = ref.watch(liveProvider);
+    if (live.state == 'offline' || live.device?['online'] == false) return const SizedBox.shrink();
     final on = active(live);
     ref.listen(liveProvider.select((s) => s.readingTs), (prev, next) {
       if (prev != null && next != prev && active(ref.read(liveProvider))) ref.invalidate(brownoutProvider);
@@ -532,8 +537,9 @@ class _MeterBrownout extends ConsumerWidget {
 
 /// A meter-only home's live tiles: what the house draws from the grid, and the meter's power quality.
 class _MeterStats extends StatelessWidget {
-  const _MeterStats({required this.meter});
+  const _MeterStats({required this.meter, this.outdated = false});
   final Map<String, dynamic>? meter;
+  final bool outdated; // the device is offline: these are its last readings
 
   @override
   Widget build(BuildContext context) {
@@ -569,8 +575,9 @@ class _MeterStats extends StatelessWidget {
         gap: S.x2,
         runGap: S.x2,
         children: [
-          _Tile('Current', amps is num && on ? amps.toStringAsFixed(1) : '—', amps is num && on ? 'A' : ''),
-          _Tile('Power factor', pf is num && on ? pf.toStringAsFixed(2) : '—', ''),
+          _Tile('Current', amps is num && on ? amps.toStringAsFixed(1) : '—', amps is num && on ? 'A' : '',
+              outdated: outdated),
+          _Tile('Power factor', pf is num && on ? pf.toStringAsFixed(2) : '—', '', outdated: outdated),
         ],
       );
     }
@@ -619,14 +626,16 @@ class _NoReadings extends StatelessWidget {
 /// One row of the dashboard list, Tesla-style: icon, label, the number, a short caption, and a
 /// chevron when it opens something.
 class _Tile extends StatelessWidget {
-  const _Tile(this.label, this.value, this.unit);
+  const _Tile(this.label, this.value, this.unit, {this.outdated = false});
   final String label, value, unit;
+  final bool outdated; // the device is offline: its last reading, greyed
 
   @override
   Widget build(BuildContext context) => Readout(
     label: label,
     value: value,
     unit: unit,
+    note: outdated ? 'Last reading, outdated' : null,
     child: Container(
       constraints: const BoxConstraints(minHeight: 77),
       padding: const EdgeInsets.fromLTRB(S.x3, S.x3, S.x2, S.x2),
@@ -639,12 +648,10 @@ class _Tile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: ts(11, w: FontWeight.w600, color: C.label, spacing: -0.1),
-          ),
+          Text(label, style: ts(11, w: FontWeight.w600, color: C.label, spacing: -0.1)),
+          if (outdated) Text('Outdated', style: ts(10, w: FontWeight.w700, color: C.muted)),
           const SizedBox(height: 8),
-          Reading(value, unit, valueColor: C.orangeDeep, unitWeight: FontWeight.w700),
+          Reading(value, unit, valueColor: outdated ? C.muted : C.orangeDeep, unitWeight: FontWeight.w700),
         ],
       ),
     ),
@@ -764,9 +771,10 @@ class _Summary extends StatelessWidget {
 /// Inverter + Solaris device status (presentation slide 5): inverter temperature, fault code, Wi-Fi signal.
 /// Temperature colours follow the server's high-temp alert (on above 60 °C, warning from 55 °C).
 class _DeviceHealth extends StatelessWidget {
-  const _DeviceHealth({required this.telemetry, this.device});
+  const _DeviceHealth({required this.telemetry, this.device, this.offline = false});
   final Map<String, dynamic> telemetry;
   final Map<String, dynamic>? device;
+  final bool offline;
 
   static (String, Color) _signal(num? rssi) => switch (rssi) {
     null => ('—', C.muted),
@@ -779,63 +787,61 @@ class _DeviceHealth extends StatelessWidget {
   Widget build(BuildContext context) {
     final temp = telemetry['inv_temp_c'] as num?;
     final fault = (telemetry['fault_code'] as num?)?.toInt() ?? 0;
-    final tempColor = temp == null ? C.muted : (temp > 60 ? C.red : (temp >= 55 ? C.amber : C.green));
-    final (signal, signalColor) = _signal(device?['rssi'] as num?);
+    final tempColor = offline || temp == null ? C.muted : (temp > 60 ? C.red : (temp >= 55 ? C.amber : C.green));
+    final (signal, signalColor) = offline || device?['online'] == false
+        ? ('Offline', C.red)
+        : _signal(device?['rssi'] as num?);
 
-    Widget item(IconData icon, Color color, String label, String value, {VoidCallback? onTap}) => Expanded(
-      child: Semantics(
-        button: onTap != null,
-        label: '$label: $value',
-        excludeSemantics: true,
-        child: InkWell(
-          borderRadius: R.control,
-          onTap: onTap,
-          child: Container(
-            constraints: const BoxConstraints(minHeight: kMinTap),
-            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-            child: Row(
-              children: [
-                Icon(icon, size: 16, color: color),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: ts(10, w: FontWeight.w600, color: C.label),
-                      ),
-                      Text(
-                        value,
-                        overflow: TextOverflow.ellipsis,
-                        style: ts(11, w: FontWeight.w700, color: color),
-                      ),
-                    ],
+    Widget item(IconData icon, Color color, String label, String value, {String? note, VoidCallback? onTap}) => Expanded(
+          child: Semantics(
+            button: onTap != null,
+            label: '$label: $value${note == null ? '' : '. $note'}',
+            excludeSemantics: true,
+            child: InkWell(
+              borderRadius: R.control,
+              onTap: onTap,
+              child: Container(
+                constraints: const BoxConstraints(minHeight: kMinTap),
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                child: Row(children: [
+                  Icon(icon, size: 16, color: color),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(label, style: ts(10, w: FontWeight.w600, color: C.label)),
+                        Text(value, overflow: offline ? TextOverflow.visible : TextOverflow.ellipsis,
+                            style: ts(11, w: FontWeight.w700, color: color)),
+                        if (note != null) Text(note, style: ts(10, color: C.muted)),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ]),
+              ),
             ),
           ),
-        ),
-      ),
-    );
+        );
 
     return SCard(
       padding: const EdgeInsets.symmetric(horizontal: S.x3, vertical: S.x1),
-      child: Row(
-        children: [
-          item(Icons.thermostat_rounded, tempColor, 'Inverter', temp == null ? '—' : '${temp.round()}°C'),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          item(Icons.thermostat_rounded, tempColor, 'Inverter', temp == null ? '—' : '${temp.round()}°C',
+              note: offline && temp != null ? 'Last reading' : null),
           item(
-            fault == 0 ? Icons.check_circle_rounded : Icons.error_rounded,
-            fault == 0 ? C.green : C.red,
-            'Status',
-            fault == 0 ? 'No issues' : 'Fault $fault',
-            onTap: fault == 0 ? null : () => context.go(Routes.alerts),
+            offline ? Icons.help_outline_rounded : (fault == 0 ? Icons.check_circle_rounded : Icons.error_rounded),
+            offline ? C.muted : (fault == 0 ? C.green : C.red),
+            'Inverter status',
+            offline ? 'Unavailable' : (fault == 0 ? 'No issues' : 'Fault $fault'),
+            onTap: !offline && fault != 0 ? () => context.go(Routes.alerts) : null,
           ),
-          item(Icons.wifi_rounded, signalColor, 'Solaris device', signal),
-        ],
-      ),
+          item(offline ? Icons.wifi_off_rounded : Icons.wifi_rounded, signalColor, 'Solaris device', signal),
+        ]),
+        if (offline && fault != 0)
+          LinkButton('Last reported fault: $fault', onTap: () => context.go(Routes.alerts)),
+      ]),
     );
   }
 }

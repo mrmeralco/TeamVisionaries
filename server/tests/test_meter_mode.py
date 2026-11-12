@@ -391,9 +391,9 @@ def test_mock_mode_keeps_what_onboarding_saved(client, mock_mode):
     from app import config
     out = client.put("/api/settings", json={"setup": "meter_only", "user_name": "Ana"}).json()
     assert (out["setup"], out["user_name"]) == ("meter_only", "Ana")
-    client.put("/api/settings", json={"rate_php_per_kwh": 14.5})
+    client.put("/api/settings", json={"battery_kwh": 14.5})
     got = client.get("/api/settings").json()
-    assert (got["setup"], got["user_name"], got["rate_php_per_kwh"]) == ("meter_only", "Ana", 14.5)
+    assert (got["setup"], got["user_name"], got["battery_kwh"]) == ("meter_only", "Ana", 14.5)
     assert client.get("/api/live").json()["setup"] == "meter_only"
 
     importlib.reload(mock)   # a restart: read back from the file

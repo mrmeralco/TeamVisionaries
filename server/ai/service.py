@@ -233,6 +233,8 @@ async def daily_summary(device_id: str, settings: dict, force: bool = False, upg
     solar = energy.has_solar(settings)
     key = f"summary:{device_id}:{d.isoformat()}" + ("" if solar else ":meter_only")
     cached = db.get_kv(key)
+    if cached and cached.pop("_rate_php_per_kwh", None) != settings["rate_php_per_kwh"]:
+        cached = None  # A newly published rate changes the recap's cost and savings.
     if cached and cached["summary"] == prompts.OUT_OF_SCOPE:
         cached = None  # cached by an older version that let the model refuse the recap; regenerate it
     if cached and not force and (cached["source"] == "llm" or not upgrade or not config.LLM_ENABLED):
@@ -260,5 +262,5 @@ async def daily_summary(device_id: str, settings: dict, force: bool = False, upg
                    "savings_php": round(energy.saved_kwh(tot) * rate, 2),
                    "self_sufficiency_pct": energy.self_sufficiency(tot)},
     }
-    db.put_kv(key, out)
+    db.put_kv(key, out | {"_rate_php_per_kwh": settings["rate_php_per_kwh"]})
     return out

@@ -14,22 +14,43 @@ from fastapi.middleware.cors import CORSMiddleware
 from ai import llm, prompts
 from ai import service as ai
 
-from . import config, db, energy, household, hub, ingest, meter, mock, outlook, projection, solar_plan, tips, upgrade, weather
+from . import config, db, energy, household, hub, ingest, meralco, meter, mock, outlook, projection, solar_plan, tips, upgrade, weather
 from . import schemas as S  # Contract C response shapes
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("solaris")
 
 
+async def _watchdog() -> None:
+    """Check device freshness independently of slow weather and AI requests."""
+    while True:
+        await asyncio.sleep(5)
+        try:
+            ingest.check_stale()
+        except Exception:
+            log.exception("device watchdog")
+
+
+async def _rates() -> None:
+    while True:
+        try:
+            result = await asyncio.to_thread(meralco.refresh)
+            if result["status"] == "published":
+                settings = _settings()
+                hub.publish_threadsafe("telemetry", energy.live(settings["device_id"], settings))
+        except Exception:
+            log.exception("Meralco rate refresh")
+        await asyncio.sleep(meralco.REFRESH_S)
+
+
 async def _background() -> None:
-    """Offline watchdog + keep yesterday's AI summary pre-generated + weather forecast fresh."""
+    """Keep yesterday's AI summary pre-generated and weather forecast fresh."""
     n = 0
     while True:
         await asyncio.sleep(5)
         try:
             if n % 360 == 0 and config.WEATHER_ENABLED:  # every 30 min, first one at startup
                 await asyncio.to_thread(weather.refresh)
-            ingest.check_stale()
             if n % 120 == 0:  # every 10 min
                 s = db.get_settings()
                 await ai.daily_summary(s["device_id"], s, upgrade=True)
@@ -48,6 +69,9 @@ async def lifespan(app: FastAPI):
     else:
         db.conn()
         ingest.start()
+        tasks.append(asyncio.create_task(_watchdog()))
+        if config.MERALCO_RATE_ENABLED:
+            tasks.append(asyncio.create_task(_rates()))
         tasks.append(asyncio.create_task(_background()))
         tasks.append(asyncio.create_task(llm.warmup(prompts.SYSTEM)))
     yield
@@ -63,6 +87,17 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 def _settings() -> dict:
     return db.get_settings()
+
+
+def _settings_response() -> dict:
+    settings = _settings()
+    publication = db.get_kv(meralco.CACHE_KEY) or {}
+    metadata = meralco.info(publication)
+    if metadata["status"] in {"published", "cached"}:
+        # Keep the displayed amount and provenance from the same snapshot even
+        # if a background fetch completed between the two database reads.
+        settings = settings | {"rate_php_per_kwh": publication["rate_php_per_kwh"]}
+    return settings | {"meralco_rate": metadata}
 
 
 def _dev() -> str:
@@ -208,14 +243,25 @@ async def get_summary(refresh: bool = False):
 def get_settings():
     if config.MOCK:
         return mock.load("settings")
-    return _settings()
+    return _settings_response()
 
 
 @app.put("/api/settings", response_model=S.Settings)
 def put_settings(body: S.SettingsIn):
     if config.MOCK:
         return mock.save_settings(body.model_dump(exclude_none=True))
-    return db.put_settings(body.model_dump(exclude_none=True))
+    db.put_settings(body.model_dump(exclude_none=True))
+    return _settings_response()
+
+
+@app.post("/api/settings/rate/refresh", response_model=S.Settings)
+async def refresh_rate():
+    if config.MOCK:
+        return mock.load("settings")
+    await asyncio.to_thread(meralco.refresh, True)
+    settings = _settings_response()
+    hub.publish_threadsafe("telemetry", energy.live(settings["device_id"], settings))
+    return settings
 
 
 # -------------------------------------------------------------- WebSocket --

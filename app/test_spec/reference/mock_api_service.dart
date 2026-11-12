@@ -54,7 +54,10 @@ class MockApiService implements ApiService {
   @override
   Future<Map<String, dynamic>> getSettings() async => {...await _json('settings'), ..._settingsOverrides};
   @override
+  Future<Map<String, dynamic>> refreshMeralcoRate() => getSettings();
+  @override
   Future<Map<String, dynamic>> updateSettings(Map<String, dynamic> changes) async {
+    if (changes.containsKey('rate_php_per_kwh')) throw ApiException(422, 'Meralco rate is read-only');
     _settingsOverrides.addAll(changes);
     return getSettings();
   }

@@ -7,14 +7,14 @@ SOURCE
   the November schedule when this was written.)
 
 HOW THE RATE SETTING FITS IN
-  Every month Meralco announces one "overall rate" for a 200 kWh household. That number is the user's
-  `rate_php_per_kwh` setting, so the bill for exactly 200 kWh equals setting x 200. Around it:
+  Every month Meralco announces one "overall rate" for a 200 kWh household. That number is fetched automatically from Meralco and cached as the
+  read-only `rate_php_per_kwh` setting, so the bill for exactly 200 kWh equals setting x 200. Around it:
     - fixed charges: supply ₱16.38 + metering ₱5.00 per customer per month, plus 12% VAT;
     - consumption levels: Meralco charges the WHOLE month's kWh at the distribution rate of the level
       the total falls in (schedule rows "0 TO 200", "201 TO 300", "301 TO 400", "OVER 400 KWH").
       Levels above 200 kWh add the difference in distribution charge, plus VAT;
     - energy tax (BP 36), residential only, on kWh above 650.
-  These tables only change after an ERC decision. The setting changes monthly.
+  These tables only change after an ERC decision. The setting changes when a new monthly publication is verified.
   Not modelled: lifeline discounts (registered 4Ps households only), senior citizen discount,
   local franchise tax (varies per city, already inside the announced overall rate).
 
