@@ -19,11 +19,15 @@ import 'household_card.dart';
 import 'solar_plan_card.dart';
 import 'solar_tips.dart';
 
+/// The clock Home reads for the greeting and day / night (Manila time). Tests set it.
+@visibleForTesting
+DateTime Function() homeClock = manilaNow;
+
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   static String _greeting() {
-    final h = manilaNow().hour;
+    final h = homeClock().hour;
     if (h < 12) return 'Magandang umaga';
     if (h < 18) return 'Magandang hapon';
     return 'Magandang gabi';
@@ -32,6 +36,9 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final live = ref.watch(liveProvider);
+    // Night (6 PM to 6 AM): the night house, navy sky, light text. Home rebuilds on every reading,
+    // so it turns over within seconds of 6 o'clock.
+    final night = isNightAt(homeClock());
     final bill = ref.watch(billProvider).value;
     final summary = ref.watch(dailySummaryProvider);
     final name = str(ref.watch(serverSettingsProvider).value?['user_name']);
@@ -72,6 +79,7 @@ class HomeScreen extends ConsumerWidget {
             // house across the full width, its lawn fading into the dashboard below.
             _Sky(
               state: str(data?['state'], 'offline'),
+              night: night,
               child: SafeArea(
                 bottom: false,
                 child: Column(
@@ -93,7 +101,7 @@ class HomeScreen extends ConsumerWidget {
                                   header: true,
                                   child: Text(
                                     '${_greeting()}${name.isEmpty ? '' : ', $name'}!',
-                                    style: ts(24, w: FontWeight.w700, spacing: -0.48),
+                                    style: ts(24, w: FontWeight.w700, spacing: -0.48, color: night ? C.onNight : C.ink),
                                   ),
                                 ),
                                 const SizedBox(height: S.x1),
@@ -103,7 +111,7 @@ class HomeScreen extends ConsumerWidget {
                                     liveRegion: true,
                                     child: Text(
                                       str(data?['status_line'], 'Kumokonekta sa Solaris… Ilang saglit lang.'),
-                                      style: ts(13, w: FontWeight.w500, height: 1.4),
+                                      style: ts(13, w: FontWeight.w500, height: 1.4, color: night ? C.onNightMuted : C.ink),
                                     ),
                                   ),
                                 ),
@@ -120,13 +128,29 @@ class HomeScreen extends ConsumerWidget {
                           ? HouseScene(
                               telemetry: mapOf(data?['telemetry']),
                               offline: str(data?['state'], 'offline') == 'offline' || live.telemetry == null,
+                              night: night,
                             )
-                          // No solar, battery or inverter to label: just the house.
+                          // No solar, battery or inverter to label: just the house (lit up at night).
                           : AspectRatio(
                               aspectRatio: kSceneW / kSceneH,
-                              child: ExcludeSemantics(child: svg('house-hero')),
+                              child: ExcludeSemantics(child: svg(night ? 'house-hero-night' : 'house-hero')),
                             ),
                     ),
+                    // At night the dark lawn eases into the light dashboard.
+                    if (night)
+                      const SizedBox(
+                        height: 48,
+                        width: double.infinity,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [C.nightLawn, C.cream],
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -237,14 +261,28 @@ class HomeScreen extends ConsumerWidget {
 }
 
 /// The sky behind the greeting and the house: the state's colours from the top, easing toward the
-/// page so the house's lawn fades straight into the dashboard.
+/// page so the house's lawn fades straight into the dashboard. At night: a navy sky.
 class _Sky extends StatelessWidget {
-  const _Sky({required this.state, required this.child});
+  const _Sky({required this.state, required this.child, this.night = false});
   final String state;
+  final bool night;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
+    if (night) {
+      return DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: C.nightSky,
+            stops: [0, 0.5, 1],
+          ),
+        ),
+        child: child,
+      );
+    }
     final (top, low) = switch (state) {
       'brownout' => (C.heroBrownout[1], C.heroBrownout[0]),
       'fault' => (C.heroFault[1], C.heroFault[0]),

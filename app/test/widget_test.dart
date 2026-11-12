@@ -16,6 +16,7 @@ import 'package:solaris/features/common/charts.dart';
 import 'package:solaris/features/ask/ask_screen.dart' show isBadNews;
 import 'package:solaris/features/common/ui.dart';
 import 'package:solaris/features/home/house_scene.dart';
+import 'package:solaris/features/home/home_screen.dart' show homeClock;
 import 'package:solaris/main.dart';
 import 'package:solaris/providers/data_providers.dart';
 import 'package:solaris/providers/notification_providers.dart';
@@ -264,6 +265,30 @@ void main() {
       await t.tapAt(scene.topLeft + const Offset(80, 8));
       await t.pumpAndSettle();
       expect(find.text('Not in use'), findsNothing);
+    });
+
+    testWidgets('house: the night house from 6 PM to 6 AM, with light text on the navy sky', (t) async {
+      addTearDown(() => homeClock = manilaNow);
+      String houseAsset() => t
+          .widgetList<SvgPicture>(find.descendant(of: find.byType(HouseScene), matching: find.byType(SvgPicture)))
+          .map((w) => (w.bytesLoader as SvgAssetLoader).assetName)
+          .single;
+      Color valueColor() => t.widget<Text>(find.text('1.8 kW')).style!.color!;
+
+      homeClock = () => DateTime(2026, 11, 12, 20, 30); // 8:30 PM
+      await pumpApp(t);
+      expect(houseAsset(), 'assets/images/house-hero-night.svg');
+      expect(find.textContaining('Magandang gabi'), findsOneWidget);
+      expect(valueColor(), Colors.white);
+      expect(isNightAt(DateTime(2026, 1, 1, 5, 59)), isTrue);
+      expect(isNightAt(DateTime(2026, 1, 1, 6)), isFalse);
+      expect(isNightAt(DateTime(2026, 1, 1, 18)), isTrue);
+
+      homeClock = () => DateTime(2026, 11, 12, 10); // 10 AM
+      await pumpApp(t);
+      expect(houseAsset(), 'assets/images/house-hero.svg');
+      expect(find.textContaining('Magandang umaga'), findsOneWidget);
+      expect(valueColor(), isNot(Colors.white));
     });
 
     testWidgets('brownout: the advisor card leads Home and opens the Brownout Advisor', (t) async {

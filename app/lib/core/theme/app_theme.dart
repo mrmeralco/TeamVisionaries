@@ -94,6 +94,14 @@ class C {
   static const heroBrownout = [Color(0xFFFFB37A), Color(0xFFF47721)];
   static const heroFault = [Color(0xFFFFA48F), Color(0xFFE5533D)];
   static const heroOffline = [Color(0xFFE7E1D8), Color(0xFFCFC6BA)];
+
+  // Home at night (6 PM to 6 AM, Manila): navy sky, moonlit house, lit windows.
+  static const nightSky = [Color(0xFF0B1026), Color(0xFF1B2347), Color(0xFF2A3358)];
+  static const nightLawn = Color(0xFF152238); // the bottom of house-hero-night.svg
+  static const onNight = Colors.white; // 15:1 on the navy sky
+  static const onNightMuted = Color(0xCCFFFFFF); // labels and the status sentence (10:1+)
+  static const onNightAccent = Color(0xFFFFB37A); // Charging / Exporting (9:1)
+  static const onNightAlert = Color(0xFFFF8A80); // Brownout (7:1)
 }
 
 /// Semantic colours (kept from the scaffold so other code can keep using them).

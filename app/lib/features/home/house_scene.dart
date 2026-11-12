@@ -18,7 +18,13 @@ import '../../core/utils/format.dart';
 
 const kSceneW = 393.0;
 const kSceneH = 360.0;
-const _sceneAsset = 'assets/images/house-hero.svg';
+const _dayAsset = 'assets/images/house-hero.svg';
+
+/// The same drawing at night: navy sky, moon and stars, windows and porch lamp lit.
+const _nightAsset = 'assets/images/house-hero-night.svg';
+
+/// Night in the Philippines: 6 PM to 6 AM, Manila time.
+bool isNightAt(DateTime manila) => manila.hour >= 18 || manila.hour < 6;
 
 /// house-hero.svg draws house-scene.svg (353 × 215) at 1.5×, flush right: this maps a point of that
 /// drawing to the hero's units, so the parts can be measured on the original.
@@ -177,21 +183,28 @@ SpotInfo spotInfo(Spot s, Map<String, dynamic> t, {bool offline = false}) {
 /// The house with its four live labels, filling the width it's given. Transparent around the
 /// drawing: the hero's sky gradient shows through, and the lawn fades into the page below.
 class HouseScene extends StatefulWidget {
-  const HouseScene({super.key, required this.telemetry, this.offline = false});
+  const HouseScene({super.key, required this.telemetry, this.offline = false, this.night = false});
 
   final Map<String, dynamic> telemetry;
   final bool offline;
+
+  /// Show the night house (light labels on the navy sky).
+  final bool night;
 
   @override
   State<HouseScene> createState() => _HouseSceneState();
 }
 
-class _HouseSceneState extends State<HouseScene> with SingleTickerProviderStateMixin {
+class _HouseSceneState extends State<HouseScene> with TickerProviderStateMixin {
   /// The zoomed part's dot lands here (fractions of the drawing), leaving room for the label above.
   static const _target = Offset(0.5, 0.68);
   static const _leader = 24.0;
 
   late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 420), value: 1);
+
+  /// The ripple around the dots that says "tap me". Runs at rest, stops while zoomed in and when the
+  /// system asks for reduced motion (the glow stays, still).
+  late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 2400));
   Spot? _spot; // where the house is zoomed (or zooming) to
   Spot? _was; // where it came from
   Matrix4? _fromM; // the view when the current move began
@@ -201,6 +214,7 @@ class _HouseSceneState extends State<HouseScene> with SingleTickerProviderStateM
   @override
   void dispose() {
     _c.dispose();
+    _pulse.dispose();
     super.dispose();
   }
 
@@ -225,6 +239,21 @@ class _HouseSceneState extends State<HouseScene> with SingleTickerProviderStateM
     return Matrix4Tween(begin: from, end: to).transform(_t);
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncPulse();
+  }
+
+  void _syncPulse() {
+    final on = _spot == null && !reduceMotion(context);
+    if (on && !_pulse.isAnimating) {
+      _pulse.repeat();
+    } else if (!on && _pulse.isAnimating) {
+      _pulse.stop();
+    }
+  }
+
   void _go(Spot? s) {
     if (s == _spot) return;
     setState(() {
@@ -232,6 +261,7 @@ class _HouseSceneState extends State<HouseScene> with SingleTickerProviderStateM
       _was = _spot;
       _spot = s;
     });
+    _syncPulse();
     if (reduceMotion(context)) {
       _c.value = 1;
     } else {
@@ -291,7 +321,13 @@ class _HouseSceneState extends State<HouseScene> with SingleTickerProviderStateM
                 onTapUp: (d) => _onTap(d.localPosition, m),
                 child: Transform(
                   transform: m,
-                  child: ExcludeSemantics(child: SvgPicture.asset(_sceneAsset, fit: BoxFit.fill)),
+                  child: ExcludeSemantics(
+                    child: SvgPicture.asset(
+                      widget.night ? _nightAsset : _dayAsset,
+                      key: ValueKey(widget.night),
+                      fit: BoxFit.fill,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -312,11 +348,13 @@ class _HouseSceneState extends State<HouseScene> with SingleTickerProviderStateM
                         LayoutId(
                           id: (s, _TagsLayout.line),
                           // The line starts on the part's dot: taps there belong to the part.
-                          child: IgnorePointer(child: ColoredBox(color: C.ink.withValues(alpha: 0.45))),
+                          child: IgnorePointer(
+                            child: ColoredBox(color: widget.night ? C.onNight.withValues(alpha: 0.5) : C.ink.withValues(alpha: 0.45)),
+                          ),
                         ),
                         LayoutId(
                           id: (s, _TagsLayout.tag),
-                          child: _Tag(info: infos[s]!, onTap: () => _go(s), hidden: zoomed),
+                          child: _Tag(info: infos[s]!, onTap: () => _go(s), hidden: zoomed, night: widget.night),
                         ),
                       ],
                     ],
@@ -326,7 +364,14 @@ class _HouseSceneState extends State<HouseScene> with SingleTickerProviderStateM
             ),
             Positioned.fill(
               child: IgnorePointer(
-                child: CustomPaint(painter: _DotsPainter(dots: dots, selected: zoomed || zoomLabel > 0 ? shown : null, rest: rest)),
+                child: CustomPaint(
+                  painter: _DotsPainter(
+                    dots: dots,
+                    selected: zoomed || zoomLabel > 0 ? shown : null,
+                    rest: rest,
+                    pulse: _pulse.isAnimating ? _pulse : null,
+                  ),
+                ),
               ),
             ),
             if (shown != null && zoomLabel > 0)
@@ -432,13 +477,14 @@ class _ZoomLayout extends MultiChildLayoutDelegate {
 /// A resting label, Tesla-style: plain text on the picture, the part's name small and spaced, its
 /// live number large, and for the battery and grid which way the power is going. Tap to zoom in.
 class _Tag extends StatelessWidget {
-  const _Tag({required this.info, required this.onTap, this.hidden = false});
+  const _Tag({required this.info, required this.onTap, this.hidden = false, this.night = false});
   final SpotInfo info;
   final VoidCallback onTap;
-  final bool hidden;
+  final bool hidden, night;
 
   @override
   Widget build(BuildContext context) {
+    final alert = info.color == C.red;
     return Semantics(
       button: true,
       excludeSemantics: true,
@@ -454,10 +500,20 @@ class _Tag extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(info.title.toUpperCase(), style: ts(10.5, w: FontWeight.w700, color: C.labelOnYellow, spacing: 1.2)),
-              Text(info.value, style: ts(18, w: FontWeight.w700, height: 1.25)),
+              Text(
+                info.title.toUpperCase(),
+                style: ts(10.5, w: FontWeight.w700, color: night ? C.onNightMuted : C.labelOnYellow, spacing: 1.2),
+              ),
+              Text(info.value, style: ts(18, w: FontWeight.w700, height: 1.25, color: night ? C.onNight : C.ink)),
               if (info.state != null)
-                Text(info.state!, style: ts(11, w: FontWeight.w700, color: info.color == C.red ? C.red : C.orangeText)),
+                Text(
+                  info.state!,
+                  style: ts(
+                    11,
+                    w: FontWeight.w700,
+                    color: night ? (alert ? C.onNightAlert : C.onNightAccent) : (alert ? C.red : C.orangeText),
+                  ),
+                ),
             ],
           ),
         ),
@@ -505,28 +561,60 @@ class _Label extends StatelessWidget {
   }
 }
 
-/// A dot on each part (white ring, orange centre): where each label's line lands.
+/// A dot on each part so people see what they can tap: a white ring with an orange centre on a soft
+/// orange glow, and (when [pulse] runs) a ripple spreading out from it, one dot after another.
 class _DotsPainter extends CustomPainter {
-  _DotsPainter({required this.dots, required this.selected, required this.rest});
+  _DotsPainter({required this.dots, required this.selected, required this.rest, this.pulse}) : super(repaint: pulse);
   final Map<Spot, Offset> dots;
   final Spot? selected;
   final double rest;
+  final Animation<double>? pulse;
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (final s in Spot.values) {
+    for (final (i, s) in Spot.values.indexed) {
       final on = s == selected;
       final o = on ? 1.0 : rest;
       if (o <= 0) continue;
       final p = dots[s]!;
-      final r = on ? 5.5 : 4.0;
-      canvas.drawCircle(p, r + 2.5, Paint()..color = Colors.white.withValues(alpha: 0.35 * o));
+      final r = on ? 6.0 : 5.0;
+
+      // Glow: a soft orange halo that reads on the sky, the roof and the walls alike.
+      canvas.drawCircle(
+        p,
+        r + 11,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [C.orange.withValues(alpha: 0.55 * o), C.orange.withValues(alpha: 0)],
+          ).createShader(Rect.fromCircle(center: p, radius: r + 11)),
+      );
+
+      // Ripple: two rings spreading out and fading, staggered so the dots take turns.
+      final pv = pulse?.value;
+      if (pv != null && !on) {
+        for (final lag in const [0.0, 0.5]) {
+          final t = (pv + lag + i * 0.25) % 1.0;
+          canvas.drawCircle(
+            p,
+            r + 2 + 14 * Curves.easeOut.transform(t),
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2 * (1 - t) + 0.5
+              ..color = Colors.white.withValues(alpha: 0.9 * (1 - t) * o),
+          );
+        }
+      }
+
+      canvas.drawCircle(p, r + 1, Paint()..color = C.orangeDeep.withValues(alpha: 0.35 * o)); // edge on light walls
       canvas.drawCircle(p, r, Paint()..color = Colors.white.withValues(alpha: o));
-      canvas.drawCircle(p, r - 1.6, Paint()..color = C.orange.withValues(alpha: o));
+      canvas.drawCircle(p, r - 1.8, Paint()..color = C.orange.withValues(alpha: o));
     }
   }
 
   @override
   bool shouldRepaint(_DotsPainter old) =>
-      old.selected != selected || old.rest != rest || Spot.values.any((s) => old.dots[s] != dots[s]);
+      old.selected != selected ||
+      old.rest != rest ||
+      old.pulse != pulse ||
+      Spot.values.any((s) => old.dots[s] != dots[s]);
 }
