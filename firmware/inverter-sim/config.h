@@ -19,6 +19,11 @@
 #define MB_TX_PIN       25
 #define RS485_DE_PIN    -1                 // -1 = direct UART (no transceiver)
 
+// ---- MERALCO mode (ANSI C12.18). A real meter's password belongs to the utility.
+#define C12_PASSWORD     "SINAG-DEMO"       // up to 20 chars; must match sinag-device/config.h
+#define C12_MAX_BAD_PW   3                  // wrong passwords in a row before lockout
+#define C12_LOCKOUT_S    60                 // logons refused (BSY) for this long
+
 // ---- Front panel
 #define POT_PIN         34                 // ADC1 only (ADC2 is dead while Wi-Fi is on)
 #define BUTTON_PIN      27                 // to GND, uses internal pull-up

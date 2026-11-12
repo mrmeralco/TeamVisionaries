@@ -33,7 +33,7 @@
 #define METER_ANSI_ENABLED 1                    // utility meter (Meralco/Aclara-style), ANSI C12.18
 #define C12_USER_ID       2
 #define C12_USER          "SINAG"               // up to 10 chars
-#define C12_PASSWORD      ""                    // up to 20 chars; a real utility meter's belongs to the utility
+#define C12_PASSWORD      "SINAG-DEMO"          // up to 20 chars; must match the simulator. A real meter's belongs to the utility
 #define ABSENT_RETRY_MS   15000
 
 // ---- Status LED (on-board LED is GPIO 2 on most ESP32 DevKits)

@@ -17,10 +17,28 @@ such as an Aclara I-210+c.
 | Step | Request byte | Notes |
 |---|---|---|
 | Identify | `0x20` | Reply: OK, std 0, ver 2, rev 0 |
+| Negotiate | `0x60` + packet size (2) + packets per message (1) | Reply: OK, packet size (2, max 64), packets (1), baud code `0x06` (9600, the link's fixed speed) |
 | Logon | `0x50` + user id (2) + user (10, space-padded) | `C12_USER_ID` / `C12_USER` in `sinag-device/config.h` |
-| Security | `0x51` + password (20) | Simulator accepts any password |
+| Security | `0x51` + password (20, zero- or space-padded) | Must equal `C12_PASSWORD` in **both** `config.h` files (default `SINAG-DEMO`) |
 | Full table read | `0x30` + table id (2) | Reply: OK, count (2), table bytes, checksum |
 | Logoff, Terminate | `0x52`, `0x21` | Always sent, even after an error |
+
+The simulator enforces the order: negotiate and logon only after identify, security only after
+logon, table reads only after a correct password.
+
+## Response codes
+
+| Code | Name | When the simulator sends it |
+|---|---|---|
+| `0x00` | ok | Success |
+| `0x01` | err | Wrong password, or a service out of order |
+| `0x02` | sns | Unknown service |
+| `0x03` | isc | Table read without logon + correct password |
+| `0x04` | onp | Table doesn't exist |
+| `0x05` | iar | Partial read past the end of the table |
+| `0x06` | bsy | Logon during lockout: 3 wrong passwords in a row lock logons for 60 s (`C12_MAX_BAD_PW`, `C12_LOCKOUT_S`) |
+
+The Sinag device reports these as error `0xB0 | code` with the code's name in the log.
 
 ## Tables (little-endian, ST-0 DATA_ORDER = 0)
 
@@ -33,3 +51,14 @@ such as an Aclara I-210+c.
 
 The device publishes the decoded values on `sinag/{device_id}/meter` with `"meter_type": "ansi-c12"`
 (same fields as Contract A2). See [B-mqtt.md](B-mqtt.md).
+
+## How this differs from a real I-210+c
+
+- **Port.** Real C12.18 runs on the meter's ANSI Type 2 *optical* port (an infrared probe on the
+  meter face). The meter has no RS485 terminal; the utility reads it over its AMI network.
+- **Tables.** A real meter's ST-23/ST-28 layout and number formats come from its own ST-0/ST-21/ST-12/ST-15,
+  and live V/A are often in manufacturer tables. Here the layouts are fixed.
+- **Baud.** A real optical session starts at 9600 and may switch to the negotiated speed; this link stays at 9600.
+- **Multi-packet replies** are not supported (every table here fits in one packet).
+- **CRC** matches the spec's description (CCITT, first two bytes complemented) but hasn't been checked
+  against a real meter.

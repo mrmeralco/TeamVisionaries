@@ -55,8 +55,17 @@ Link ansiLink  { "meralco-meter", METER_ANSI_ENABLED != 0 };
 static void preTx()  { if (RS485_DE_PIN >= 0) digitalWrite(RS485_DE_PIN, HIGH); }
 static void postTx() { if (RS485_DE_PIN >= 0) { MB.flush(); digitalWrite(RS485_DE_PIN, LOW); } }
 
+#define C12_ERR_BASE 0xB0   // our error code = 0xB0 | C12.18 response code (clear of ModbusMaster's 0x01-0x04, 0xE0-0xE3)
 static const char *mbErrorText(uint8_t e) {
-  if ((e & 0xC0) == 0xC0) return "ANSI C12.18 service error (logon/password, or table not readable)";
+  if ((e & 0xF0) == C12_ERR_BASE) switch (e & 0x0F) {        // C12.18 response codes
+    case 0x01: return "C12.18 err: request refused (wrong password, or out of sequence)";
+    case 0x02: return "C12.18 sns: service not supported";
+    case 0x03: return "C12.18 isc: insufficient security clearance (not logged on / password)";
+    case 0x04: return "C12.18 onp: table not present";
+    case 0x05: return "C12.18 iar: bad table offset/count";
+    case 0x06: return "C12.18 bsy: meter busy or locked out after wrong passwords";
+    default:   return "C12.18 service error";
+  }
   switch (e) {
     case ModbusMaster::ku8MBResponseTimedOut:   return "timeout (no reply: check TX/RX crossed, GND, power, slave id; RS485: swap A/B)";
     case ModbusMaster::ku8MBInvalidCRC:         return "bad CRC (noise or wrong baud)";
@@ -210,7 +219,7 @@ static uint8_t c12Request(const uint8_t *req, uint16_t n, uint8_t *resp, uint16_
   c12Write(&ack, 1);
   rlen = len;
   if (!len) return ModbusMaster::ku8MBInvalidCRC;
-  return resp[0] == 0x00 ? ModbusMaster::ku8MBSuccess : (0xC0 | (resp[0] & 0x3F));
+  return resp[0] == 0x00 ? ModbusMaster::ku8MBSuccess : (C12_ERR_BASE | (resp[0] & 0x0F));
 }
 
 // Full table read: returns 0 and points data/count at the table bytes inside resp.
@@ -240,10 +249,20 @@ static uint8_t pollAnsiMeter() {
   const uint8_t ident[1] = { 0x20 };
   if ((r = c12Request(ident, 1, resp, rlen, sizeof resp))) return r;
 
+  // Negotiate (0x60 = no baud list): ask for 64-byte packets, 1 packet per message.
+  const uint8_t nego[4] = { 0x60, 0x00, 0x40, 0x01 };
+  if ((r = c12Request(nego, sizeof nego, resp, rlen, sizeof resp))) return r;
+  if (!c12IdentLogged && rlen >= 5)
+    Serial.printf("[c12] negotiated packet %u bytes, %u packet(s), baud code 0x%02X\n",
+                  (resp[1] << 8) | resp[2], resp[3], resp[4]);
+
   uint8_t logon[13] = { 0x50, (uint8_t)(C12_USER_ID >> 8), (uint8_t)C12_USER_ID };
   memset(logon + 3, ' ', 10);
   memcpy(logon + 3, C12_USER, min((size_t)10, strlen(C12_USER)));
-  if ((r = c12Request(logon, sizeof logon, resp, rlen, sizeof resp))) return r;
+  if ((r = c12Request(logon, sizeof logon, resp, rlen, sizeof resp))) {
+    const uint8_t t[1] = { 0x21 }; c12Request(t, 1, resp, rlen, sizeof resp);   // end the session cleanly
+    return r;
+  }
 
   uint8_t sec[21] = { 0x51 };
   memcpy(sec + 1, C12_PASSWORD, min((size_t)20, strlen(C12_PASSWORD)));

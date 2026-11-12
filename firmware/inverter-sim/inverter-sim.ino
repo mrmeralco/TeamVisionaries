@@ -231,16 +231,24 @@ static void mbPoll() {
 #define C12_STP 0xEE
 #define C12_ACK 0x06
 #define C12_NAK 0x15
-enum : uint8_t { C12_OK = 0x00, C12_ERR = 0x01, C12_SNS = 0x02, C12_ISC = 0x03, C12_ONP = 0x04, C12_IAR = 0x05 };
+enum : uint8_t { C12_OK = 0x00, C12_ERR = 0x01, C12_SNS = 0x02, C12_ISC = 0x03, C12_ONP = 0x04, C12_IAR = 0x05,
+                 C12_BSY = 0x06 };
 
 uint8_t  c12Buf[96];
 size_t   c12Len = 0;
 uint32_t c12LastMs = 0;
 uint8_t  c12Ctrl = 0;
-bool     c12LoggedOn = false;
+// Session state, in the order a real meter enforces it:
+//   BASE -(ident)-> ID -(negotiate, optional)-> ID -(logon)-> SESSION -(security ok)-> SECURED
+enum C12State : uint8_t { C12_BASE, C12_IDENT, C12_SESSION, C12_SECURED };
+C12State c12State = C12_BASE;
+uint8_t  c12BadPw = 0;                 // wrong passwords in a row
+uint32_t c12LockUntil = 0;             // millis() until which logons are refused (BSY)
+uint16_t c12PktSize = 64;              // negotiated max packet size
 
 // CRC-16/X-25 (CCITT, reflected, init 0xFFFF, inverted), sent low byte first.
-// Verify against the C12.18 spec before talking to a real meter.
+// Same as the spec's "CCITT CRC, first two bytes complemented"; byte order is
+// still unverified against a real meter.
 static uint16_t c12Crc(const uint8_t *d, size_t n) {
   uint16_t crc = 0xFFFF;
   for (size_t i = 0; i < n; i++) {
@@ -318,13 +326,43 @@ static void c12Handle(const uint8_t *d, uint16_t n) {
   size_t o = 0;
   switch (n ? d[0] : 0xFF) {
     case 0x20:  // identification: OK, std 0 (C12.18), ver 2, rev 0, end of feature list
+      c12State = C12_IDENT;
       out[o++] = C12_OK; out[o++] = 0x00; out[o++] = 0x02; out[o++] = 0x00; out[o++] = 0x00; break;
-    case 0x50: c12LoggedOn = true;  out[o++] = C12_OK; break;   // logon (user id + user)
-    case 0x51:                      out[o++] = C12_OK; break;   // security (password): sim accepts any
-    case 0x52: case 0x21: c12LoggedOn = false; out[o++] = C12_OK; break;   // logoff / terminate
-    case 0x70:                      out[o++] = C12_OK; break;   // wait
+    case 0x60: case 0x61: case 0x62: case 0x63: case 0x64: case 0x65:   // negotiate: 0x60 + n baud codes
+    case 0x66: case 0x67: case 0x68: case 0x69: case 0x6A: case 0x6B: {
+      if (c12State != C12_IDENT || n < 4) { out[o++] = C12_ERR; break; }
+      uint16_t want = (d[1] << 8) | d[2];
+      c12PktSize = min<uint16_t>(max<uint16_t>(want, 16), 64);   // our buffers hold 64-byte packets
+      // Baud: this link is wired at a fixed MB_BAUD, so answer 0x06 (9600) whatever is offered.
+      out[o++] = C12_OK; out[o++] = c12PktSize >> 8; out[o++] = c12PktSize & 0xFF;
+      out[o++] = 1;                                               // packets per message
+      out[o++] = 0x06;                                            // 9600 baud
+      break;
+    }
+    case 0x50:  // logon: user id (2) + user (10)
+      if (c12LockUntil && (int32_t)(millis() - c12LockUntil) < 0) { out[o++] = C12_BSY; break; }
+      c12LockUntil = 0;
+      if (c12State != C12_IDENT || n < 13) { out[o++] = C12_ERR; break; }
+      c12State = C12_SESSION; out[o++] = C12_OK; break;
+    case 0x51: {  // security: password (20 bytes, zero/space padded)
+      if (c12State < C12_SESSION || n < 21) { out[o++] = C12_ERR; break; }
+      char want[20] = {0}, got[20];
+      memcpy(want, C12_PASSWORD, min(strlen(C12_PASSWORD), sizeof want));
+      memcpy(got, d + 1, 20);
+      for (int i = 0; i < 20; i++) { if (want[i] == ' ') want[i] = 0; if (got[i] == ' ') got[i] = 0; }
+      if (!memcmp(want, got, 20)) { c12State = C12_SECURED; c12BadPw = 0; out[o++] = C12_OK; break; }
+      Serial.printf("[c12] wrong password (%u in a row)\n", ++c12BadPw);
+      if (c12BadPw >= C12_MAX_BAD_PW) {
+        c12LockUntil = millis() + C12_LOCKOUT_S * 1000UL; c12BadPw = 0;
+        Serial.printf("[c12] locked out for %d s\n", C12_LOCKOUT_S);
+      }
+      out[o++] = C12_ERR; break;
+    }
+    case 0x52: if (c12State >= C12_SESSION) c12State = C12_IDENT; out[o++] = C12_OK; break;   // logoff
+    case 0x21: c12State = C12_BASE; out[o++] = C12_OK; break;                                 // terminate
+    case 0x70: out[o++] = C12_OK; break;                                                       // wait
     case 0x30: case 0x3F: {         // full / partial (offset) table read
-      if (!c12LoggedOn)               { out[o++] = C12_ISC; break; }
+      if (c12State != C12_SECURED)    { out[o++] = C12_ISC; break; }   // no logon or wrong password
       if (n < (d[0] == 0x30 ? 3 : 8)) { out[o++] = C12_ERR; break; }
       uint8_t t[64];
       size_t len = c12Table((d[1] << 8) | d[2], t), off = 0, cnt = len;
@@ -525,7 +563,7 @@ static void setMode(Mode m) {
   S.mode = m;
   if (knobIndex(knob) < 0) knob = modeKnobs()[0];
   lockKnob();
-  rxLen = 0; c12Len = 0; c12LoggedOn = false;
+  rxLen = 0; c12Len = 0; c12State = C12_BASE;
   prefs.putUChar("mode", m);
   char a[21], b[21];
   snprintf(a, sizeof a, "MODE: %s", MODE_LCD[m]);
