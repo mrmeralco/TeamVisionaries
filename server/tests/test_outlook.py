@@ -154,3 +154,17 @@ def test_outlook_facts_are_gathered(device, no_weather):
     put(device, int(time.time()) - 30, 0, 500, soc=40)
     ids = facts.gather(device, {"battery_kwh": 10, "rate_php_per_kwh": 15.06, "user_name": "Juan"}).by_id()
     assert {"outlook.solar_tomorrow_kwh", "outlook.battery_reserve", "outlook.brownout_until", "outlook.advice"} <= set(ids)
+
+
+@pytest.mark.parametrize("q", ["Ano ang forecast ng solar bukas?", "Forecast ng araw bukas?", "Ano ang weather forecast?"])
+def test_solar_forecast_questions_are_not_bill_questions(q):
+    assert router.bill_intent(q) is None
+    topics = router.topics_for(q, set())
+    assert "outlook" in topics and "bill" not in topics
+
+
+@pytest.mark.parametrize("q,intent", [("Magkano ang forecast ng bill ko?", "forecast"),
+                                      ("Ano forecast ng bill ko ngayong buwan?", "forecast"),
+                                      ("Magkano ang forecast kahit may solar?", "forecast")])
+def test_bill_forecast_questions_stay_bill_questions(q, intent):
+    assert router.bill_intent(q) == intent

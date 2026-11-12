@@ -27,9 +27,19 @@ WEAK_BILL = ("magkano", "mahal", "mataas", "gastos", "presyo")
 ALWAYS = {"now"}
 
 
+# Words that make "forecast" about money even when the sun or battery is mentioned too.
+MONEY_WORDS = ("bill", "bayad", "babayaran", "singil", "magkano", "nagastos", "gastos", "spent", "meralco", "piso", "₱")
+SUN_WORDS = KEYWORDS["outlook"] + ("solar", "araw", "battery", "baterya", "panel")
+
+
+def solar_forecast(m: str) -> bool:
+    """'forecast ng solar bukas' is the weather outlook, not the bill forecast."""
+    return "forecast" in m and _hits(m, SUN_WORDS) and not _hits(m, MONEY_WORDS)
+
+
 def bill_intent(message: str) -> str | None:
     m = message.lower()
-    if not re.search(r"\b(bill|buwan|month|forecast|spent|nagastos)\b", m):
+    if not re.search(r"\b(bill|buwan|month|forecast|spent|nagastos)\b", m) or solar_forecast(m):
         return None
     current = any(re.search(rf"\b{re.escape(w)}\b", m) for w in ("magkano na", "hanggang ngayon", "so far", "month-to-date", "spent so far"))
     forecast = any(w in m for w in ("forecast", "katapusan", "end of", "projected"))
@@ -67,6 +77,9 @@ def topics_for(message: str, active: set[str]) -> set[str]:
     """`active` = topics with something urgent going on (e.g. {"brownout"} during an outage)."""
     m = message.lower()
     found = {topic for topic, words in KEYWORDS.items() if _hits(m, words)}
+    if solar_forecast(m):
+        found.discard("bill")
+        found.add("outlook")
     if "today.saved_php" in direct_ids(message):
         found.add("today")
     if _hits(m, WEAK_BILL) and not found - ALWAYS:
