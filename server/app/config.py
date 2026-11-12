@@ -33,6 +33,8 @@ DB_PATH = Path(os.getenv("SOLARIS_DB", SERVER_DIR / "solaris.db"))
 MOCK_SETTINGS_PATH = Path(os.getenv("SOLARIS_MOCK_SETTINGS", SERVER_DIR / "mock_settings.json"))
 TZ = ZoneInfo(os.getenv("SOLARIS_TZ", "Asia/Manila"))
 EXAMPLES_DIR = REPO_DIR / "docs" / "contracts" / "examples"
+# The landing page (and the app APK under landing/downloads/) is served at / by the same process.
+LANDING_DIR = Path(os.getenv("SOLARIS_LANDING", REPO_DIR / "landing"))
 
 MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))

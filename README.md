@@ -51,6 +51,11 @@ cd server && python3 -m venv .venv && source .venv/bin/activate && pip install -
 SOLARIS_MOCK=1 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-API docs at `http://<laptop-ip>:8000/docs`. Real mode, firmware and app setup: see each folder's README.
+API docs at `http://<laptop-ip>:8000/docs`.
+
+**Demo / production (Andy's laptop):** `server\host\start-production.bat` (macOS: `bash server/host/start-production.sh`)
+starts the broker, Ollama and the server, and serves the [landing page](landing/) and the Android app on the same port:
+`http://<laptop-ip>:8000/` and `http://<laptop-ip>:8000/apk`. See [server/host/README.md](server/host/README.md).
+New APK: `bash scripts/build-apk.sh`, then commit `landing/downloads/`. Real mode, firmware and app setup: see each folder's README.
 
 Server laptop IP + hotspot password go on a sticky note.
