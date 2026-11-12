@@ -12,7 +12,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinag/core/utils/format.dart';
 import 'package:sinag/main.dart';
 import 'package:sinag/providers/data_providers.dart';
+import 'package:sinag/providers/notification_providers.dart';
 import 'package:sinag/providers/server_providers.dart';
+import 'package:sinag/services/system_notifier.dart';
 import 'package:sinag/services/mock_api_service.dart';
 
 final contracts = Platform.environment['SINAG_CONTRACTS'] ?? '../docs/contracts';
@@ -24,13 +26,24 @@ class StateMock extends MockApiService {
   StateMock({this.live}) : super(loader: (name) async => File('$contracts/examples/$name.json').readAsStringSync());
   final Map<String, dynamic>? live;
   int chats = 0;
+  StreamController<Map<String, dynamic>>? socket; // the open /ws/live, to push messages from tests
+  final extraAlerts = <Map<String, dynamic>>[]; // alerts the "server" has that the example file doesn't
+
+  void push(Map<String, dynamic> msg) => socket!.add(msg);
+
+  @override
+  Future<Map<String, dynamic>> getAlerts({bool unreadOnly = false}) async {
+    final a = await super.getAlerts(unreadOnly: unreadOnly);
+    final list = [...extraAlerts, ...(a['alerts'] as List)];
+    return {...a, 'alerts': list, 'unread': (a['unread'] as int) + extraAlerts.length};
+  }
 
   @override
   Future<Map<String, dynamic>> getLive() async => live ?? example('live');
 
   @override
   Stream<Map<String, dynamic>> liveMessages({Duration every = const Duration(seconds: 5)}) {
-    final c = StreamController<Map<String, dynamic>>();
+    final c = socket = StreamController<Map<String, dynamic>>();
     c.onListen = () => c.add({'type': 'telemetry', 'data': live ?? example('live')});
     return c.stream; // stays open, like a quiet socket
   }
@@ -42,7 +55,31 @@ class StateMock extends MockApiService {
   }
 }
 
-Future<ProviderContainer> pumpApp(WidgetTester t, {StateMock? api, Size size = const Size(393, 852)}) async {
+/// Records notifications instead of calling the browser.
+class FakeNotifier implements SystemNotifier {
+  FakeNotifier({this.supported = true, this.grant = true});
+  @override
+  final bool supported;
+  final bool grant;
+  bool hidden = false;
+  String _permission = 'default';
+  final shown = <String>[];
+  @override
+  String get permission => supported ? _permission : 'unsupported';
+  @override
+  Future<bool> requestPermission() async {
+    _permission = grant ? 'granted' : 'denied';
+    return grant;
+  }
+
+  @override
+  bool get appHidden => hidden;
+  @override
+  void show(String title, String body, {String? tag}) => shown.add(title);
+}
+
+Future<ProviderContainer> pumpApp(WidgetTester t,
+    {StateMock? api, Size size = const Size(393, 852), FakeNotifier? notifier}) async {
   t.view.physicalSize = size * 3;
   t.view.devicePixelRatio = 3;
   addTearDown(t.view.reset);
@@ -52,6 +89,7 @@ Future<ProviderContainer> pumpApp(WidgetTester t, {StateMock? api, Size size = c
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
       apiServiceProvider.overrideWithValue(api ?? StateMock()),
+      systemNotifierProvider.overrideWithValue(notifier ?? FakeNotifier(supported: false)),
     ],
     child: const SinagApp(),
   ));
@@ -143,6 +181,87 @@ void main() {
     expect(find.text(example('chat')['reply'] as String), findsOneWidget);
   });
 
+
+  group('Inverter health on Home', () {
+    testWidgets('normal: temperature, no fault, Wi-Fi signal', (t) async {
+      await pumpApp(t);
+      expect(find.text('42°C'), findsOneWidget); // live.telemetry.inv_temp_c
+      expect(find.text('Walang problema'), findsOneWidget);
+      expect(find.text('Malakas'), findsOneWidget); // rssi -55
+    });
+
+    testWidgets('fault code shows and opens Alerts', (t) async {
+      final live = example('live');
+      (live['telemetry'] as Map)['fault_code'] = 21;
+      (live['telemetry'] as Map)['inv_temp_c'] = 66;
+      await pumpApp(t, api: StateMock(live: live));
+      expect(find.text('66°C'), findsOneWidget);
+      await t.tap(find.text('Fault 21'));
+      await t.pumpAndSettle();
+      expect(find.text('Mark all read'), findsOneWidget);
+    });
+  });
+
+  testWidgets('Grid tile says which way power flows (grid_w: + import, − export)', (t) async {
+    final live = example('live');
+    (live['telemetry'] as Map)['grid_w'] = -2930;
+    await pumpApp(t, api: StateMock(live: live));
+    expect(find.text('2.9'), findsOneWidget);
+    expect(find.text('Exporting'), findsOneWidget);
+  });
+
+  group('Alerts outside the app', () {
+    Map<String, dynamic> newAlert(int id) => {
+          'id': id, 'ts': DateTime.now().millisecondsSinceEpoch ~/ 1000, 'type': 'brownout', 'severity': 'critical',
+          'title': 'Brownout', 'message': 'Nawalan ng kuryente mula sa grid.', 'read': false,
+        };
+
+    testWidgets('pushed alert while hidden + enabled -> system notification, no snackbar', (t) async {
+      final api = StateMock();
+      final n = FakeNotifier();
+      final c = await pumpApp(t, api: api, notifier: n);
+      expect(await c.read(notifyAlertsProvider.notifier).setEnabled(true), isTrue);
+      n.hidden = true;
+      api.push({'type': 'alert', 'data': newAlert(99)});
+      await t.pumpAndSettle();
+      expect(n.shown, ['Sinag: Brownout']);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
+    testWidgets('pushed alert while visible -> snackbar, no system notification', (t) async {
+      final api = StateMock();
+      final n = FakeNotifier();
+      final c = await pumpApp(t, api: api, notifier: n);
+      await c.read(notifyAlertsProvider.notifier).setEnabled(true);
+      api.push({'type': 'alert', 'data': newAlert(98)});
+      await t.pump();
+      expect(n.shown, isEmpty);
+      expect(find.textContaining('Brownout: Nawalan'), findsOneWidget);
+    });
+
+    testWidgets('coming back to the app reports alerts missed while away', (t) async {
+      final api = StateMock();
+      await pumpApp(t, api: api);
+      t.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      t.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      api.extraAlerts.addAll([newAlert(100), newAlert(101)]); // arrived while the socket was closed
+      t.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      t.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await t.pumpAndSettle();
+      expect(find.text('2 bagong alert habang wala ka.'), findsOneWidget);
+    });
+
+    testWidgets('Settings switch asks permission; a refusal keeps it off', (t) async {
+      final c = await pumpApp(t, notifier: FakeNotifier(grant: false));
+      await t.tap(find.bySemanticsLabel('Settings').first);
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('notify-switch')));
+      await t.pumpAndSettle();
+      expect(c.read(notifyAlertsProvider), isFalse);
+      expect(find.textContaining('Hindi pinayagan'), findsOneWidget);
+    });
+  });
+
   testWidgets('Energy: totals and chart for day / week / month', (t) async {
     await pumpApp(t);
     await tab(t, 'Energy');
@@ -205,6 +324,7 @@ void main() {
     expect(find.text('Test connection'), findsOneWidget);
     await t.enterText(find.widgetWithText(TextField, '13.0'), '12.5');
     await t.ensureVisible(find.text('Save household'));
+    await t.pumpAndSettle();
     await t.tap(find.text('Save household'));
     await t.pumpAndSettle();
     expect(c.read(serverSettingsProvider).value!['rate_php_per_kwh'], 12.5);

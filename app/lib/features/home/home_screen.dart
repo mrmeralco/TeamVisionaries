@@ -95,6 +95,11 @@ class HomeScreen extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                     child: _Stats(telemetry: live.telemetry),
                   ),
+                  if (live.telemetry != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                      child: _DeviceHealth(telemetry: live.telemetry!, device: live.device),
+                    ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
                     child: IntrinsicHeight(
@@ -298,6 +303,12 @@ class _Stats extends StatelessWidget {
   const _Stats({required this.telemetry});
   final Map<String, dynamic>? telemetry;
 
+  /// Contract B: grid_w is + import, − export. The tile shows the size; the note says which way.
+  static String? _gridNote(num? w) {
+    if (w == null || w.abs() < 20) return null;
+    return w > 0 ? 'Importing' : 'Exporting';
+  }
+
   static String? _battNote(num? w) {
     if (w == null || w.abs() < 20) return null;
     return w < 0 ? 'Charging' : 'Ginagamit';
@@ -336,7 +347,7 @@ class _Stats extends StatelessWidget {
             'Grid Power',
             gridOn ? kwNum(t['grid_w']) : 'Off',
             gridOn ? 'kW' : '',
-            note: gridOn ? null : 'Brownout',
+            note: gridOn ? _gridNote(t['grid_w'] as num?) : 'Brownout',
           ),
         ],
       );
@@ -511,4 +522,67 @@ class _Summary extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// Inverter + Sinag device status (presentation slide 5): inverter temperature, fault code, Wi-Fi signal.
+/// Temperature colours follow the server's high-temp alert (on above 60 °C, warning from 55 °C).
+class _DeviceHealth extends StatelessWidget {
+  const _DeviceHealth({required this.telemetry, this.device});
+  final Map<String, dynamic> telemetry;
+  final Map<String, dynamic>? device;
+
+  static (String, Color) _signal(num? rssi) => switch (rssi) {
+        null => ('—', C.muted),
+        >= -60 => ('Malakas', C.green),
+        >= -75 => ('Katamtaman', C.amber),
+        _ => ('Mahina', C.red),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final temp = telemetry['inv_temp_c'] as num?;
+    final fault = (telemetry['fault_code'] as num?)?.toInt() ?? 0;
+    final tempColor = temp == null ? C.muted : (temp > 60 ? C.red : (temp >= 55 ? C.amber : C.green));
+    final (signal, signalColor) = _signal(device?['rssi'] as num?);
+
+    Widget item(IconData icon, Color color, String label, String value, {VoidCallback? onTap}) => Expanded(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(children: [
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(label, style: ts(7.5, w: FontWeight.w600, color: C.label55)),
+                    Text(value, overflow: TextOverflow.ellipsis, style: ts(10, w: FontWeight.w700, color: color)),
+                  ]),
+                ),
+              ]),
+            ),
+          ),
+        );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: C.orangeLine, width: 0.5),
+      ),
+      child: Row(children: [
+        item(Icons.thermostat_rounded, tempColor, 'Inverter', temp == null ? '—' : '${temp.round()}°C'),
+        item(
+          fault == 0 ? Icons.check_circle_rounded : Icons.error_rounded,
+          fault == 0 ? C.green : C.red,
+          'Status',
+          fault == 0 ? 'Walang problema' : 'Fault $fault',
+          onTap: fault == 0 ? null : () => context.go(Routes.alerts),
+        ),
+        item(Icons.wifi_rounded, signalColor, 'Sinag device', signal),
+      ]),
+    );
+  }
 }
