@@ -71,7 +71,8 @@ def bill_problems(reply: str, fact_ids: list[str], given: list[Fact], question: 
     comparison = by.get("bill.vs_last_month_pct")
     if comparison:
         lower = "mas mababa" in comparison.text
-        opposite = r"mas mataas|higher|greater" if lower else r"mas mababa|lower|less than"
+        opposite = (r"mas mataas|higher|greater|tumaas|tumataas|tataas" if lower
+                    else r"mas mababa|lower|less than|bumaba|bumababa|bababa")
         # "Hindi mas mataas" / "not higher" agrees with a lower forecast; only an un-negated claim contradicts.
         if re.search(rf"(?<!hindi )(?<!not )(?:{opposite})", reply.lower()):
             problems.append(f"comparison direction contradicts FACTS: {comparison.text}")

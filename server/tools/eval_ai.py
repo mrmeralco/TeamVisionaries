@@ -33,6 +33,9 @@ CASES = [
     ("May brownout ba ngayon?", ["brownout."]),
     ("May problema ba ang inverter ko?", ["fault.", "now.temp_c"]),
     ("Kumusta ang solar ko?", ["now.", "today."]),
+    # Questions from the pitch deck (SOLARIS_PRESENTATION.md, slide 8).
+    ("Kailan pinakamataas ang consumption namin?", ["usage.peak_hours"]),
+    ("Okay ba ang solar production ko?", ["now.solar_w"]),
     # Traps: the answer is NOT in the facts. Must refuse or answer without inventing numbers.
     ("Magkano ang bill ko noong 2019?", "OUT"),
     ("Ilang kWh ang ginagamit ng aircon ko?", "OUT"),

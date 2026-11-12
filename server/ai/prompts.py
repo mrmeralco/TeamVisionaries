@@ -44,7 +44,8 @@ EXAMPLES = (
       ("bill.vs_last_month_pct", "Ang forecast ay 12% mas mataas kaysa noong nakaraang buwan"),
       ("usage.peak_hours", "Oras na pinakamaraming kinukuha sa grid (huling 7 araw): 7PM, 8PM, 9PM")],
      "Bakit mataas ang bill ko?",
-     "Medyo tumaas nga: mga ₱2,450 ang inaasahang bill mo, 12% mas mataas kaysa noong nakaraang buwan. "
+     # Neutral opener on purpose: the 4B model copied "Medyo tumaas nga" even when the bill went down.
+     "Mga ₱2,450 ang inaasahang bill mo, 12% mas mataas kaysa noong nakaraang buwan. "
      "Pinakamarami kang kinukuha sa grid tuwing 7PM hanggang 9PM, kapag wala nang araw. "
      "Tip: gamitin ang malalaking appliance sa tanghali habang may solar.",
      ["bill.forecast_php", "bill.vs_last_month_pct", "usage.peak_hours"]),

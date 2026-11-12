@@ -16,6 +16,8 @@ from ai.router import topics_for
     ("Bakit mataas ang bill ko?", {"bill", "usage"}, {"savings", "today"}),
     ("Magkano ang forecast ng bill ko?", {"bill"}, set()),
     ("May problema ba ang inverter ko?", {"fault", "now"}, {"bill"}),
+    # Pitch-deck question: "pinakamataas" is a cost word, but "consumption" makes it a usage question.
+    ("Kailan pinakamataas ang consumption namin?", {"usage"}, {"bill"}),
     # Vague: broad overview.
     ("Kumusta?", {"today", "bill", "savings"}, set()),
 ])

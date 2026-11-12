@@ -109,3 +109,16 @@ def test_negated_comparison_is_not_a_contradiction(reply, ok):
     fs.add("bill.vs_last_month_pct", "bill", "Ang forecast ay 4% mas mababa kaysa noong nakaraang buwan", (4,))
     q = "Mas mataas ba ang bill ko kaysa last month?"
     assert guard.check(reply, ["bill.vs_last_month_pct"], True, fs.facts, q).ok == ok
+
+
+@pytest.mark.parametrize("reply,ok", [
+    ("Medyo tumaas nga. Mga ₱1,664 ang inaasahang bill mo, 7% mas mababa.", False),   # copied opener, wrong direction
+    ("Mga ₱1,664 ang inaasahang bill mo, 7% mas mababa kaysa noong nakaraang buwan.", True),
+    ("Hindi tumaas: 7% mas mababa ang forecast.", True),
+])
+def test_rise_words_must_match_the_comparison(reply, ok):
+    fs = FactSet()
+    fs.add("bill.forecast_php", "bill", "Forecast ng bill sa katapusan ng buwan: mga ₱1,664", (1664.0,), ("Forecast", "₱1,664"))
+    fs.add("bill.vs_last_month_pct", "bill", "Ang forecast ay 7% mas mababa kaysa noong nakaraang buwan", (7,))
+    ids = ["bill.forecast_php", "bill.vs_last_month_pct"]
+    assert guard.check(reply, ids, True, fs.facts, "Bakit mataas ang bill ko?").ok == ok
