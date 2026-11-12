@@ -80,7 +80,8 @@ async def warmup() -> None:
     try:
         async with httpx.AsyncClient(timeout=120) as client:
             await client.post(f"{config.OLLAMA_URL}/api/generate",
-                              json={"model": config.LLM_MODEL, "prompt": "", "keep_alive": config.LLM_KEEP_ALIVE})
+                              json={"model": config.LLM_MODEL, "prompt": "", "keep_alive": config.LLM_KEEP_ALIVE,
+                                    "options": {"num_ctx": 4096}})
         log.info("LLM %s loaded", config.LLM_MODEL)
     except httpx.HTTPError as e:
         log.warning("LLM warmup failed: %s", e)

@@ -60,6 +60,10 @@ def kwh(x: float) -> str:
     return f"{x:.1f} kWh"
 
 
+def power(watts: float) -> str:
+    return f"{watts / 1000:.1f} kW" if abs(watts) >= 1000 else f"{watts:g} W"
+
+
 def hour_label(h: int) -> str:
     suffix = "AM" if h < 12 else "PM"
     return f"{h % 12 or 12}{suffix}"
@@ -86,14 +90,14 @@ def gather(device_id: str, settings: dict) -> FactSet:
     fs.add("now.status", "now", f"Kalagayan ngayon: {live['status_line']}")
     fs.add("now.online", "now", "Online ang Sinag device." if live["device"]["online"] else "OFFLINE ang Sinag device; luma na ang live data.")
     if t:
-        fs.add("now.solar_w", "now", f"Solar ngayon: {t['pv_w']} W", (t["pv_w"],), ("Solar now", f"{t['pv_w']} W"))
-        fs.add("now.load_w", "now", f"Gamit ng bahay ngayon: {t['load_w']} W", (t["load_w"],), ("Home use", f"{t['load_w']} W"))
+        fs.add("now.solar_w", "now", f"Solar ngayon: {power(t['pv_w'])}", (t["pv_w"],), ("Solar now", power(t['pv_w'])))
+        fs.add("now.load_w", "now", f"Gamit ng bahay ngayon: {power(t['load_w'])}", (t["load_w"],), ("Home use", power(t['load_w'])))
         g = t["grid_w"]
-        gtxt = f"kumukuha ng {g} W mula sa grid" if g > 0 else (f"nagbebenta/nagbabalik ng {-g} W sa grid" if g < 0 else "walang kinukuha sa grid")
+        gtxt = f"kumukuha ng {power(g)} mula sa grid" if g > 0 else (f"nagbabalik ng {power(-g)} sa grid" if g < 0 else "walang kinukuha sa grid")
         fs.add("now.grid_w", "now", f"Grid ngayon: {gtxt}", (abs(g),))
         fs.add("now.battery_pct", "battery", f"Battery: {t['batt_soc']}%", (t["batt_soc"],), ("Battery", f"{t['batt_soc']}%"))
         b = t["batt_w"]
-        btxt = f"nagcha-charge ng {-b} W" if b < 0 else (f"ginagamit, {b} W" if b > 0 else "hindi gumagalaw")
+        btxt = f"nagcha-charge ng {power(-b)}" if b < 0 else (f"ginagamit, {power(b)}" if b > 0 else "hindi gumagalaw")
         fs.add("now.battery_w", "battery", f"Battery ngayon: {btxt}", (abs(b),))
         fs.add("now.battery_kwh", "battery", f"Laki ng battery: {settings['battery_kwh']:g} kWh", (settings["battery_kwh"],))
         fs.add("now.temp_c", "fault", f"Temperatura ng inverter: {t['inv_temp_c']}°C", (t["inv_temp_c"],))

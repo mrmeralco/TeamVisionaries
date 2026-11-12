@@ -6,6 +6,7 @@
 Pipeline (see server/ai/README.md):
   1. facts.gather()     compute every fact from the DB (the model never calculates)
   2. router.topics_for  keep only the facts this question needs (+ brownout/fault if active)
+     answers.direct_answer returns recognized simple lookups without calling the model
   3. llm.complete_json  Qwen 3.5, thinking off, temperature 0, JSON schema output, must cite fact ids
   4. guard.check        reject replies with numbers/ids not in the facts given
   5. one retry with the guard's complaint, else a rule-based answer built from the same facts
@@ -18,7 +19,7 @@ from datetime import timedelta
 
 from app import config, db, energy
 
-from . import guard, llm, prompts, router
+from . import answers, guard, llm, prompts, router
 from .facts import Fact, FactSet, gather
 
 log = logging.getLogger("sinag.ai")
@@ -123,16 +124,34 @@ def fallback_reply(asked: set[str], active: set[str], fs: FactSet) -> str:
 
 
 async def chat(device_id: str, settings: dict, message: str) -> dict:
+    started = time.monotonic()
     fs = gather(device_id, settings)
     active = _active_topics(fs)
     asked = router.topics_for(message, set())
     topics = asked | active
-    given = fs.select(topics) + [f for f in fs.facts if f.id == "user.name"]
+    given = router.select_facts(message, fs.select(topics)) + [f for f in fs.facts if f.id == "user.name"]
     given = list({f.id: f for f in given}.values())
-    r = await ask(message, given, fallback_reply(asked, active, fs))
+    fallback = fallback_reply(asked, active, fs)
+    intent = router.bill_intent(message)
+    if intent in {"current", "forecast", "last_month", "comparison", "both"}:
+        targets = {"current": ["bill.month_to_date_php"], "forecast": ["bill.forecast_php"],
+                   "last_month": ["bill.last_month_php"], "comparison": ["bill.last_month_php", "bill.forecast_php", "bill.vs_last_month_pct"],
+                   "both": ["bill.month_to_date_php", "bill.forecast_php"]}[intent]
+        urgent = [fs.by_id()[f"{t}.active"].text for t in ("fault", "brownout") if t in active]
+        fallback = " ".join(urgent + [fs.by_id()[target].text for target in targets if target in fs.by_id()])
+    if "now" in asked and any(w in message.lower() for w in ("solar", "battery", "baterya", "grid", "ngayon", "now")):
+        offline = fs.by_id().get("now.online")
+        if offline and offline.text.startswith("OFFLINE"):
+            fallback += " " + offline.text
+    r = answers.direct_answer(message, given)
+    if r is None:
+        r = await ask(message, given, fallback)
+    else:
+        r["latency_s"] = round(time.monotonic() - started, 3)
     _log({"ts": int(time.time()), "task": "chat", "question": message, "topics": sorted(topics),
-          "facts": [f.id for f in given], **{k: r[k] for k in ("reply", "source", "fact_ids", "attempts", "latency_s")}})
-    return {"reply": r["reply"], "chips": _chips(r["fact_ids"], fs), "source": r["source"], "facts_used": r["fact_ids"]}
+          "facts": [f.id for f in given], "strategy": r.get("strategy", "model"),
+          **{k: r[k] for k in ("reply", "source", "fact_ids", "attempts", "latency_s")}})
+    return {"reply": r["reply"], "chips": _chips(r["fact_ids"], FactSet(given)), "source": r["source"], "facts_used": r["fact_ids"]}
 
 
 # ------------------------------------------------------------ daily summary --

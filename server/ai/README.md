@@ -3,47 +3,96 @@
 **Owner: Andy.** This folder is the "Ask Sinag" chat (`POST /api/chat`) and the daily recap
 (`GET /api/summary/daily`). It runs **Qwen 3.5 locally on Ollama**, so it works with no internet.
 
-The pipeline already works end to end. Your job is to get Qwen 3.5 running on the server laptop, tune it,
+The hybrid pipeline already works end to end. Your job is to get Qwen 3.5 running on the server laptop, tune it,
 and add facts for the questions the demo needs.
 
 ---
 
 ## 0. Status and what to build next (Andy, start here)
 
-**As of 2026-11-12** (`qwen3.5:4b`, seeded DB, device offline): `tools/eval_ai.py` **14/15 PASS**, no
-fallbacks, 4–11 s per answer. `pytest`: 153 passed (31 of them AI: `test_guard.py`, `test_ai_pipeline.py`,
-`test_router.py`).
+**Implementation update (2026-11-12):** bill questions select facts for spending so far,
+forecast, previous month, or comparison. Explicit current/forecast answers must cite and state the
+requested peso amount; otherwise the existing retry/fallback path applies. Brownout/fault must be
+mentioned first, and current readings must disclose offline data. These checks reduce specific
+mix-ups; they do not prove every qualitative statement or multi-number comparison is correct.
 
-Fixed in this round (read the diff of `ai/` to see how):
-- Qwen cited ids as `"[now.battery_pct]"` (brackets copied from the FACTS list) and the guard threw away
-  correct answers. `service.clean_id` strips them; made-up ids are still rejected.
-- Numbers inside a fact sentence (e.g. "Huling data 32 minuto") were rejected because the fact had no
-  `values`. `FactSet.add` now allows every number written in the sentence.
-- Router: solar/live questions got 23 bill facts and the bill question timed out at 20 s; cost words
-  hijacked "kahapon"/"natipid" questions. Fixed (see the routing rules in section 4).
-- Prompt rules 6 and 7: answer with the exact matching fact; an offline device is not a reason to refuse.
+Power facts display W below 1,000 W and one-decimal kW above it. Displayed numbers are grounded in
+facts. API response shapes and fact identifiers are unchanged.
 
-**Your next tasks, in order:**
+### Validate on Andy's laptop (PowerShell, from `server`)
 
-1. **"Magkano na ang bill ko ngayong buwan?" still answers with the forecast (₱2,070) instead of
-   month-to-date (₱896).** The only failing eval row. Try in this order: `qwen3.5:9b` if the laptop has
-   16 GB; route "hanggang ngayon / magkano na / so far" questions so the forecast fact is left out;
-   reorder the bill facts so month-to-date comes first.
-2. **Make the eval check the reply, not just the citation.** It once PASSed the question above because
-   the model cited `bill.month_to_date_php` while saying the forecast. In `tools/eval_ai.py`, require the
-   expected fact's chip value (or one of its `values`) to appear in `reply`.
-3. **Run the demo checklist (section 7) live.** This round was tested with the device *offline*; brownout,
-   fault and "stop Ollama" were only covered by the fake-model tests. Use `tools/fake_device.py`
-   (`b` brownout, `f` fault) and add eval cases for "May brownout ba?" *during* a brownout and
-   "May problema ba?" during fault 21.
-4. **Latency:** "Bakit mataas ang bill ko?" is ~10.6 s, the plan says under 10 s. It gets ~17 facts; trim
-   `usage`/`week` facts for bill questions or lower `num_predict`, and re-run.
-5. **Taglish quality:** grammar slips like "Hindi may active na brownout" and "Kumusta siyang naka-3664W".
-   Tune the style lines at the top of `prompts.SYSTEM` (keep the numbered rules) and format watts in
-   facts as "3.7 kW" so the model doesn't paste raw "3664W".
-6. **Guard blind spot:** a reply can quote a real number with the wrong meaning ("18 araw na ang
-   nakalipas" when 18 is days *left*). The days fact now states both numbers; watch `logs/ai.jsonl` for
-   other mix-ups and reword those facts the same way.
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe tools/eval_ai.py --show-prompt
+.\.venv\Scripts\python.exe tools/eval_live_ai.py --broker "C:/Program Files/mosquitto/mosquitto.exe"
+```
+
+The live check starts a temporary loopback broker and backend with an isolated seeded database.
+It tests changing solar, brownout, fault 21, stale readings, unavailable-model fallback, and cached
+recaps, then stops only its own processes. Add `--model qwen3.5:4b` to use real Ollama instead.
+It does not operate a phone; run the section 7 checklist through the app before the demo.
+
+### Compare 4B and 9B
+
+Pull both models first, then run without other Ollama requests:
+
+```powershell
+ollama pull qwen3.5:9b
+.\.venv\Scripts\python.exe tools/benchmark_ai.py --repeat 3
+```
+
+This uses one temporary seeded database for both models and writes reports to
+`server/logs/benchmark/` (ignored by Git). It unloads benchmark models between runs without stopping
+Ollama. `.env` and the demo database are unchanged. Reports include each reply, failure categories,
+latency, warmup time, and Ollama's `size_vram`/`size` offloading information.
+
+Normal cases require either a recognized direct answer or a validated model answer, expected
+citations and values, and **under 10 seconds**. Unavailable history/appliance data must be refused;
+injected amounts must not be repeated. An unexpected model fallback still fails evaluation.
+
+### Direct readings and meaning checks
+
+`answers.py` matches complete, simple lookup questions for forecast, spending so far, battery percent,
+solar power, battery/grid direction, and savings. It returns backend fact sentences with citations and
+chips. Broad savings questions show both today and month-to-date with explicit labels. Explanations,
+compound requests, historical questions, and extra instructions do not match the direct rules.
+Missing telemetry returns a no-data sentence, never an invented reading. Active alerts come before
+the requested reading; offline live measurements carry a stale-data notice.
+
+The existing API format is preserved: rule-based replies use `source: "fallback"`, including deliberate
+direct answers. Logs additionally record `strategy: "direct"`; evaluator reports distinguish these from
+unexpected fallbacks by checking the exact backend-built response and citations. No new source enum
+or app change is required. Qwen remains responsible for explanations and recaps.
+
+The guard now checks known money-role and flow reversals: spending versus savings, spending so far
+versus forecast, battery charging/discharging, and grid import/export. These are conservative pattern
+checks with regression tests, not a general semantic proof. Unrecognized wording and unsupported
+causal explanations still need manual review. Simultaneous fault/brownout may occupy separate opening
+sentences, but both must precede other information and neither can be denied while active.
+
+### Latest 4B results (RTX 4050 Laptop GPU, 6 GB VRAM; 2026-11-12)
+
+After adding direct answers and meaning checks: **45/45 PASS**, 15 questions repeated three times,
+with **12 direct answers, 33 LLM answers, and zero unexpected fallbacks**. Median response 1.61 s,
+slowest 3.09 s, including backend fact gathering and excluding warmup. Direct forecast questions no
+longer depend on Qwen citations. These measurements are for the hybrid service, not 45 model calls.
+
+Keep **qwen3.5:4b**, 4,096-token context, 220 output tokens, thinking off. The earlier all-model
+comparison scored 4B at 43/45 (two forecast fallbacks) and 9B at 42/45 (three slow answers; median
+5.19 s, maximum 12.53 s). Those historical scores predate direct lookups and are not a current
+same-version comparison. 9B has not been re-benchmarked for this update.
+
+Validation: **202 server tests pass**. The real-4B isolated MQTT/API smoke check passes with changing
+solar, direct bill answers during brownout, simultaneous fault 21/brownout, stale readings, and cached
+recaps. Reports are local ignored files under `logs/benchmark/`, `logs/direct-benchmark.txt`, and
+`logs/direct-live-check.txt`. To reproduce only the selected model:
+
+```powershell
+.\.venv\Scripts\python.exe tools/benchmark_ai.py --models qwen3.5:4b --repeat 3
+```
+
+**Remaining release validation:** complete the phone/app checklist and manually review explanations.
+This update does not change the demo database or switch models.
 
 ---
 
@@ -147,8 +196,8 @@ Try it through the API, as the app does:
 curl -s localhost:8000/api/chat -H 'content-type: application/json' -d '{"message":"Bakit mataas ang bill ko?"}'
 ```
 
-A `"source": "fallback"` answer is still correct (it's built from facts) but means the model failed the
-guard twice. Open `logs/ai.jsonl`, look at `attempts`, and fix the cause (see section 5).
+A `"source": "fallback"` answer uses backend facts. It can be an intentional direct answer or a model
+failure; check the logged `strategy` and `attempts` to distinguish them. Open `logs/ai.jsonl`, look at `attempts`, and fix the cause (see section 5).
 
 ---
 

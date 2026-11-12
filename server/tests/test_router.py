@@ -27,3 +27,21 @@ def test_topics(question, must_have, must_not_have):
 
 def test_active_brownout_is_always_added():
     assert "brownout" in topics_for("Magkano ang bill ko?", {"brownout"})
+
+
+@pytest.mark.parametrize("question,intent", [
+    ("Magkano na ang bill ko?", "current"),
+    ("Magkano ang forecast?", "forecast"),
+    ("Bill so far at forecast?", "both"),
+])
+def test_bill_selection(question, intent):
+    from ai.router import bill_intent, select_facts
+    from ai.facts import Fact
+    assert bill_intent(question) == intent
+    facts = [Fact("bill.month_to_date_php", "bill", "896 pesos"),
+             Fact("bill.forecast_php", "bill", "2070 pesos"),
+             Fact("brownout.active", "brownout", "May brownout")]
+    ids = {f.id for f in select_facts(question, facts)}
+    assert "brownout.active" in ids
+    assert ("bill.month_to_date_php" in ids) == (intent != "forecast")
+    assert ("bill.forecast_php" in ids) == (intent != "current")
