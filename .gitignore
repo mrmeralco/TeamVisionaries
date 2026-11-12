@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+server/.env
+server/*.db
+server/*.db-wal
+server/*.db-shm
+
+# Firmware
+.pio/
+build/
+firmware/**/secrets.h
+
+# Flutter
+app/.dart_tool/
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/ios/Pods/
+app/android/.gradle/
+app/android/local.properties
+app/ios/Flutter/Generated.xcconfig
+app/ios/Flutter/flutter_export_environment.sh
+*.iml
+.idea/
+
+# OS / editors
+.DS_Store
+.vscode/

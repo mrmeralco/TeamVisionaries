@@ -1,0 +1,51 @@
+[
+  {
+    "type": "telemetry",
+    "data": {
+      "device": {
+        "id": "sinag-001",
+        "online": true,
+        "rssi": -55,
+        "fw": "0.3.0",
+        "last_seen_ts": 1794446366
+      },
+      "telemetry": {
+        "ts": 1794446366,
+        "pv_w": 0,
+        "load_w": 900,
+        "grid_w": 0,
+        "batt_soc": 64,
+        "batt_w": 900,
+        "grid_on": false,
+        "inv_temp_c": 40,
+        "fault_code": 0
+      },
+      "state": "brownout",
+      "status_line": "Brownout! Battery at solar ang gamit ng bahay mo. Aabot pa ng mga 7.1 oras ang battery.",
+      "saved_today_php": 23.82,
+      "rate_php_per_kwh": 13.0
+    }
+  },
+  {
+    "type": "alert",
+    "data": {
+      "id": 14,
+      "ts": 1794446366,
+      "type": "high_temp",
+      "severity": "warning",
+      "title": "Mainit ang inverter",
+      "message": "66°C ang inverter. Siguraduhing may hangin sa paligid nito.",
+      "read": false
+    }
+  },
+  {
+    "type": "status",
+    "data": {
+      "id": "sinag-001",
+      "online": false,
+      "rssi": -55,
+      "fw": "0.3.0",
+      "last_seen_ts": 1794446366
+    }
+  }
+]
