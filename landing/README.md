@@ -15,21 +15,29 @@ follows the visitor's choice (the sun/moon button, remembered) or else the syste
 
 | Section | Shows |
 |---|---|
-| Hero | Fluted glass over a blurred sunset behind a house; glass cards (live readings, November bill), the headline, Book a demo, a five-item feature strip |
-| `#app` | The Alerts list beside Mira answering in Taglish |
-| `#bill` | "Know the bill before it arrives" on dark glass with a band of orange light |
-| `#forecast` | Bill forecast, 48-hour solar outlook, the Brownout Advisor, the Alerts screen |
+| Hero | Fluted glass over a blurred sunset behind a house; glass cards with the app's live and bill figures, the headline, Book a demo, a five-item feature strip |
+| `#app` | Ask Mira: the real conversation ("Bakit mataas ang bill ko?") in front of the real Home screen |
+| `#bill` | The bill forecast in the app's deep orange, beside the real Bill & Savings screen |
+| `#forecast` | The app screen by screen: real Energy, Brownout Advisor and Alerts screens |
 | `#questions` | Six questions in two columns |
-| `#setup` | Inverter → Solaris device → app, alerts, Mira (diagram) |
+| `#setup` | Inverter, Solaris device, app, alerts, Mira (diagram) |
+| Footer | Book a demo; Team Visionaries, who built what, GitHub and email |
+
+**The phone screens are real.** `assets/app/*-day.jpg` and `*-night.jpg` are screenshots of the Flutter app
+(`app/`) built for the web and run against the server in mock mode (`SOLARIS_MOCK=1`), so every number on them
+is the server's example data (`docs/contracts/examples/`). The day set shows in the light theme, the night set in
+the dark one. To capture them again after the app changes: `flutter build web`, serve `app/build/web`, run the
+server with `SOLARIS_MOCK=1`, open each route at 393x852 with `flutter.onboarded` and `flutter.appearance` set in
+localStorage, and save each screen as a 590x1278 JPEG under the same names.
 
 - **Colours and type** are the app's own (`app/lib/core/theme/app_theme.dart`): cream and orange by day, its navy at
-  night, DM Sans. The drawn app screens switch to the app's night colours in the dark theme.
+  night, DM Sans.
 - **The glass** is `assets/solaris-glass.js`: a small WebGL shader that renders once into each `[data-glass]`
   section's background (scenes `sunset` and `band`), redrawn on resize. Without WebGL the CSS background stays.
 - **Every number in the copy** comes from the repo: readings every 5 s (`docs/contracts/B-mqtt.md`), the ₱15.06/kWh
   default rate (`server/app/config.py`), the 48-hour Open-Meteo outlook and its 7- and 14-day fallbacks, Qwen 3.5 on
-  Ollama (`server/ai/README.md`). Alert titles are the server's own Taglish (`server/app/alerts.py`). The figures
-  inside the drawn screens (3.42 kW, ₱1,114, 7.1 hours) are sample readings.
+  Ollama (`server/ai/README.md`). The bill and live figures in the copy and the hero cards (₱746, ₱1,995, 3.1 kW,
+  78%) match the app screens, so the page never shows two different numbers for one thing.
 
 ## Still to supply
 
