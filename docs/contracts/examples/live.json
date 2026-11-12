@@ -19,8 +19,8 @@
   },
   "state": "solar",
   "status_line": "Araw ang nagpapagana sa bahay mo ngayon, at nagcha-charge pa ang battery.",
-  "saved_today_php": 23.82,
-  "rate_php_per_kwh": 13.0,
+  "saved_today_php": 27.6,
+  "rate_php_per_kwh": 15.0615,
   "setup": "solar",
   "meter": null
 }

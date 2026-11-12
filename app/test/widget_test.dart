@@ -248,9 +248,9 @@ void main() {
       expect(find.text('1.8 kW'), findsOneWidget); // load_w, HOME
       expect(find.text('78%'), findsOneWidget); // batt_soc, BATTERY
       // The labelled house makes the hero taller: the money cards are just below the fold.
-      await t.scrollUntilVisible(find.text('₱23.82'), 200, scrollable: find.byType(Scrollable).first);
-      expect(find.text('₱23.82'), findsOneWidget); // saved_today_php
-      expect(find.text('₱1,995'), findsOneWidget); // bill.forecast_php
+      await t.scrollUntilVisible(find.text('₱27.60'), 200, scrollable: find.byType(Scrollable).first);
+      expect(find.text('₱27.60'), findsOneWidget); // saved_today_php
+      expect(find.text('₱2,310'), findsOneWidget); // bill.forecast_php
       // The recap is below the fold now that text is larger: scroll to it.
       await t.scrollUntilVisible(find.text(example('summary_daily')['summary'] as String), 200,
           scrollable: find.byType(Scrollable).first);
@@ -510,8 +510,8 @@ void main() {
   testWidgets('Home (Figma rev 2): rate caption, bill card opens Bill, recap opens Ask with a question', (t) async {
     final api = StateMock();
     await pumpApp(t, api: api);
-    await t.scrollUntilVisible(find.text('At ₱13.00/kWh'), 200, scrollable: find.byType(Scrollable).first);
-    expect(find.text('At ₱13.00/kWh'), findsOneWidget); // live.rate_php_per_kwh
+    await t.scrollUntilVisible(find.text('At ₱15.06/kWh'), 200, scrollable: find.byType(Scrollable).first);
+    expect(find.text('At ₱15.06/kWh'), findsOneWidget); // live.rate_php_per_kwh
     await t.drag(find.byType(Scrollable).first, const Offset(0, -150)); // bring the money cards above the nav bar
     await t.pumpAndSettle();
     await t.tap(find.text('See bill details'));
@@ -810,9 +810,9 @@ void main() {
     await pumpApp(t);
     await tab(t, 'Bill');
     expect(find.text('Predicted bill for November'), findsOneWidget);
-    expect(find.text('₱1,833 – ₱2,156'), findsOneWidget);
-    expect(find.text('₱186 less than last month (−8.5%)'), findsOneWidget); // pesos first, plain words
-    expect(find.text('₱1,694'), findsOneWidget); // savings_month_php
+    expect(find.text('₱2,123 – ₱2,497'), findsOneWidget);
+    expect(find.text('₱215 less than last month (−8.5%)'), findsOneWidget); // pesos first, plain words
+    expect(find.text('₱1,963'), findsOneWidget); // savings_month_php
     final weeks = example('bill')['weekly_costs'] as List;
     for (final w in weeks) {
       expect(find.text(w['label'] as String), findsOneWidget);
@@ -936,7 +936,7 @@ void main() {
     expect(api.chats, 1);
     expect(find.text('Bakit mataas ang bill ko?'), findsOneWidget);
     expect(find.text(example('chat')['reply'] as String), findsOneWidget);
-    expect(find.textContaining('Bill this month  ₱746', findRichText: true), findsOneWidget); // chip: UTF-8 ₱ intact
+    expect(find.textContaining('Bill this month  ₱857', findRichText: true), findsOneWidget); // chip: UTF-8 ₱ intact
     // Follow-up suggestions after the answer, without the question already asked.
     expect(find.text('Kakayanin ba ng battery mamaya?'), findsOneWidget);
     await t.tap(find.byTooltip('New conversation'));
@@ -1045,15 +1045,15 @@ void main() {
     await t.tap(find.bySemanticsLabel('Settings').first);
     await t.pumpAndSettle();
     expect(find.text('Test connection'), findsOneWidget);
-    expect(find.text('₱13.0000 / kWh'), findsOneWidget);
-    expect(find.widgetWithText(TextField, '13.0'), findsNothing);
+    expect(find.text('₱15.0615 / kWh'), findsOneWidget);
+    expect(find.widgetWithText(TextField, '15.0615'), findsNothing);
     await t.enterText(find.widgetWithText(TextField, '10.0'), '12.5');
     await t.ensureVisible(find.text('Save household'));
     await t.pumpAndSettle();
     await t.tap(find.text('Save household'));
     await t.pumpAndSettle();
     expect(c.read(serverSettingsProvider).value!['battery_kwh'], 12.5);
-    expect(c.read(serverSettingsProvider).value!['rate_php_per_kwh'], 13.0);
+    expect(c.read(serverSettingsProvider).value!['rate_php_per_kwh'], 15.0615);
   });
 
   testWidgets('Settings: invalid household values say why instead of doing nothing', (t) async {
@@ -1066,7 +1066,7 @@ void main() {
     await t.tap(find.text('Save household'));
     await t.pumpAndSettle();
     expect(find.textContaining('Numero mula 1 hanggang 200'), findsOneWidget);
-    expect(c.read(serverSettingsProvider).value!['rate_php_per_kwh'], 13.0);
+    expect(c.read(serverSettingsProvider).value!['rate_php_per_kwh'], 15.0615);
     await t.enterText(find.widgetWithText(TextField, 'abc'), '10.0');
     await t.ensureVisible(find.text('Save household'));
     await t.pumpAndSettle();

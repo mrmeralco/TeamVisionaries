@@ -1,13 +1,13 @@
 {
-  "reply": "₱746 na ang bill mo ngayong buwan, at mga ₱1,995 ang forecast. Pinakamaraming kuha mo sa grid tuwing 7AM, 9PM at 10PM, kapag wala nang araw. Subukang gamitin ang aircon at plantsa nang mas maaga, habang maaraw pa.",
+  "reply": "₱857 na ang bill mo ngayong buwan, at mga ₱2,310 ang forecast. Pinakamaraming kuha mo sa grid tuwing 7AM, 9PM at 10PM, kapag wala nang araw. Subukang gamitin ang aircon at plantsa nang mas maaga, habang maaraw pa.",
   "chips": [
     {
       "label": "Bill this month",
-      "value": "₱746"
+      "value": "₱857"
     },
     {
       "label": "Bill forecast",
-      "value": "₱1,995"
+      "value": "₱2,310"
     }
   ],
   "source": "llm",
@@ -20,8 +20,8 @@
     {
       "id": "bill.month_to_date_php",
       "label": "Bill so far",
-      "value": "₱746",
-      "detail": "Sa ngayon, ₱746 na ang nagastos mo sa kuryente ngayong buwan (49.6 kWh mula sa grid).",
+      "value": "₱857",
+      "detail": "Sa ngayon, ₱857 na ang nagastos mo sa kuryente ngayong buwan (49.6 kWh mula sa grid).",
       "kind": "history",
       "period": "This month",
       "screen": "bill",
@@ -30,8 +30,8 @@
     {
       "id": "bill.forecast_php",
       "label": "Bill forecast",
-      "value": "₱1,995",
-      "detail": "Mga ₱1,995 ang inaasahang bill mo sa katapusan ng buwan (puwedeng ₱1,840 hanggang ₱2,150).",
+      "value": "₱2,310",
+      "detail": "Mga ₱2,310 ang inaasahang bill mo sa katapusan ng buwan (puwedeng ₱2,123 hanggang ₱2,497).",
       "kind": "forecast",
       "period": "End of this month",
       "screen": "bill",

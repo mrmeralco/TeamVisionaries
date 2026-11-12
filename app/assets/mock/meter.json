@@ -74,9 +74,9 @@
     "forecast_kwh": 532.2,
     "level_min_kwh": 400.0,
     "level_max_kwh": null,
-    "rate_php_per_kwh": 14.13,
+    "rate_php_per_kwh": 16.19,
     "kwh_above_lower_level": 132.2,
-    "save_php_at_lower_level": 2096,
+    "save_php_at_lower_level": 2369,
     "kwh_to_next_level": null,
     "next_level_rate_php_per_kwh": null
   },
@@ -85,7 +85,7 @@
       "id": "tier_drop",
       "tone": "info",
       "title": "Kaya pang bumaba sa mas murang antas",
-      "body": "Mga 532 kWh ang inaasahang gamit mo ngayong buwan, 132 kWh lampas sa 400 kWh. Kung mababawasan mo ito ng mga 7.0 kWh kada araw sa natitirang 19 araw, mas murang antas ng Meralco ang sisingilin sa buong buwan: mga ₱2,096 na tipid.",
+      "body": "Mga 532 kWh ang inaasahang gamit mo ngayong buwan, 132 kWh lampas sa 400 kWh. Kung mababawasan mo ito ng mga 7.0 kWh kada araw sa natitirang 19 araw, mas murang antas ng Meralco ang sisingilin sa buong buwan: mga ₱2,369 na tipid.",
       "evidence": [
         {
           "label": "Forecast use",
@@ -97,7 +97,7 @@
         },
         {
           "label": "Possible savings",
-          "value": "₱2,096"
+          "value": "₱2,369"
         }
       ]
     },
@@ -121,7 +121,7 @@
       "id": "base_load",
       "tone": "info",
       "title": "Laging bukas: mga 259 W",
-      "body": "Kahit tulog ang lahat, mga 259 W ang ginagamit ng bahay mo (ref, router, mga naka-standby). Mga 186 kWh iyan kada buwan, mga ₱2,635. Hugutin ang mga charger at appliance na hindi ginagamit.",
+      "body": "Kahit tulog ang lahat, mga 259 W ang ginagamit ng bahay mo (ref, router, mga naka-standby). Mga 186 kWh iyan kada buwan, mga ₱3,019. Hugutin ang mga charger at appliance na hindi ginagamit.",
       "evidence": [
         {
           "label": "Always on",

@@ -2,36 +2,36 @@
   "month": "2026-11",
   "days_elapsed": 12,
   "days_in_month": 30,
-  "rate_php_per_kwh": 13.0,
+  "rate_php_per_kwh": 15.0615,
   "month_to_date_kwh": 67.88,
-  "month_to_date_php": 874.27,
-  "forecast_php": 2198.66,
-  "forecast_low_php": 1874.28,
-  "forecast_high_php": 2468.37,
-  "last_month_php": 1694.13,
+  "month_to_date_php": 1014.25,
+  "forecast_php": 2546.12,
+  "forecast_low_php": 2171.08,
+  "forecast_high_php": 2859.89,
+  "last_month_php": 1961.44,
   "vs_last_month_pct": 29.8,
-  "savings_today_php": 118.47,
-  "savings_month_php": 1657.46,
+  "savings_today_php": 137.26,
+  "savings_month_php": 1920.29,
   "weekly_costs": [
     {
       "week_start_ts": 1792339200,
       "label": "Oct 19",
-      "php": 443.74
+      "php": 514.76
     },
     {
       "week_start_ts": 1792944000,
       "label": "Oct 26",
-      "php": 292.86
+      "php": 339.73
     },
     {
       "week_start_ts": 1793548800,
       "label": "Nov 2",
-      "php": 613.76
+      "php": 711.99
     },
     {
       "week_start_ts": 1794153600,
       "label": "Nov 9",
-      "php": 229.71
+      "php": 266.48
     }
   ],
   "grid_source": "meter",
@@ -62,14 +62,14 @@
       {
         "id": "energy",
         "kwh": 168.8,
-        "php_per_kwh": 11.7823,
-        "php": 1989.33
+        "php_per_kwh": 13.8438,
+        "php": 2336.84
       },
       {
         "id": "distribution",
         "kwh": 168.8,
         "php_per_kwh": 1.0979,
-        "php": 185.38
+        "php": 185.33
       },
       {
         "id": "fixed",
@@ -80,7 +80,7 @@
     ],
     "rates": {
       "source": "Meralco Summary Schedule of Rates, October 2026 billing",
-      "overall_php_per_kwh": 13.0,
+      "overall_php_per_kwh": 15.0615,
       "vat_pct": 12,
       "supply_php": 16.38,
       "metering_php": 5.0,

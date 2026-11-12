@@ -22,8 +22,8 @@
       },
       "state": "brownout",
       "status_line": "Brownout! Battery at solar ang gamit ng bahay mo. Aabot pa ng mga 7.1 oras ang battery.",
-      "saved_today_php": 23.82,
-      "rate_php_per_kwh": 13.0,
+      "saved_today_php": 27.6,
+      "rate_php_per_kwh": 15.0615,
       "setup": "solar",
       "meter": null
     }
@@ -64,7 +64,7 @@
       "state": "grid",
       "status_line": "Kumukuha ang bahay mo ng 1.5 kW mula sa grid ngayon.",
       "saved_today_php": 0.0,
-      "rate_php_per_kwh": 13.0,
+      "rate_php_per_kwh": 15.0615,
       "setup": "meter_only",
       "meter": {
         "ts": 1794489390,
