@@ -22,17 +22,43 @@
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Solaris">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 
   <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>Solaris</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- splash: the Solaris mark on the app's cream until Flutter draws its first frame -->
+  <style>
+    html, body { margin: 0; background: #FFF3E5; }
+    #splash { position: fixed; inset: 0; z-index: 10; display: grid; place-content: center; justify-items: center; gap: 20px;
+              background: #FFF3E5; transition: opacity .35s ease; }
+    #splash img { width: 72px; height: auto; animation: splash-pulse 1.6s ease-in-out infinite; }
+    #splash span { font: 500 26px/1 "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+                   letter-spacing: -0.02em; color: #292929; }
+    #splash.is-done { opacity: 0; pointer-events: none; }
+    @keyframes splash-pulse { 50% { transform: scale(.94); opacity: .8; } }
+    @media (prefers-reduced-motion: reduce) { #splash img { animation: none; } #splash { transition: none; } }
+  </style>
 </head>
 <body>
+  <div id="splash" role="status" aria-label="Loading Solaris">
+    <img src="logo.svg" alt="" width="72" height="117">
+    <span>Solaris</span>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var s = document.getElementById('splash');
+      if (!s) return;
+      s.classList.add('is-done');
+      setTimeout(function () { s.remove(); }, 400);
+    }, { once: true });
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
