@@ -67,7 +67,7 @@ def test_brownout_facts_always_included(monkeypatch):
     dev = s["device_id"]
     db.execute("INSERT INTO outages (device_id, start_ts) VALUES (?, strftime('%s','now') - 600)", (dev,))
     try:
-        _, calls = run([{"answerable": True, "reply": "Ok.", "fact_ids": ["brownout.active"]}], "Kumusta solar ko?", monkeypatch)
+        _, calls = run([{"answerable": True, "reply": "May brownout. Offline ang device.", "fact_ids": ["brownout.active", "now.online"]}], "Kumusta solar ko?", monkeypatch)
         assert "MAY BROWNOUT NGAYON" in facts_text(calls)
     finally:
         db.execute("DELETE FROM outages WHERE end_ts IS NULL")
@@ -105,14 +105,14 @@ def test_bracketed_fact_ids_are_accepted(monkeypatch):
     # Qwen copies the "[id]" format from the FACTS list; a correct answer must not be thrown away for that.
     s = db.get_settings()
     pct = service.gather(s["device_id"], s).by_id()["now.battery_pct"].values[0]
-    out, calls = run([{"answerable": True, "reply": f"{pct:g}% ang battery mo.", "fact_ids": ["[now.battery_pct]"]}],
-                     "Ilang porsyento na ang battery ko?", monkeypatch)
+    out, calls = run([{"answerable": True, "reply": f"Offline ang device. {pct:g}% ang battery mo.", "fact_ids": ["[now.battery_pct]"]}],
+                     "Ipaliwanag ang battery percentage ko", monkeypatch)
     assert len(calls) == 1 and out["source"] == "llm" and out["facts_used"] == ["now.battery_pct"]
 
 
 def test_made_up_id_in_brackets_is_still_rejected(monkeypatch):
     bad = {"answerable": True, "reply": "Ok ang lahat.", "fact_ids": ["[bill.secret_php]"]}
-    out, calls = run([bad, dict(bad)], "Ilang porsyento na ang battery ko?", monkeypatch)
+    out, calls = run([bad, dict(bad)], "Ipaliwanag ang battery percentage ko", monkeypatch)
     assert len(calls) == 2 and out["source"] == "fallback"
 
 
