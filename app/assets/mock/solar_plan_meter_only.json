@@ -1,0 +1,89 @@
+{
+  "generated_ts": 1762912800,
+  "setup": "meter_only",
+  "has_solar": false,
+  "days": 30,
+  "usage": {
+    "kwh_day": 17.8,
+    "day_kwh_day": 6.2,
+    "night_kwh_day": 11.6,
+    "night_share_pct": 65,
+    "peak_w": 2166,
+    "bill_php_month": 8670
+  },
+  "options": [
+    {
+      "id": "hybrid",
+      "recommended": true,
+      "title": "Hybrid na may battery",
+      "pv_kwp": 4.64,
+      "panels": 8,
+      "panel_w": 580,
+      "roof_m2": 21,
+      "inverter_kw": 5.0,
+      "battery_kwh": 15.0,
+      "solar_kwh_day": 16.7,
+      "covers_pct": 88,
+      "export_kwh_day": 0.0,
+      "bill_before_php_month": 8670,
+      "bill_after_php_month": 977,
+      "savings_php_month": 7693,
+      "cost_php": 532000,
+      "payback_years": 5.8,
+      "backup_hours": 14.0,
+      "co2_kg_year": 4063,
+      "why": "65% ng gamit mo ay sa gabi, kaya may silbi ang battery: iniipon nito ang sobrang araw para sa gabi, at kaya nitong buhayin ang bahay nang mga 14 oras sa brownout."
+    },
+    {
+      "id": "grid_tie",
+      "recommended": false,
+      "title": "Grid-tie (walang battery)",
+      "pv_kwp": 1.74,
+      "panels": 3,
+      "panel_w": 580,
+      "roof_m2": 8,
+      "inverter_kw": 3.0,
+      "battery_kwh": null,
+      "solar_kwh_day": 6.3,
+      "covers_pct": 26,
+      "export_kwh_day": 1.6,
+      "bill_before_php_month": 8670,
+      "bill_after_php_month": 5882,
+      "savings_php_month": 2789,
+      "cost_php": 88000,
+      "payback_years": 2.6,
+      "backup_hours": null,
+      "co2_kg_year": 1623,
+      "why": "35% ng gamit mo ay habang may araw, kaya diretsong magagamit ang solar kahit walang battery. Mas mura at mas mabilis bumalik ang puhunan."
+    }
+  ],
+  "yield_kwh_per_kwp_day": 3.6,
+  "sponsors": [
+    {
+      "id": "slot_installer",
+      "kind": "installer",
+      "name": "Solar installer",
+      "tagline": "Ad space for an accredited solar installer near you.",
+      "url": null,
+      "placeholder": true
+    },
+    {
+      "id": "slot_panels",
+      "kind": "panel_brand",
+      "name": "Solar panel brand",
+      "tagline": "Ad space for a panel or inverter brand.",
+      "url": null,
+      "placeholder": true
+    },
+    {
+      "id": "slot_financing",
+      "kind": "financing",
+      "name": "Solar financing",
+      "tagline": "Ad space for a solar loan or installment partner.",
+      "url": null,
+      "placeholder": true
+    }
+  ],
+  "disclaimer": "Tantiya lang ito mula sa gamit mo at karaniwang araw sa Pilipinas. Ipasukat sa installer ang bubong, lilim at wiring bago bumili. Ang mga ad ay hiwalay sa rekomendasyon.",
+  "headline": "Para sa 17.8 kWh kada araw mo, 4.64 kWp na solar (8 panels + 15 kWh na battery): mga ₱7,693 na tipid kada buwan, balik-puhunan sa mga 5.8 taon."
+}

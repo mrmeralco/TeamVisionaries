@@ -8,14 +8,16 @@ class ChatMessage {
   const ChatMessage.user(this.text)
       : fromUser = true,
         chips = const [],
+        sources = const [],
         source = null,
         isError = false;
-  const ChatMessage.solaris(this.text, {this.chips = const [], this.source})
+  const ChatMessage.solaris(this.text, {this.chips = const [], this.sources = const [], this.source})
       : fromUser = false,
         isError = false;
   const ChatMessage.error(this.text)
       : fromUser = false,
         chips = const [],
+        sources = const [],
         source = null,
         isError = true;
 
@@ -24,6 +26,9 @@ class ChatMessage {
 
   /// [{label, value}] from the facts the AI cited, e.g. {"label": "Bill this month", "value": "₱536"}.
   final List<Map<String, dynamic>> chips;
+
+  /// The user's data behind the answer, one per fact: {id, label, value, detail, kind, period, screen, as_of_ts}.
+  final List<Map<String, dynamic>> sources;
 
   /// llm | fallback
   final String? source;
@@ -62,10 +67,12 @@ class ChatNotifier extends Notifier<ChatState> {
     ChatMessage reply;
     try {
       final res = await ref.read(apiServiceProvider).chat(message);
-      final chips = res['chips'];
+      List<Map<String, dynamic>> maps(Object? v) =>
+          v is List ? [for (final c in v) if (c is Map) c.cast<String, dynamic>()] : const [];
       reply = ChatMessage.solaris(
         res['reply'] is String ? res['reply'] as String : '',
-        chips: chips is List ? [for (final c in chips) if (c is Map) c.cast<String, dynamic>()] : const [],
+        chips: maps(res['chips']),
+        sources: maps(res['sources']),
         source: res['source'] is String ? res['source'] as String : null,
       );
     } catch (e) {

@@ -69,14 +69,16 @@
     "live": {
       "description": "GET /api/live and WS {type: telemetry}",
       "type": "object",
-      "required": ["device", "telemetry", "state", "status_line", "saved_today_php", "rate_php_per_kwh"],
+      "required": ["device", "telemetry", "state", "status_line", "saved_today_php", "rate_php_per_kwh", "setup", "meter"],
       "properties": {
         "device": { "$ref": "#/$defs/device" },
-        "telemetry": { "oneOf": [{ "$ref": "#/$defs/telemetry" }, { "type": "null" }] },
+        "telemetry": { "oneOf": [{ "$ref": "#/$defs/telemetry" }, { "type": "null" }], "description": "always null when setup is meter_only" },
         "state": { "enum": ["solar", "battery", "grid", "brownout", "fault", "offline"] },
         "status_line": { "type": "string", "minLength": 1 },
         "saved_today_php": { "$ref": "#/$defs/php" },
-        "rate_php_per_kwh": { "type": "number", "exclusiveMinimum": 0 }
+        "rate_php_per_kwh": { "type": "number", "exclusiveMinimum": 0 },
+        "setup": { "$ref": "#/$defs/setup" },
+        "meter": { "oneOf": [{ "$ref": "#/$defs/meter" }, { "type": "null" }], "description": "latest meter reading; null for setup solar" }
       }
     },
     "kwh_totals": {
@@ -119,7 +121,7 @@
       "type": "object",
       "required": ["month", "days_elapsed", "days_in_month", "rate_php_per_kwh", "month_to_date_kwh", "month_to_date_php",
                    "forecast_php", "forecast_low_php", "forecast_high_php", "last_month_php", "vs_last_month_pct",
-                   "savings_today_php", "savings_month_php", "weekly_costs"],
+                   "savings_today_php", "savings_month_php", "weekly_costs", "grid_source"],
       "properties": {
         "month": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" },
         "days_elapsed": { "type": "integer", "minimum": 1, "maximum": 31 },
@@ -141,7 +143,8 @@
             "required": ["week_start_ts", "label", "php"],
             "properties": { "week_start_ts": { "$ref": "#/$defs/ts" }, "label": { "type": "string" }, "php": { "$ref": "#/$defs/php" } }
           }
-        }
+        },
+        "grid_source": { "enum": ["inverter", "meter"], "description": "the meter whenever the home has one" }
       }
     },
     "brownout": {
@@ -159,6 +162,252 @@
         "outages_this_month": { "type": "integer", "minimum": 0 }
       }
     },
+    "bill_projection": {
+      "description": "GET /api/bill/projection: this month's forecast + up to 3 projected months (server/app/projection.py)",
+      "type": "object",
+      "required": ["generated_ts", "enough_data", "basis_days", "rate_php_per_kwh", "max_months", "months"],
+      "properties": {
+        "generated_ts": { "type": "integer" },
+        "enough_data": { "type": "boolean" },
+        "basis_days": { "type": "integer", "minimum": 0 },
+        "rate_php_per_kwh": { "type": "number" },
+        "max_months": { "type": "integer", "minimum": 0 },
+        "months": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["month", "label", "months_ahead", "kind", "grid_kwh", "low_kwh", "high_kwh", "bill_php", "low_php",
+                         "high_php", "load_kwh", "solar_kwh", "range_pct"],
+            "properties": {
+              "month": { "type": "string" }, "label": { "type": "string" },
+              "months_ahead": { "type": "integer", "minimum": 0 },
+              "kind": { "enum": ["forecast", "projection"] },
+              "grid_kwh": { "type": "number" }, "low_kwh": { "type": ["number", "null"] }, "high_kwh": { "type": ["number", "null"] },
+              "bill_php": { "type": "number" }, "low_php": { "type": "number" }, "high_php": { "type": "number" },
+              "load_kwh": { "type": ["number", "null"] }, "solar_kwh": { "type": ["number", "null"] },
+              "range_pct": { "type": ["integer", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "upgrade": {
+      "description": "GET /api/upgrade: does the solar setup still fit this household's use (server/app/upgrade.py)",
+      "type": "object",
+      "required": ["generated_ts", "enough_data", "verdict", "headline", "system", "usage", "recommendations"],
+      "properties": {
+        "generated_ts": { "type": "integer" },
+        "enough_data": { "type": "boolean" },
+        "verdict": { "enum": ["ok", "consider", "unknown"] },
+        "headline": { "type": "string", "minLength": 1 },
+        "system": {
+          "type": "object",
+          "required": ["pv_kwp", "battery_kwh", "inverter_kw"],
+          "properties": { "pv_kwp": { "type": "number" }, "battery_kwh": { "type": "number" }, "inverter_kw": { "type": "number" } }
+        },
+        "usage": {
+          "type": ["object", "null"],
+          "required": ["days", "load_kwh_day", "pv_kwh_day", "grid_import_kwh_day", "day_import_kwh_day", "night_import_kwh_day",
+                       "export_kwh_day", "self_sufficiency_pct", "battery_empty_days_pct", "peak_load_w", "p95_load_w", "load_trend_pct"],
+          "properties": {
+            "days": { "type": "integer", "minimum": 0 },
+            "load_kwh_day": { "type": "number" }, "pv_kwh_day": { "type": "number" },
+            "grid_import_kwh_day": { "type": "number" }, "day_import_kwh_day": { "type": "number" },
+            "night_import_kwh_day": { "type": "number" }, "export_kwh_day": { "type": "number" },
+            "self_sufficiency_pct": { "type": "integer" }, "battery_empty_days_pct": { "type": "integer" },
+            "peak_load_w": { "type": "integer" }, "p95_load_w": { "type": "integer" },
+            "load_trend_pct": { "type": ["integer", "null"] }
+          }
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "priority", "title", "add", "reason", "evidence", "savings_php_month", "cost_php", "payback_years"],
+            "properties": {
+              "id": { "enum": ["battery", "solar", "inverter", "usage"] },
+              "priority": { "type": "integer", "minimum": 1 },
+              "title": { "type": "string" }, "add": { "type": "string" }, "reason": { "type": "string", "minLength": 1 },
+              "evidence": { "type": "array", "items": { "type": "object", "required": ["label", "value"],
+                            "properties": { "label": { "type": "string" }, "value": { "type": "string" } } } },
+              "savings_php_month": { "type": ["integer", "null"] },
+              "cost_php": { "type": ["integer", "null"] },
+              "payback_years": { "type": ["number", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "tips": {
+      "description": "GET /api/tips: when and how to run the house on the sun, from this home's data (server/app/tips.py)",
+      "type": "object",
+      "required": ["generated_ts", "best_window", "impact", "tips"],
+      "properties": {
+        "generated_ts": { "$ref": "#/$defs/ts" },
+        "best_window": {
+          "type": ["object", "null"],
+          "required": ["start_ts", "end_ts", "surplus_kwh", "day"],
+          "properties": {
+            "start_ts": { "$ref": "#/$defs/ts" }, "end_ts": { "$ref": "#/$defs/ts" },
+            "surplus_kwh": { "$ref": "#/$defs/kwh" }, "day": { "enum": ["today", "tomorrow"] }
+          }
+        },
+        "impact": {
+          "type": ["object", "null"],
+          "required": ["month", "solar_kwh", "clean_share_pct", "co2_avoided_kg", "trees"],
+          "properties": {
+            "month": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" },
+            "solar_kwh": { "$ref": "#/$defs/kwh" }, "clean_share_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+            "co2_avoided_kg": { "type": "number", "minimum": 0 }, "trees": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "tips": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "kind", "priority", "title", "body", "evidence", "savings_php_month"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "kind": { "enum": ["now", "today", "habit", "general"] },
+              "priority": { "type": "integer", "minimum": 1 },
+              "title": { "type": "string", "minLength": 1 }, "body": { "type": "string", "minLength": 1 },
+              "evidence": { "type": "array", "items": { "type": "object", "required": ["label", "value"],
+                            "properties": { "label": { "type": "string" }, "value": { "type": "string" } } } },
+              "savings_php_month": { "type": ["integer", "null"] }
+            }
+          }
+        }
+      }
+    },
+
+    "solar_plan": {
+      "description": "GET /api/solar-plan: solar sizing for a home without solar, plus sponsored slots (server/app/solar_plan.py)",
+      "type": "object",
+      "required": ["generated_ts", "setup", "has_solar", "days", "headline", "usage", "options", "yield_kwh_per_kwp_day", "sponsors", "disclaimer"],
+      "properties": {
+        "generated_ts": { "$ref": "#/$defs/ts" },
+        "setup": { "enum": ["solar", "meter_only", "solar_and_meter"] },
+        "has_solar": { "type": "boolean" },
+        "days": { "type": "integer", "minimum": 0 },
+        "headline": { "type": "string", "minLength": 1 },
+        "usage": {
+          "type": ["object", "null"],
+          "required": ["kwh_day", "day_kwh_day", "night_kwh_day", "night_share_pct", "peak_w", "bill_php_month"],
+          "properties": {
+            "kwh_day": { "$ref": "#/$defs/kwh" }, "day_kwh_day": { "$ref": "#/$defs/kwh" }, "night_kwh_day": { "$ref": "#/$defs/kwh" },
+            "night_share_pct": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "peak_w": { "type": "integer", "minimum": 0 }, "bill_php_month": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "options": {
+          "type": "array", "maxItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["id", "recommended", "title", "pv_kwp", "panels", "panel_w", "roof_m2", "inverter_kw", "battery_kwh",
+                         "solar_kwh_day", "covers_pct", "export_kwh_day", "bill_before_php_month", "bill_after_php_month",
+                         "savings_php_month", "cost_php", "payback_years", "backup_hours", "co2_kg_year", "why"],
+            "properties": {
+              "id": { "enum": ["grid_tie", "hybrid"] }, "recommended": { "type": "boolean" }, "title": { "type": "string" },
+              "pv_kwp": { "type": "number", "minimum": 0 }, "panels": { "type": "integer", "minimum": 1 }, "panel_w": { "type": "integer", "minimum": 1 },
+              "roof_m2": { "type": "integer", "minimum": 0 }, "inverter_kw": { "type": "number", "minimum": 0 },
+              "battery_kwh": { "type": ["number", "null"], "minimum": 0 },
+              "solar_kwh_day": { "$ref": "#/$defs/kwh" }, "covers_pct": { "type": "integer", "minimum": 0, "maximum": 100 },
+              "export_kwh_day": { "$ref": "#/$defs/kwh" },
+              "bill_before_php_month": { "type": "integer", "minimum": 0 }, "bill_after_php_month": { "type": "integer", "minimum": 0 },
+              "savings_php_month": { "type": "integer" }, "cost_php": { "type": "integer", "minimum": 0 },
+              "payback_years": { "type": ["number", "null"], "minimum": 0 }, "backup_hours": { "type": ["number", "null"], "minimum": 0 },
+              "co2_kg_year": { "type": "integer", "minimum": 0 }, "why": { "type": "string" }
+            }
+          }
+        },
+        "yield_kwh_per_kwp_day": { "type": "number", "minimum": 0 },
+        "sponsors": {
+          "type": "array",
+          "items": {
+            "type": "object", "required": ["id", "kind", "name", "tagline", "url", "placeholder"],
+            "properties": {
+              "id": { "type": "string" },
+              "kind": { "enum": ["installer", "panel_brand", "inverter_brand", "battery_brand", "financing"] },
+              "name": { "type": "string", "minLength": 1 }, "tagline": { "type": "string" },
+              "url": { "type": ["string", "null"] }, "placeholder": { "type": "boolean" }
+            }
+          }
+        },
+        "disclaimer": { "type": "string" }
+      }
+    },
+
+    "household": {
+      "description": "GET /api/household: routine and occupancy from home use alone, plus new appliance-sized loads (server/app/household.py)",
+      "type": "object",
+      "required": ["generated_ts", "now", "days_used", "confidence", "baseload", "daylight_use_pct", "routine", "archetype", "traits", "new_loads"],
+      "properties": {
+        "generated_ts": { "$ref": "#/$defs/ts" },
+        "now": {
+          "type": "object",
+          "required": ["state", "likely_home", "load_w", "usual_home_pct", "unusual", "next_active_ts", "text"],
+          "properties": {
+            "state": { "enum": ["active", "asleep", "away", "quiet", "unknown"] },
+            "likely_home": { "type": ["boolean", "null"] },
+            "load_w": { "type": ["integer", "null"], "minimum": 0 },
+            "usual_home_pct": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+            "unusual": { "type": "boolean" },
+            "next_active_ts": { "$ref": "#/$defs/ts_or_null" },
+            "text": { "type": "string", "minLength": 1 }
+          }
+        },
+        "days_used": { "type": "integer", "minimum": 0 },
+        "confidence": { "enum": ["none", "low", "medium", "high"] },
+        "baseload": {
+          "type": ["object", "null"],
+          "required": ["watts", "kwh_month", "php_month", "share_pct"],
+          "properties": {
+            "watts": { "type": "integer", "minimum": 0 }, "kwh_month": { "$ref": "#/$defs/kwh" },
+            "php_month": { "type": "integer" }, "share_pct": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        },
+        "daylight_use_pct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "routine": {
+          "type": "object", "required": ["weekday", "weekend"],
+          "properties": { "weekday": { "$ref": "#/$defs/routine_day" }, "weekend": { "$ref": "#/$defs/routine_day" } }
+        },
+        "archetype": {
+          "type": "object", "required": ["id", "label", "description"],
+          "properties": { "id": { "enum": ["away_daytime", "home_daytime", "mixed", "unknown"] },
+                          "label": { "type": "string" }, "description": { "type": "string" } }
+        },
+        "traits": { "type": "array", "items": { "type": "object", "required": ["id", "label"],
+                    "properties": { "id": { "type": "string" }, "label": { "type": "string" } } } },
+        "new_loads": {
+          "type": "array", "maxItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["id", "kind", "start_hour", "end_hour", "added_w", "kwh_day", "php_month", "since_ts", "days_seen", "guess", "text"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 }, "kind": { "enum": ["always_on", "scheduled"] },
+              "start_hour": { "type": ["integer", "null"], "minimum": 0, "maximum": 23 }, "end_hour": { "type": ["integer", "null"], "minimum": 0, "maximum": 23 },
+              "added_w": { "type": "integer", "minimum": 0 }, "kwh_day": { "$ref": "#/$defs/kwh" },
+              "php_month": { "type": "integer", "minimum": 0 }, "since_ts": { "$ref": "#/$defs/ts" },
+              "days_seen": { "type": "integer", "minimum": 1 }, "guess": { "type": "string" },
+              "text": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "routine_day": {
+          "type": ["object", "null"],
+          "required": ["wake_hour", "sleep_hour", "away", "peak_hour", "home_pct", "avg_w"],
+          "properties": {
+            "wake_hour": { "type": ["integer", "null"], "minimum": 0, "maximum": 23 }, "sleep_hour": { "type": ["integer", "null"], "minimum": 0, "maximum": 23 },
+            "away": { "type": ["object", "null"], "required": ["start_hour", "end_hour"],
+                      "properties": { "start_hour": { "type": "integer", "minimum": 0, "maximum": 23 }, "end_hour": { "type": "integer", "minimum": 0, "maximum": 24 } } },
+            "peak_hour": { "type": "integer", "minimum": 0, "maximum": 23 },
+            "home_pct": { "type": "array", "minItems": 24, "maxItems": 24, "items": { "type": "integer", "minimum": 0, "maximum": 100 } },
+            "avg_w": { "type": "array", "minItems": 24, "maxItems": 24, "items": { "type": "integer", "minimum": 0 } }
+          }
+        },
+
     "outlook": {
       "description": "GET /api/outlook: solar + battery outlook for the next 48 h",
       "type": "object",
@@ -250,7 +499,25 @@
           }
         },
         "source": { "enum": ["llm", "fallback"] },
-        "facts_used": { "type": "array", "items": { "type": "string" } }
+        "facts_used": { "type": "array", "items": { "type": "string" } },
+        "sources": {
+          "description": "The user's data behind the answer, one entry per fact (server/ai/sources.py)",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "label", "value", "detail", "kind", "period", "screen", "as_of_ts"],
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "value": { "type": ["string", "null"] },
+              "detail": { "type": "string" },
+              "kind": { "enum": ["live", "history", "forecast", "settings", "advice"] },
+              "period": { "type": "string" },
+              "screen": { "enum": ["home", "energy", "bill", "brownout", "alerts", "settings", null] },
+              "as_of_ts": { "type": ["integer", "null"] }
+            }
+          }
+        }
       }
     },
     "summary": {
@@ -272,15 +539,106 @@
         }
       }
     },
+    "setup": {
+      "description": "The household: solar (inverter) | meter_only (smart/utility meter, no solar) | solar_and_meter",
+      "enum": ["solar", "meter_only", "solar_and_meter"]
+    },
+    "meter_info": {
+      "description": "GET /api/meter: smart meter reading, voltage and power factor, usage pattern, Meralco level, insights",
+      "type": "object",
+      "required": ["generated_ts", "setup", "online", "reading", "quality", "usage", "tier", "insights"],
+      "properties": {
+        "generated_ts": { "$ref": "#/$defs/ts" },
+        "setup": { "$ref": "#/$defs/setup" },
+        "online": { "type": "boolean" },
+        "reading": { "oneOf": [{ "$ref": "#/$defs/meter" }, { "type": "null" }] },
+        "quality": {
+          "oneOf": [{ "type": "null" }, {
+            "type": "object",
+            "required": ["nominal_v", "low_limit_v", "high_limit_v", "voltage_status", "min_v_24h", "avg_v_24h", "max_v_24h",
+                         "out_of_range_pct_24h", "pf_status"],
+            "properties": {
+              "nominal_v": { "type": "number", "exclusiveMinimum": 0 },
+              "low_limit_v": { "type": "number" },
+              "high_limit_v": { "type": "number" },
+              "voltage_status": { "enum": ["normal", "low", "high", "off"] },
+              "min_v_24h": { "type": ["number", "null"] },
+              "avg_v_24h": { "type": ["number", "null"] },
+              "max_v_24h": { "type": ["number", "null"] },
+              "out_of_range_pct_24h": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+              "pf_status": { "enum": ["good", "fair", "poor", null] }
+            }
+          }]
+        },
+        "usage": {
+          "oneOf": [{ "type": "null" }, {
+            "type": "object",
+            "required": ["days", "import_kwh_day", "base_w", "peak_w", "peak_hours", "night_share_pct", "weekday_kwh_day",
+                         "weekend_kwh_day", "by_hour_kwh"],
+            "properties": {
+              "days": { "type": "integer", "minimum": 1 },
+              "import_kwh_day": { "$ref": "#/$defs/kwh" },
+              "base_w": { "type": "integer", "minimum": 0 },
+              "peak_w": { "type": "integer", "minimum": 0 },
+              "peak_hours": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 23 } },
+              "night_share_pct": { "type": "integer", "minimum": 0, "maximum": 100 },
+              "weekday_kwh_day": { "type": ["number", "null"] },
+              "weekend_kwh_day": { "type": ["number", "null"] },
+              "by_hour_kwh": { "type": "array", "minItems": 24, "maxItems": 24, "items": { "type": "number", "minimum": 0 } }
+            }
+          }]
+        },
+        "tier": {
+          "oneOf": [{ "type": "null" }, {
+            "type": "object",
+            "required": ["month", "days_left", "month_to_date_kwh", "forecast_kwh", "level_min_kwh", "level_max_kwh",
+                         "rate_php_per_kwh", "kwh_above_lower_level", "save_php_at_lower_level", "kwh_to_next_level",
+                         "next_level_rate_php_per_kwh"],
+            "properties": {
+              "month": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" },
+              "days_left": { "type": "integer", "minimum": 1 },
+              "month_to_date_kwh": { "$ref": "#/$defs/kwh" },
+              "forecast_kwh": { "$ref": "#/$defs/kwh" },
+              "level_min_kwh": { "type": "number", "minimum": 0 },
+              "level_max_kwh": { "type": ["number", "null"] },
+              "rate_php_per_kwh": { "type": "number", "exclusiveMinimum": 0 },
+              "kwh_above_lower_level": { "type": ["number", "null"] },
+              "save_php_at_lower_level": { "type": ["integer", "null"] },
+              "kwh_to_next_level": { "type": ["number", "null"] },
+              "next_level_rate_php_per_kwh": { "type": ["number", "null"] }
+            }
+          }]
+        },
+        "insights": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "tone", "title", "body", "evidence"],
+            "properties": {
+              "id": { "enum": ["voltage", "power_factor", "tier_drop", "tier_near", "tier", "peak_hours", "base_load", "reading"] },
+              "tone": { "enum": ["info", "good", "warning"] },
+              "title": { "type": "string", "minLength": 1 },
+              "body": { "type": "string", "minLength": 1 },
+              "evidence": {
+                "type": "array",
+                "items": { "type": "object", "required": ["label", "value"],
+                           "properties": { "label": { "type": "string" }, "value": { "type": "string" } } }
+              }
+            }
+          }
+        }
+      }
+    },
     "settings": {
       "description": "GET|PUT /api/settings",
       "type": "object",
-      "required": ["rate_php_per_kwh", "battery_kwh", "user_name", "device_id"],
+      "required": ["rate_php_per_kwh", "battery_kwh", "user_name", "device_id", "setup"],
       "properties": {
         "rate_php_per_kwh": { "type": "number", "exclusiveMinimum": 0 },
         "battery_kwh": { "type": "number", "exclusiveMinimum": 0 },
         "user_name": { "type": "string" },
-        "device_id": { "type": "string", "minLength": 1 }
+        "device_id": { "type": "string", "minLength": 1 },
+        "setup": { "$ref": "#/$defs/setup" }
       }
     },
     "health": {

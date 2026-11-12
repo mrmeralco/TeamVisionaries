@@ -62,12 +62,14 @@ class _AlertsScreenState extends ConsumerState<AlertsScreen> {
                 child: SCard(
                   padding: const EdgeInsets.symmetric(horizontal: S.x4, vertical: S.x8),
                   child: Column(children: [
-                    const Icon(Icons.notifications_none_rounded, size: 36, color: C.orangeDeep),
+                    Icon(Icons.notifications_none_rounded, size: 36, color: C.orangeDeep),
                     const SizedBox(height: S.x2),
                     Text('Walang alerts. Maayos ang lahat!', style: ts(13, w: FontWeight.w700), textAlign: TextAlign.center),
                     const SizedBox(height: S.x1),
                     Text(
-                      'Dito lalabas ang brownout, fault at low battery.',
+                      ref.watch(hasSolarProvider)
+                          ? 'Dito lalabas ang brownout, fault at low battery.'
+                          : 'Dito lalabas ang brownout at kung offline ang device.',
                       style: ts(12, color: C.muted),
                       textAlign: TextAlign.center,
                     ),
@@ -149,12 +151,12 @@ class _Group extends StatelessWidget {
           SectionTitle('$label  ·  ${alerts.length}'),
           const SizedBox(height: S.x2),
           Material(
-            color: Colors.white,
+            color: C.card,
             shape: RoundedRectangleBorder(borderRadius: R.card, side: kCardLine),
             clipBehavior: Clip.antiAlias,
             child: Column(children: [
               for (var i = 0; i < alerts.length; i++) ...[
-                if (i > 0) const Divider(height: 1, indent: 16, endIndent: 16, color: C.divider),
+                if (i > 0) Divider(height: 1, indent: 16, endIndent: 16, color: C.divider),
                 _AlertTile(alerts[i], onTap: () => onTap(alerts[i])),
               ],
             ]),

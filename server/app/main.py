@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ai import llm, prompts
 from ai import service as ai
 
-from . import config, db, energy, hub, ingest, mock, outlook, weather
+from . import config, db, energy, household, hub, ingest, meter, mock, outlook, projection, solar_plan, tips, upgrade, weather
 from . import schemas as S  # Contract C response shapes
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -112,6 +112,56 @@ def get_outlook():
     return outlook.outlook(_dev(), _settings())
 
 
+@app.get("/api/bill/projection", response_model=S.Projection)
+def get_bill_projection():
+    """This month's forecast + up to 3 projected months (app/projection.py). Later months are rougher."""
+    if config.MOCK:
+        return mock.load("bill_projection")
+    return projection.project(_dev(), _settings())
+
+
+@app.get("/api/upgrade", response_model=S.Upgrade)
+def get_upgrade():
+    """System check: does the solar setup still fit this household's use? (app/upgrade.py)"""
+    if config.MOCK:
+        return mock.load("upgrade")
+    return upgrade.recommend(_dev(), _settings())
+
+
+@app.get("/api/tips", response_model=S.Tips)
+def get_tips():
+    """Solar tips: when and how to run the house on the sun, from live, forecast and 30-day data (app/tips.py)."""
+    if config.MOCK:
+        return mock.load("tips")
+    return tips.tips(_dev(), _settings())
+
+
+@app.get("/api/solar-plan", response_model=S.SolarPlan)
+def get_solar_plan():
+    """For a home without solar: how big a setup its use needs (grid-tie / hybrid), savings, payback; plus
+    sponsored slots kept apart from the recommendation (app/solar_plan.py)."""
+    if config.MOCK:
+        return mock.load("solar_plan")
+    return solar_plan.plan(_dev(), _settings())
+
+
+@app.get("/api/household", response_model=S.Household)
+def get_household():
+    """Household profile: routine and whether someone is likely home now, from home use alone; plus any new
+    appliance-sized load in the last few days (app/household.py). All local: occupancy never leaves the laptop."""
+    if config.MOCK:
+        return mock.load("household")
+    return household.household(_dev(), _settings())
+
+
+@app.get("/api/meter", response_model=S.MeterInfo)
+def get_meter():
+    """Smart meter mode: latest reading, voltage and power factor, usage pattern, Meralco level (app/meter.py)."""
+    if config.MOCK:
+        return mock.load("meter")
+    return meter.info(_dev(), _settings())
+
+
 @app.get("/api/alerts", response_model=S.AlertList)
 def get_alerts(unread_only: bool = False):
     if config.MOCK:
@@ -164,6 +214,8 @@ def get_settings():
 @app.put("/api/settings", response_model=S.Settings)
 def put_settings(body: S.SettingsIn):
     if config.MOCK:
+        if body.setup:
+            mock.set_setup(body.setup)
         return mock.load("settings") | body.model_dump(exclude_none=True)
     return db.put_settings(body.model_dump(exclude_none=True))
 

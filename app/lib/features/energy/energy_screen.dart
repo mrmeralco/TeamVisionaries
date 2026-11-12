@@ -1,5 +1,7 @@
 // Energy (Figma "Energy"): GET /api/energy?period=day|week|month&back=N: totals, self-sufficiency, and a
 // solar vs. home vs. grid chart. ‹ › step back to yesterday / last week / last month.
+// Smart meter mode: a meter-only home sees its use and busiest time instead of solar/battery, and every home
+// with a meter gets its typical day from GET /api/meter.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +11,7 @@ import '../../core/utils/format.dart';
 import '../../providers/data_providers.dart';
 import '../common/charts.dart';
 import '../common/ui.dart';
+import '../meter/meter_cards.dart';
 
 class EnergyScreen extends ConsumerStatefulWidget {
   const EnergyScreen({super.key});
@@ -59,6 +62,7 @@ class _EnergyScreenState extends ConsumerState<EnergyScreen> {
   @override
   Widget build(BuildContext context) {
     final energy = ref.watch(energyProvider(_q));
+    final setup = ref.watch(setupProvider);
     if (energy.hasValue && !energy.isLoading) _shown = energy.value;
     final loading = energy.isLoading;
     final stale = !energy.hasValue || energy.isLoading;
@@ -72,12 +76,15 @@ class _EnergyScreenState extends ConsumerState<EnergyScreen> {
       body = AnimatedOpacity(
         duration: const Duration(milliseconds: 150),
         opacity: stale && loading ? 0.45 : 1,
-        child: IgnorePointer(ignoring: stale && loading, child: _EnergyBody(_shown!)),
+        child: IgnorePointer(ignoring: stale && loading, child: _EnergyBody(_shown!, setup: setup)),
       );
     }
 
     return RefreshIndicator(
-      onRefresh: () => ref.refresh(energyProvider(_q).future).then((_) {}, onError: (_) {}),
+      onRefresh: () {
+        ref.invalidate(meterProvider);
+        return ref.refresh(energyProvider(_q).future).then((_) {}, onError: (_) {});
+      },
       child: ListView(padding: EdgeInsets.zero, children: [
         SafeArea(bottom: false, child: PageHeader('Energy', _sub())),
         Padding(
@@ -157,7 +164,11 @@ class _PeriodSwitch extends StatelessWidget {
                     child: Container(
                       constraints: const BoxConstraints(minHeight: kMinTap),
                       alignment: Alignment.center,
-                      child: Text(label, style: ts(13, w: key == value ? FontWeight.w800 : FontWeight.w600)),
+                      // On the orange track: dark text (day and night); on the selected pill: the page's text colour.
+                      child: Text(label,
+                          style: ts(13,
+                              w: key == value ? FontWeight.w800 : FontWeight.w600,
+                              color: key == value ? C.ink : C.inkFixed)),
                     ),
                   ),
                 ),
@@ -206,8 +217,9 @@ class _RangeStepper extends StatelessWidget {
 }
 
 class _EnergyBody extends StatelessWidget {
-  const _EnergyBody(this.e);
+  const _EnergyBody(this.e, {this.setup = 'solar'});
   final Map<String, dynamic> e;
+  final String setup; // solar | meter_only | solar_and_meter
 
   /// "13:00" -> "1 PM"
   static String _hourLabel(String hhmm) {
@@ -222,13 +234,23 @@ class _EnergyBody extends StatelessWidget {
     final points = listOfMaps(e['points']);
     final hourly = e['bucket'] == 'hour';
     List<double> col(String k) => [for (final p in points) numOr(p[k]).toDouble()];
+    final solar = setup != 'meter_only';
+    // Meter only: the busiest hour (day view) or day (week, month) instead of solar, battery and self-sufficiency.
+    final use = col('load_kwh');
+    final busiest = use.isEmpty || use.every((v) => v <= 0) ? -1 : use.indexOf(use.reduce((a, b) => a > b ? a : b));
+    final busiestLabel = busiest < 0 ? '—' : (hourly ? _hourLabel(str(points[busiest]['label'])) : str(points[busiest]['label']));
     // Figma 22:160 / 41:492 / 41:497 / 41:507 (Grid Used = what the household paid for).
-    final cards = [
-      ('Solar produced', kwhNum(t['pv_kwh']), 'kWh', C.yellowCard),
-      ('Grid used', kwhNum(t['grid_import_kwh']), 'kWh', C.yellowCard),
-      ('Battery used', kwhNum(t['batt_discharge_kwh']), 'kWh', C.yellowCard),
-      ('Self-sufficiency', pctNum(e['self_sufficiency_pct']), '%', C.peach),
-    ];
+    final cards = solar
+        ? [
+            ('Solar produced', kwhNum(t['pv_kwh']), 'kWh', C.yellowCard),
+            ('Grid used', kwhNum(t['grid_import_kwh']), 'kWh', C.yellowCard),
+            ('Battery used', kwhNum(t['batt_discharge_kwh']), 'kWh', C.yellowCard),
+            ('Self-sufficiency', pctNum(e['self_sufficiency_pct']), '%', C.peach),
+          ]
+        : [
+            ('Electricity used', kwhNum(t['grid_import_kwh']), 'kWh', C.yellowCard),
+            (hourly ? 'Busiest hour' : 'Busiest day', busiestLabel, '', C.peach),
+          ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, kFabClearance),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -260,26 +282,34 @@ class _EnergyBody extends StatelessWidget {
           child: points.isEmpty
               ? Text('Wala pang data para sa panahong ito.', style: ts(12, color: C.muted))
               : LineChartView(
-                  title: 'Solar vs. Home vs. Grid (kWh)',
+                  title: solar ? 'Solar vs. Home vs. Grid (kWh)' : 'Home use from the grid (kWh)',
                   labels: [for (final p in points) hourly ? _hourLabel(str(p['label'])) : str(p['label'])],
-                  series: [
-                    ChartSeries('Solar', C.seriesSolar, col('pv_kwh'), primary: true),
-                    ChartSeries('Home', C.seriesHome, col('load_kwh')),
-                    ChartSeries('Grid', C.seriesGrid, col('grid_import_kwh')),
-                  ],
+                  series: solar
+                      ? [
+                          ChartSeries('Solar', C.seriesSolar, col('pv_kwh'), primary: true),
+                          ChartSeries('Home', C.seriesHome, col('load_kwh')),
+                          ChartSeries('Grid', C.seriesGrid, col('grid_import_kwh')),
+                        ]
+                      : [ChartSeries('Home', C.seriesGrid, col('grid_import_kwh'), primary: true)],
                 ),
         ),
-        const SizedBox(height: S.x3),
-        SCard(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const CardTitle('Where your power went'),
-            const SizedBox(height: S.x2),
-            _Row('Home used', '${kwhNum(t['load_kwh'])} kWh'),
-            _Row('Bought from the grid', '${kwhNum(t['grid_import_kwh'])} kWh'),
-            _Row('Battery charged', '${kwhNum(t['batt_charge_kwh'])} kWh'),
-            _Row('Sent to the grid', '${kwhNum(t['grid_export_kwh'])} kWh'),
-          ]),
-        ),
+        if (solar) ...[
+          const SizedBox(height: S.x3),
+          SCard(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const CardTitle('Where your power went'),
+              const SizedBox(height: S.x2),
+              _Row('Home used', '${kwhNum(t['load_kwh'])} kWh'),
+              _Row('Bought from the grid', '${kwhNum(t['grid_import_kwh'])} kWh'),
+              _Row('Battery charged', '${kwhNum(t['batt_charge_kwh'])} kWh'),
+              _Row('Sent to the grid', '${kwhNum(t['grid_export_kwh'])} kWh'),
+            ]),
+          ),
+        ],
+        if (setup != 'solar') ...[
+          const SizedBox(height: S.x3),
+          UsagePatternCard(gridOnly: solar),
+        ],
       ]),
     );
   }

@@ -75,10 +75,18 @@ def test_season_factor_hits_the_table_mid_month_and_has_no_jumps():
 
 
 # ----------------------------------------------------------------- forecast --
+def flat_seasons(m):
+    """No season anywhere: the tariff's whole-home index and the battery simulation's load and sun tables."""
+    from app import projection
+    m.setattr(tariff, "SEASON_INDEX", FLAT)
+    m.setattr(projection, "LOAD_SEASON", FLAT)
+    m.setattr(projection, "SOLAR_SEASON", FLAT)
+
+
 def test_flat_season_forecast_is_history_times_days(device, monkeypatch):
     d = date(2026, 4, 15)
     monkeypatch.setattr(energy, "today", lambda: d)
-    monkeypatch.setattr(tariff, "SEASON_INDEX", FLAT)
+    flat_seasons(monkeypatch)
     history(device, d, 2.0)
     b = energy.bill(device, {"rate_php_per_kwh": 12.0, "battery_kwh": 10})
     # Apr 1-14 = 28 kWh, today expected 2, Apr 16-30 = 15 x 2
@@ -92,7 +100,7 @@ def test_hot_season_raises_the_forecast(device, monkeypatch):
     history(device, d, 2.0)
     flat = None
     with monkeypatch.context() as m:
-        m.setattr(tariff, "SEASON_INDEX", FLAT)
+        flat_seasons(m)
         flat = energy.bill(device, {"rate_php_per_kwh": 12.0, "battery_kwh": 10})["forecast_kwh"]
     seasonal = energy.bill(device, {"rate_php_per_kwh": 12.0, "battery_kwh": 10})["forecast_kwh"]
     assert seasonal > flat  # history came from cooler March/early April; late April is hotter
@@ -101,7 +109,7 @@ def test_hot_season_raises_the_forecast(device, monkeypatch):
 def test_heading_into_a_higher_level_prices_the_whole_month_there(device, monkeypatch):
     d = date(2026, 4, 15)
     monkeypatch.setattr(energy, "today", lambda: d)
-    monkeypatch.setattr(tariff, "SEASON_INDEX", FLAT)
+    flat_seasons(monkeypatch)
     history(device, d, 9.0)  # 30 x 9 = 270 kWh -> 201-300 level
     b = energy.bill(device, {"rate_php_per_kwh": 12.0, "battery_kwh": 10})
     assert b["forecast_kwh"] == pytest.approx(270, abs=1)
@@ -109,3 +117,17 @@ def test_heading_into_a_higher_level_prices_the_whole_month_there(device, monkey
     assert b["forecast_bracket_kwh"] == (200, 300)
     assert b["month_to_date_php"] == pytest.approx(126 * tariff.rate_at(270, 12.0), abs=1)
     assert b["month_to_date_php"] <= b["forecast_low_php"] <= b["forecast_php"] <= b["forecast_high_php"]
+
+
+def test_forecast_follows_the_last_two_weeks_not_the_eight_week_average(device, monkeypatch):
+    """Use jumped 2 weeks ago (hot spell, new aircon): the rest of the month is forecast at the new level.
+    SARIMA alone reverted toward its 8-week mean, which lagged the season in backtests."""
+    d = date(2026, 4, 5)
+    monkeypatch.setattr(energy, "today", lambda: d)
+    flat_seasons(monkeypatch)
+    for i in range(15, 60):
+        put_kwh(device, d - timedelta(days=i), 2.0)
+    for i in range(1, 15):
+        put_kwh(device, d - timedelta(days=i), 6.0)
+    fc = energy.forecast_days(device, d, 26, settings={"battery_kwh": 10})
+    assert sum(fc["kwh"]) / 26 == pytest.approx(6.0, rel=0.1)

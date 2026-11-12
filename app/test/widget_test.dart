@@ -11,9 +11,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solaris/core/utils/format.dart';
+import 'package:solaris/features/ask/answer_sources.dart';
 import 'package:solaris/features/common/charts.dart';
 import 'package:solaris/features/ask/ask_screen.dart' show isBadNews;
 import 'package:solaris/features/common/ui.dart';
+import 'package:solaris/features/home/house_scene.dart';
+import 'package:solaris/features/home/home_screen.dart' show homeClock;
 import 'package:solaris/main.dart';
 import 'package:solaris/providers/data_providers.dart';
 import 'package:solaris/providers/notification_providers.dart';
@@ -75,6 +78,58 @@ class BadNewsChat extends StateMock {
   }
 }
 
+/// GET /api/bill/projection returns [result].
+class ProjectionMock extends StateMock {
+  ProjectionMock(this.result);
+  final Map<String, dynamic> result;
+  @override
+  Future<Map<String, dynamic>> getBillProjection() async => result;
+}
+
+/// GET /api/upgrade returns [result], or fails when it's null.
+class UpgradeMock extends StateMock {
+  UpgradeMock(this.result);
+  final Map<String, dynamic>? result;
+  @override
+  Future<Map<String, dynamic>> getUpgrade() async =>
+      result ?? (throw TimeoutException('no system check'));
+}
+
+/// GET /api/tips returns [result] (the example when not given), or fails when [fail]; counts the calls.
+class TipsMock extends StateMock {
+  TipsMock({this.result, this.fail = false, super.live});
+  final Map<String, dynamic>? result;
+  final bool fail;
+  int calls = 0;
+  @override
+  Future<Map<String, dynamic>> getTips() async {
+    calls++;
+    if (fail) throw TimeoutException('no tips');
+    return result ?? example('tips');
+  }
+}
+
+/// GET /api/household returns [result] (the example when not given), or fails when [fail].
+class HouseholdMock extends StateMock {
+  HouseholdMock({this.result, this.fail = false});
+  final Map<String, dynamic>? result;
+  final bool fail;
+  @override
+  Future<Map<String, dynamic>> getHousehold() async {
+    if (fail) throw TimeoutException('no household');
+    return result ?? example('household');
+  }
+}
+
+/// An out-of-scope refusal: no facts, so no sources (and an older server that never sends them).
+class NoSourcesChat extends StateMock {
+  @override
+  Future<Map<String, dynamic>> chat(String message) async {
+    chats++;
+    return {'reply': 'Pasensya na, hindi ko pa alam iyan.', 'chips': <Object>[], 'source': 'llm'};
+  }
+}
+
 /// Chat that fails until [fail] is cleared (for "Try again").
 class FailingChat extends StateMock {
   bool fail = true;
@@ -112,7 +167,11 @@ class FakeNotifier implements SystemNotifier {
 }
 
 Future<ProviderContainer> pumpApp(WidgetTester t,
-    {StateMock? api, Size size = const Size(393, 852), FakeNotifier? notifier}) async {
+    {StateMock? api,
+    Size size = const Size(393, 852),
+    FakeNotifier? notifier,
+    bool onboarded = true,
+    Map<String, Object>? prefs}) async {
   t.view.physicalSize = size * 3;
   t.view.devicePixelRatio = 3;
   addTearDown(t.view.reset);
@@ -120,11 +179,17 @@ Future<ProviderContainer> pumpApp(WidgetTester t,
   // has its own test ('Mira idles…').
   t.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
   addTearDown(t.platformDispatcher.clearAccessibilityFeaturesTestValue);
-  SharedPreferences.setMockInitialValues({'use_mock': true});
-  final prefs = await SharedPreferences.getInstance();
+  // Daytime unless the test set the clock: the app goes dark at night, so tests mustn't follow the real clock.
+  if (identical(homeClock, manilaNow)) {
+    homeClock = () => DateTime(2026, 11, 12, 10);
+    addTearDown(() => homeClock = manilaNow);
+  }
+  await t.pumpWidget(const SizedBox.shrink()); // a fresh app each time, not the previous one updated
+  SharedPreferences.setMockInitialValues({'use_mock': true, if (onboarded) 'onboarded': true, ...?prefs});
+  final saved = await SharedPreferences.getInstance();
   await t.pumpWidget(ProviderScope(
     overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
+      sharedPreferencesProvider.overrideWithValue(saved),
       apiServiceProvider.overrideWithValue(api ?? StateMock()),
       systemNotifierProvider.overrideWithValue(notifier ?? FakeNotifier(supported: false)),
     ],
@@ -133,6 +198,9 @@ Future<ProviderContainer> pumpApp(WidgetTester t,
   await t.pumpAndSettle();
   return ProviderScope.containerOf(t.element(find.byType(SolarisApp)));
 }
+
+/// A tall phone, so a whole Ask Mira conversation (answer + its sources) fits without scrolling.
+const tallPhone = Size(393, 1600);
 
 Future<void> tab(WidgetTester t, String label) async {
   await t.tap(find.text(label).last);
@@ -153,15 +221,84 @@ void main() {
       expect(find.text('Mock'), findsWidgets); // /ws/live link up through MockApiService
       expect(find.text(live['status_line'] as String), findsOneWidget);
       expect(find.textContaining('Juan'), findsOneWidget); // settings.user_name
-      expect(find.text('3.2'), findsOneWidget); // pv_w 3200 -> kW
-      expect(find.text('1.8'), findsOneWidget); // load_w
-      expect(find.text('78'), findsOneWidget); // batt_soc
+      expect(find.text('3.2 kW'), findsOneWidget); // pv_w 3200, on the house's SOLAR label
+      expect(find.text('1.8 kW'), findsOneWidget); // load_w, HOME
+      expect(find.text('78%'), findsOneWidget); // batt_soc, BATTERY
+      // The labelled house makes the hero taller: the money cards are just below the fold.
+      await t.scrollUntilVisible(find.text('₱23.82'), 200, scrollable: find.byType(Scrollable).first);
       expect(find.text('₱23.82'), findsOneWidget); // saved_today_php
       expect(find.text('₱1,995'), findsOneWidget); // bill.forecast_php
       // The recap is below the fold now that text is larger: scroll to it.
       await t.scrollUntilVisible(find.text(example('summary_daily')['summary'] as String), 200,
           scrollable: find.byType(Scrollable).first);
       expect(find.text(example('summary_daily')['summary'] as String), findsOneWidget);
+    });
+
+    test('house: each part of the drawing is a tap target; open ground is not', () {
+      for (final s in Spot.values) {
+        expect(spotAt(spotAnchor(s)), s, reason: s.name);
+      }
+      expect(spotAt(const Offset(283.5, 126)), Spot.solar); // a panel near the ridge
+      expect(spotAt(const Offset(211.5, 265.5)), Spot.battery); // its base, in front of the wall
+      expect(spotAt(const Offset(40, 240)), isNull); // the trees
+      expect(spotAt(const Offset(100, 30)), isNull); // the sky above the roof
+    });
+
+    testWidgets('house: every part is labelled with its live number; tapping one zooms in on it', (t) async {
+      await pumpApp(t);
+      final scene = t.getRect(find.byType(HouseScene));
+      final u = scene.width / kSceneW;
+      Offset at(Spot s) => Offset(scene.left, scene.bottom - kSceneH * u) + spotAnchor(s) * u;
+      // At rest: a label on each part, like the Tesla app.
+      for (final title in ['SOLAR', 'HOME', 'BATTERY', 'GRID']) {
+        expect(find.text(title), findsOneWidget, reason: title);
+      }
+      expect(find.text('3.2 kW'), findsOneWidget); // pv_w 3200
+      expect(find.text('Producing'), findsNothing); // the explanation waits for a tap
+
+      await t.tapAt(at(Spot.solar)); // the roof itself
+      await t.pumpAndSettle();
+      expect(find.text('Producing'), findsOneWidget);
+      expect(find.text('Kuryenteng gawa ng solar panels mo ngayon. Libre ito.'), findsOneWidget);
+      expect(find.text('SOLAR'), findsNWidgets(2), reason: 'the zoomed label, and the resting one faded out');
+
+      await t.tap(find.byTooltip('Zoom out'));
+      await t.pumpAndSettle();
+      expect(find.text('Producing'), findsNothing);
+      expect(find.byTooltip('Zoom out'), findsNothing);
+
+      await t.tap(find.text('GRID')); // its label works too
+      await t.pumpAndSettle();
+      expect(find.text('Not in use'), findsOneWidget); // grid_w 0
+
+      // Tapping open sky while zoomed takes the house back to the whole view.
+      await t.tapAt(scene.topLeft + const Offset(80, 8));
+      await t.pumpAndSettle();
+      expect(find.text('Not in use'), findsNothing);
+    });
+
+    testWidgets('house: the night house from 6 PM to 6 AM, with light text on the navy sky', (t) async {
+      addTearDown(() => homeClock = manilaNow);
+      String houseAsset() => t
+          .widgetList<SvgPicture>(find.descendant(of: find.byType(HouseScene), matching: find.byType(SvgPicture)))
+          .map((w) => (w.bytesLoader as SvgAssetLoader).assetName)
+          .single;
+      Color valueColor() => t.widget<Text>(find.text('1.8 kW')).style!.color!;
+
+      homeClock = () => DateTime(2026, 11, 12, 20, 30); // 8:30 PM
+      await pumpApp(t);
+      expect(houseAsset(), 'assets/images/house-hero-night.svg');
+      expect(find.textContaining('Magandang gabi'), findsOneWidget);
+      expect(valueColor(), Colors.white);
+      expect(isNightAt(DateTime(2026, 1, 1, 5, 59)), isTrue);
+      expect(isNightAt(DateTime(2026, 1, 1, 6)), isFalse);
+      expect(isNightAt(DateTime(2026, 1, 1, 18)), isTrue);
+
+      homeClock = () => DateTime(2026, 11, 12, 10); // 10 AM
+      await pumpApp(t);
+      expect(houseAsset(), 'assets/images/house-hero.svg');
+      expect(find.textContaining('Magandang umaga'), findsOneWidget);
+      expect(valueColor(), isNot(Colors.white));
     });
 
     testWidgets('brownout: the advisor card leads Home and opens the Brownout Advisor', (t) async {
@@ -232,11 +369,127 @@ void main() {
     });
   });
 
+  group('Your household on Home', () {
+    const tall = Size(393, 3600);
+
+    testWidgets('who is home now, a possible new appliance, and the usual weekday', (t) async {
+      await pumpApp(t, api: HouseholdMock(), size: tall);
+      final ex = example('household');
+      expect(find.text('Your household'), findsOneWidget);
+      expect(find.text('AT HOME NOW'), findsOneWidget);
+      expect(find.text('Probably no one home'), findsOneWidget);
+      expect(find.text(ex['now']['text'] as String), findsOneWidget);
+      expect(find.text('Unusual for this hour'), findsNothing);
+      // New appliance: +1.1 kW 9PM–2AM since Nov 7, with the backend's sentence and the bill impact.
+      expect(find.text('NEW APPLIANCE?'), findsOneWidget);
+      expect(find.text('+1.1 kW, 9PM–2AM since Nov 7'), findsOneWidget);
+      expect(find.text((ex['new_loads'] as List).first['text'] as String), findsOneWidget);
+      expect(find.text('Adds up to ₱2,485 a month'), findsOneWidget);
+      // Routine.
+      expect(find.text('Wala sa bahay tuwing weekday'), findsOneWidget);
+      expect(find.text('A usual weekday'), findsOneWidget);
+      for (final chip in ['Up  7AM', 'Out  9AM–6PM', 'Lights out  11PM', 'Busiest  9PM', 'Always on  280 W']) {
+        expect(find.textContaining(chip, findRichText: true), findsOneWidget, reason: chip);
+      }
+      expect(find.text('Always-on use is 37.8% of your home’s use: up to ₱3,029 a month.'), findsOneWidget);
+    });
+
+    testWidgets('someone up at an unusual hour is flagged; nothing new, no routine yet', (t) async {
+      await pumpApp(t, size: tall, api: HouseholdMock(result: {
+        ...example('household'),
+        'now': {'state': 'active', 'likely_home': true, 'load_w': 1200, 'usual_home_pct': 0, 'unusual': true,
+                'next_active_ts': null, 'text': 'May gumagamit ng kuryente ngayon (1.2 kW): may tao sa bahay.'},
+        'confidence': 'none', 'baseload': null, 'routine': {'weekday': null, 'weekend': null},
+        'archetype': {'id': 'unknown', 'label': 'Inaaral pa ang routine ninyo', 'description': 'Kailangan pa ng ilang araw.'},
+        'traits': <Object>[], 'new_loads': <Object>[],
+      }));
+      expect(find.text('Someone is home'), findsOneWidget);
+      expect(find.text('Unusual for this hour'), findsOneWidget);
+      expect(find.text('NEW APPLIANCE?'), findsNothing);
+      expect(find.text('Inaaral pa ang routine ninyo'), findsOneWidget);
+      expect(find.text('A usual weekday'), findsNothing);
+    });
+
+    testWidgets('a failed household request just hides the section', (t) async {
+      await pumpApp(t, api: HouseholdMock(fail: true), size: tall);
+      expect(find.text('Your household'), findsNothing);
+      expect(find.text('Yesterday’s summary'), findsOneWidget);
+    });
+  });
+
+  group('Solar tips on Home', () {
+    const tall = Size(393, 3000);
+
+    testWidgets('CO₂ avoided this month, then the first tips with their numbers; show more / fewer', (t) async {
+      await pumpApp(t, api: TipsMock(), size: tall);
+      final ex = example('tips');
+      final tips = (ex['tips'] as List).cast<Map<String, dynamic>>();
+      expect(find.text('Solar tips'), findsOneWidget);
+      expect(find.text('Avoided this month'), findsOneWidget);
+      expect(find.text('151'), findsOneWidget);                                  // impact.co2_avoided_kg
+      expect(find.text('213 kWh of clean solar · 76.5% of your home ran on the sun'), findsOneWidget);
+      expect(find.text('Like 7 trees growing for a year'), findsOneWidget);
+      for (final tip in tips.take(3)) {
+        expect(find.text(tip['title'] as String), findsOneWidget);
+        expect(find.text(tip['body'] as String), findsOneWidget);
+      }
+      expect(find.text('TODAY'), findsOneWidget);
+      expect(find.text('HABIT'), findsNWidgets(2));
+      expect(find.textContaining('Solar sent to grid  4.4 kWh/day', findRichText: true), findsOneWidget);
+      expect(find.text('Saves up to ₱1,672 a month'), findsOneWidget);
+      // The 4th (tip of the day) waits behind "Show 1 more tip".
+      expect(find.text(tips[3]['title'] as String), findsNothing);
+      await t.ensureVisible(find.text('Show 1 more tip'));
+      await t.tap(find.text('Show 1 more tip'));
+      await t.pumpAndSettle();
+      expect(find.text(tips[3]['title'] as String), findsOneWidget);
+      expect(find.text('TIP OF THE DAY'), findsOneWidget);
+      await t.tap(find.text('Show fewer tips'));
+      await t.pumpAndSettle();
+      expect(find.text(tips[3]['title'] as String), findsNothing);
+    });
+
+    testWidgets('a "right now" tip and no impact yet (no solar this month)', (t) async {
+      await pumpApp(t, size: tall, api: TipsMock(result: {
+        ...example('tips'),
+        'impact': null,
+        'tips': [
+          {'id': 'surplus_now', 'kind': 'now', 'priority': 1, 'title': 'Sobra ang araw ngayon: gamitin na',
+           'body': 'Gumagawa ang panels mo ng 3.2 kW pero 900 W lang ang gamit ng bahay.',
+           'evidence': [{'label': 'Solar now', 'value': '3.2 kW'}], 'savings_php_month': null},
+        ],
+      }));
+      expect(find.text('RIGHT NOW'), findsOneWidget);
+      expect(find.text('Sobra ang araw ngayon: gamitin na'), findsOneWidget);
+      expect(find.text('Avoided this month'), findsNothing);
+      expect(find.textContaining('more tip'), findsNothing);
+    });
+
+    testWidgets('a failed tips request just hides the section', (t) async {
+      await pumpApp(t, api: TipsMock(fail: true), size: tall);
+      expect(find.text('Solar tips'), findsNothing);
+      expect(find.text('Yesterday’s summary'), findsOneWidget); // the rest of Home still shows
+    });
+
+    testWidgets('tips follow the house: refetched when the live state changes', (t) async {
+      final api = TipsMock();
+      await pumpApp(t, api: api, size: tall);
+      final before = api.calls;
+      api.push({'type': 'telemetry', 'data': example('live')}); // same state: no refetch
+      await t.pumpAndSettle();
+      expect(api.calls, before);
+      api.push({'type': 'telemetry', 'data': {...example('live'), 'state': 'grid'}});
+      await t.pumpAndSettle();
+      expect(api.calls, before + 1);
+    });
+  });
+
   testWidgets('Home (Figma rev 2): rate caption, bill card opens Bill, recap opens Ask with a question', (t) async {
     final api = StateMock();
     await pumpApp(t, api: api);
+    await t.scrollUntilVisible(find.text('At ₱13.00/kWh'), 200, scrollable: find.byType(Scrollable).first);
     expect(find.text('At ₱13.00/kWh'), findsOneWidget); // live.rate_php_per_kwh
-    await t.drag(find.byType(Scrollable).first, const Offset(0, -200)); // bring the money cards above the nav bar
+    await t.drag(find.byType(Scrollable).first, const Offset(0, -150)); // bring the money cards above the nav bar
     await t.pumpAndSettle();
     await t.tap(find.text('See bill details'));
     await t.pumpAndSettle();
@@ -279,7 +532,7 @@ void main() {
     final live = example('live');
     (live['telemetry'] as Map)['grid_w'] = -2930;
     await pumpApp(t, api: StateMock(live: live));
-    expect(find.text('2.9'), findsOneWidget);
+    expect(find.text('2.9 kW'), findsOneWidget); // the GRID label on the house
     expect(find.text('Exporting'), findsOneWidget);
   });
 
@@ -361,6 +614,72 @@ void main() {
     await t.tap(find.byTooltip('Later'));
     await t.pumpAndSettle();
     expect(find.text('Yesterday'), findsNothing);
+  });
+
+  testWidgets('Bill: coming months show this month as the forecast and later months as widening estimates', (t) async {
+    await pumpApp(t, size: const Size(393, 3200));
+    await tab(t, 'Bill');
+    final p = example('bill_projection');
+    final months = (p['months'] as List).cast<Map<String, dynamic>>();
+    expect(find.text('Coming months'), findsOneWidget);
+    expect(find.textContaining('Only this month is a forecast'), findsOneWidget);
+    for (final m in months) {
+      expect(find.text(m['label'] as String), findsOneWidget);
+      expect(find.text(formatPhp(m['bill_php'] as num, whole: true)), findsWidgets);
+      expect(find.text('Likely ${formatPhp(m['low_php'] as num, whole: true)} – ${formatPhp(m['high_php'] as num, whole: true)}'),
+          findsOneWidget);
+    }
+    expect(find.text('Forecast'), findsOneWidget);
+    for (final m in months.skip(1)) {
+      expect(find.text('Estimate ±${m['range_pct']}%'), findsOneWidget);
+    }
+    expect(find.textContaining('Further ahead is too uncertain to show'), findsOneWidget);
+  });
+
+  testWidgets('Bill: coming months without enough history show only this month', (t) async {
+    final p = example('bill_projection');
+    await pumpApp(t,
+        api: ProjectionMock({...p, 'enough_data': false, 'months': [(p['months'] as List).first]}),
+        size: const Size(393, 3200));
+    await tab(t, 'Bill');
+    expect(find.text('Forecast'), findsOneWidget);
+    expect(find.textContaining('Estimate ±'), findsNothing);
+    expect(find.textContaining('Needs about 2 weeks of readings'), findsOneWidget);
+  });
+
+  testWidgets('Bill: system check shows each recommendation with the household numbers behind it', (t) async {
+    await pumpApp(t, size: const Size(393, 2600));
+    await tab(t, 'Bill');
+    final u = example('upgrade');
+    final rec = (u['recommendations'] as List).first as Map<String, dynamic>;
+    expect(find.text('System check'), findsOneWidget);
+    expect(find.text('Upgrade worth considering'), findsOneWidget);
+    expect(find.text(u['headline'] as String), findsOneWidget);
+    expect(find.text('Your system: 5 kWp solar · 10 kWh battery · 5 kW inverter'), findsOneWidget);
+    expect(find.text(rec['title'] as String), findsOneWidget);
+    expect(find.text(rec['add'] as String), findsOneWidget);
+    expect(find.text(rec['reason'] as String), findsOneWidget);
+    for (final e in (rec['evidence'] as List).cast<Map<String, dynamic>>()) {
+      expect(find.textContaining('${e['label']}  ${e['value']}', findRichText: true), findsOneWidget);
+    }
+    expect(find.text('~₱1,581/month saved  ·  ~₱100,000 installed  ·  pays back in ~5.3 yrs'), findsOneWidget);
+    expect(find.textContaining('rough estimates'), findsOneWidget);
+  });
+
+  testWidgets('Bill: a system that fits says so', (t) async {
+    await pumpApp(t, api: UpgradeMock({...example('upgrade'), 'verdict': 'ok', 'recommendations': <Object>[],
+        'headline': 'Sakto ang system mo para sa gamit mo.'}), size: const Size(393, 2600));
+    await tab(t, 'Bill');
+    expect(find.text('Fits your use'), findsOneWidget);
+    expect(find.text('Sakto ang system mo para sa gamit mo.'), findsOneWidget);
+    expect(find.textContaining('rough estimates'), findsNothing); // no prices without a recommendation
+  });
+
+  testWidgets('Bill: a failed system check just hides the card', (t) async {
+    await pumpApp(t, api: UpgradeMock(null), size: const Size(393, 2600));
+    await tab(t, 'Bill');
+    expect(find.text('Predicted bill for November'), findsOneWidget); // the bill still shows
+    expect(find.text('System check'), findsNothing);
   });
 
   testWidgets('Bill: forecast, range, trend, savings, weekly costs', (t) async {
@@ -485,7 +804,7 @@ void main() {
 
   testWidgets('Ask Mira: sends the question, shows reply + chips', (t) async {
     final api = StateMock();
-    await pumpApp(t, api: api);
+    await pumpApp(t, api: api, size: tallPhone);
     await openMira(t);
     await t.enterText(find.byType(TextField), 'Bakit mataas ang bill ko?');
     await t.tap(find.text('Send'));
@@ -499,6 +818,61 @@ void main() {
     await t.tap(find.byTooltip('New conversation'));
     await t.pumpAndSettle();
     expect(find.text(example('chat')['reply'] as String), findsNothing);
+  });
+
+  testWidgets('Ask Mira: shows the data behind the answer, and each source opens its screen', (t) async {
+    final api = StateMock();
+    await pumpApp(t, api: api, size: tallPhone);
+    await openMira(t);
+    await t.enterText(find.byType(TextField), 'Bakit mataas ang bill ko?');
+    await t.tap(find.text('Send'));
+    await t.pumpAndSettle();
+
+    final sources = (example('chat')['sources'] as List).cast<Map<String, dynamic>>();
+    expect(find.text('Where this answer comes from · ${sources.length}'), findsOneWidget);
+    for (final s in sources) {
+      expect(find.text(s['label'] as String), findsOneWidget);
+      expect(find.text(s['detail'] as String), findsOneWidget); // the exact data sentence, ₱ intact
+    }
+    expect(find.text('Bill forecast'), findsOneWidget);
+    expect(find.textContaining('Forecast  ·  End of this month'), findsOneWidget); // where it comes from + period
+    expect(find.textContaining('Your history  ·  Last 7 days'), findsOneWidget);
+
+    // Collapse and expand.
+    final header = find.text('Where this answer comes from · ${sources.length}');
+    await t.tap(header);
+    await t.pumpAndSettle();
+    expect(find.text('Bill forecast'), findsNothing);
+    await t.tap(header);
+    await t.pumpAndSettle();
+
+    // A source opens the screen with that data.
+    await t.tap(find.text('Bill forecast'));
+    await t.pumpAndSettle();
+    expect(find.text('Bill & Savings'), findsOneWidget);
+  });
+
+  testWidgets('Ask Mira sources: a live reading says when; an old one says how old', (t) async {
+    final now = DateTime.utc(2026, 11, 12, 8); // 4:00 PM in Manila
+    final at = now.millisecondsSinceEpoch ~/ 1000;
+    Map<String, dynamic> live(int ts) => {'id': 'now.solar_w', 'label': 'Solar now', 'value': '676 W',
+        'detail': '676 W ang kuha ng solar panels mo ngayon.', 'kind': 'live', 'period': 'Right now',
+        'screen': 'home', 'as_of_ts': ts};
+    await t.pumpWidget(MaterialApp(home: Scaffold(body: AnswerSources([live(at - 30)], now: now))));
+    expect(find.text('Live reading  ·  Right now  ·  ${formatClock(at - 30)}'), findsOneWidget);
+    await t.pumpWidget(MaterialApp(home: Scaffold(body: AnswerSources([live(at - 7200)], now: now))));
+    expect(find.text('Live reading  ·  Last reading 2 hr ago'), findsOneWidget);
+    expect(find.textContaining('Right now'), findsNothing);
+  });
+
+  testWidgets('Ask Mira: an answer without sources shows no source list', (t) async {
+    final api = NoSourcesChat();
+    await pumpApp(t, api: api);
+    await openMira(t);
+    await t.enterText(find.byType(TextField), 'Sino ang presidente?');
+    await t.tap(find.text('Send'));
+    await t.pumpAndSettle();
+    expect(find.textContaining('Where this answer comes from'), findsNothing);
   });
 
   testWidgets('Ask Mira: a failed answer offers Try again, which asks the same question', (t) async {

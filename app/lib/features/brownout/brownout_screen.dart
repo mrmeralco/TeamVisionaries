@@ -1,6 +1,7 @@
 // Brownout Advisor: GET /api/brownout. Opened from the Home banner and brownout alerts.
 // Refetches on every live reading so the runtime estimate follows the load; the duration of an active
-// brownout counts up on screen between readings.
+// brownout counts up on screen between readings. A meter-only home has no battery: no runtime, battery tile
+// or 48-hour solar outlook, only when the power went out and what to do.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,11 +16,12 @@ class BrownoutScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen(liveProvider.select((s) => s.telemetry?['ts']), (prev, next) {
+    ref.listen(liveProvider.select((s) => s.readingTs), (prev, next) {
       if (prev != null && next != prev) ref.invalidate(brownoutProvider);
     });
+    final solar = ref.watch(hasSolarProvider);
     final brownout = ref.watch(brownoutProvider);
-    final outlook = ref.watch(outlookProvider);
+    final outlook = solar ? ref.watch(outlookProvider) : null;
     return Scaffold(
       backgroundColor: C.cream,
       body: RefreshIndicator(
@@ -30,22 +32,25 @@ class BrownoutScreen extends ConsumerWidget {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            const BackHeader('Brownout Advisor', 'How long your battery lasts, and what to expect next.'),
+            BackHeader('Brownout Advisor',
+                solar ? 'How long your battery lasts, and what to expect next.' : 'When the power went out, and what to do.'),
             Padding(
               padding: const EdgeInsets.fromLTRB(S.gutter, S.x4, S.gutter, S.x6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  AsyncBody(value: brownout, onRetry: () => ref.invalidate(brownoutProvider), data: (b) => _Body(b)),
-                  const SizedBox(height: S.x6),
-                  const SectionTitle('Next 48 hours'),
-                  const SizedBox(height: S.x3),
-                  // The outlook is extra: if it fails, say so quietly instead of a full error card.
-                  switch (outlook) {
-                    AsyncValue(:final value?, hasValue: true) => _Outlook(value),
-                    AsyncError() => Text('Hindi makuha ang forecast ngayon.', style: ts(12, color: C.muted)),
-                    _ => const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator())),
-                  },
+                  AsyncBody(value: brownout, onRetry: () => ref.invalidate(brownoutProvider), data: (b) => _Body(b, solar: solar)),
+                  if (outlook != null) ...[
+                    const SizedBox(height: S.x6),
+                    const SectionTitle('Next 48 hours'),
+                    const SizedBox(height: S.x3),
+                    // The outlook is extra: if it fails, say so quietly instead of a full error card.
+                    switch (outlook) {
+                      AsyncValue(:final value?, hasValue: true) => _Outlook(value),
+                      AsyncError() => Text('Hindi makuha ang forecast ngayon.', style: ts(12, color: C.muted)),
+                      _ => const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator())),
+                    },
+                  ],
                 ],
               ),
             ),
@@ -57,8 +62,9 @@ class BrownoutScreen extends ConsumerWidget {
 }
 
 class _Body extends StatelessWidget {
-  const _Body(this.b);
+  const _Body(this.b, {this.solar = true});
   final Map<String, dynamic> b;
+  final bool solar; // false: a meter-only home (no battery)
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +98,9 @@ class _Body extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 14),
-              if (active) ...[
+              if (active && !solar)
+                Text('Walang kuryente', style: ts(26, w: FontWeight.w900, color: Colors.white))
+              else if (active) ...[
                 Text(
                   runtime == null ? '—' : '~${runtime.toStringAsFixed(1)} hrs',
                   style: ts(32, w: FontWeight.w900, color: Colors.white),
@@ -108,8 +116,8 @@ class _Body extends StatelessWidget {
           gap: S.x2,
           runGap: S.x2,
           children: [
-            _Stat('Battery', b['batt_soc'] is num ? pctNum(b['batt_soc']) : '—', '%'),
-            _Stat('Home usage', kwNum(b['load_w']), 'kW'),
+            if (solar) _Stat('Battery', b['batt_soc'] is num ? pctNum(b['batt_soc']) : '—', '%'),
+            if (solar) _Stat('Home usage', kwNum(b['load_w']), 'kW'),
             _Stat(
               active ? 'Started' : 'Last brownout',
               start == null ? '—' : formatClock(start),

@@ -1,0 +1,51 @@
+{
+  "generated_ts": 1762912800,
+  "system": {
+    "pv_kwp": 5.0,
+    "battery_kwh": 10.0,
+    "inverter_kw": 5.0
+  },
+  "enough_data": true,
+  "verdict": "consider",
+  "headline": "Pwedeng i-upgrade: dagdag na battery (+5 kWh), mga ₱1,581 na tipid kada buwan.",
+  "usage": {
+    "days": 30,
+    "load_kwh_day": 16.7,
+    "pv_kwh_day": 17.8,
+    "grid_import_kwh_day": 3.9,
+    "day_import_kwh_day": 0.4,
+    "night_import_kwh_day": 3.5,
+    "export_kwh_day": 4.9,
+    "self_sufficiency_pct": 77,
+    "battery_empty_days_pct": 100,
+    "peak_load_w": 1944,
+    "p95_load_w": 1780,
+    "load_trend_pct": 1
+  },
+  "recommendations": [
+    {
+      "id": "battery",
+      "title": "Dagdag na battery",
+      "add": "+5 kWh",
+      "reason": "Halos 4.9 kWh na solar kada araw ang napupunta lang sa grid, pero 3.5 kWh ang binibili mo sa grid tuwing gabi. Naubos ang battery sa 100% ng mga araw. Ang dagdag na 5 kWh ay makakaipon ng sobrang araw para sa gabi.",
+      "evidence": [
+        {
+          "label": "Solar sent to grid",
+          "value": "4.9 kWh/day"
+        },
+        {
+          "label": "Grid at night",
+          "value": "3.5 kWh/day"
+        },
+        {
+          "label": "Battery ran out",
+          "value": "100% of days"
+        }
+      ],
+      "savings_php_month": 1581,
+      "cost_php": 100000,
+      "payback_years": 5.3,
+      "priority": 1
+    }
+  ]
+}

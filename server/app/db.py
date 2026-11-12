@@ -107,6 +107,23 @@ def insert_meter(device_id: str, ts: int, data: dict) -> None:
             (device_id, ts, data.get("meter_type"), json.dumps(data)))
 
 
+def latest_meter(device_id: str) -> dict | None:
+    """The newest Contract B meter payload, with the stored ts."""
+    r = one("SELECT ts, data FROM meter WHERE device_id=? ORDER BY ts DESC LIMIT 1", (device_id,))
+    return {**json.loads(r["data"]), "ts": r["ts"]} if r else None
+
+
+def meter_between(device_id: str, start_ts: int, end_ts: int, *fields: str) -> list[dict]:
+    """Meter rows in [start, end), ts + the requested payload fields (SQLite JSON1, no parsing in Python)."""
+    cols = "".join(f", json_extract(data, '$.{f}') AS {f}" for f in fields)
+    return query(f"SELECT ts{cols} FROM meter WHERE device_id=? AND ts>=? AND ts<? ORDER BY ts",
+                 (device_id, start_ts, end_ts))
+
+
+def has_meter(device_id: str) -> bool:
+    return one("SELECT 1 AS x FROM meter WHERE device_id=? LIMIT 1", (device_id,)) is not None
+
+
 # ------------------------------------------------------------------ status --
 def set_status(device_id: str, online: bool, rssi: int | None = None, fw: str | None = None) -> None:
     execute(

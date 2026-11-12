@@ -2,10 +2,19 @@
 
     python tools/seed_history.py              # 45 days at 5-minute resolution (covers last month too)
     python tools/seed_history.py --days 21 --reset
+    python tools/seed_history.py --reset --new-load-days 5     # + a "new aircon" (1.1 kW, 9PM-2AM) for 5 days
 
 Writes telemetry rows ending 5 minutes ago, plus a few outages with their alerts.
+The --new-load-* options add a load that starts N days ago, for demoing /api/household's new-appliance check.
+
+    python tools/seed_history.py --meter                           # + the utility meter of this solar home
+    python tools/seed_history.py --meter-only --device meter-001   # a home with a smart meter and no solar
+
+--meter also writes Contract B meter readings (power = what the grid supplies); --meter-only writes ONLY
+meter readings, for a household without solar or battery (power = home use).
 """
 import argparse
+import json
 import math
 import random
 import sys
@@ -20,12 +29,18 @@ ap.add_argument("--days", type=int, default=45)
 ap.add_argument("--step", type=int, default=300, help="seconds between rows")
 ap.add_argument("--device", default=config.DEFAULT_SETTINGS["device_id"])
 ap.add_argument("--reset", action="store_true", help="delete existing data for the device first")
+ap.add_argument("--new-load-days", type=int, default=0, help="add a new appliance this many days ago (0 = none)")
+ap.add_argument("--new-load-w", type=int, default=1100, help="its watts")
+ap.add_argument("--new-load-hours", default="21-2", help="its hours, START-END local (wraps midnight); 0-24 = always on")
+ap.add_argument("--meter", action="store_true", help="also write meter readings (solar + meter home)")
+ap.add_argument("--meter-only", action="store_true", help="only meter readings: a home without solar")
+ap.add_argument("--meter-type", default="sdm120", choices=["sdm120", "ansi-c12"])
 args = ap.parse_args()
 
 random.seed(7)
 c = db.conn()
 if args.reset:
-    for table in ("telemetry", "outages", "alerts"):
+    for table in ("telemetry", "meter", "outages", "alerts"):
         col = "device_id"
         c.execute(f"DELETE FROM {table} WHERE {col}=?", (args.device,))
 
@@ -41,6 +56,10 @@ outages = [(o, random.choice([1800, 3600, 5400, 7200])) for o in outages]
 soc = 60.0
 cloud = 1.0
 rows = []
+meter_rows = []
+mrng = random.Random(11)  # meter noise has its own generator: --meter must not change the telemetry
+register = 1520.0 + mrng.uniform(0, 400)  # kWh on the meter's import register at the start
+exported = 12.0
 day_kind = {}
 for ts in range(start, now, args.step):
     lt = time.localtime(ts)  # server TZ; good enough for fake data
@@ -58,6 +77,10 @@ for ts in range(start, now, args.step):
         load += 600
     elif weekend and 10 <= h < 17:
         load += 800                                    # everyone home on weekends
+    if args.new_load_days and ts >= now - args.new_load_days * 86400:
+        a, b = (int(x) for x in args.new_load_hours.split("-"))
+        if (a <= h < b) if a < b else (h >= a or h < b):
+            load += args.new_load_w                    # the "new appliance"
 
     brownout = any(o <= ts < o + d for o, d in outages)
     floor = 5 if brownout else 20
@@ -72,19 +95,40 @@ for ts in range(start, now, args.step):
     else:
         grid = load - pv - batt
     soc = min(100.0, max(0.0, soc - batt * args.step / 3600 / battery_wh * 100))
-    rows.append((args.device, ts, round(pv), round(load), round(grid), round(soc), round(batt),
-                 0 if brownout else 1, round(38 + pv / 500), 0))
+    if not args.meter_only:
+        rows.append((args.device, ts, round(pv), round(load), round(grid), round(soc), round(batt),
+                     0 if brownout else 1, round(38 + pv / 500), 0))
+    if args.meter or args.meter_only:
+        # The meter sees the grid side. A home without solar draws all its load from the grid (and runs more
+        # air-con in the evening: no battery, no sun-cooled afternoon).
+        power = 0.0 if brownout else (load * (1.15 if 18 <= h < 23 else 1.0) if args.meter_only else grid)
+        evening = 18 <= h < 22
+        volts = 0.0 if brownout else 229 + mrng.uniform(-3, 3) - (14 if evening and mrng.random() < 0.15 else 0)
+        pf = 0.0 if brownout else round(min(0.99, (0.84 if evening else 0.94) + mrng.uniform(-0.04, 0.04)), 2)
+        register += max(power, 0) * args.step / 3.6e6
+        exported += max(-power, 0) * args.step / 3.6e6
+        amps = abs(power) / volts / max(pf, 0.1) if volts else 0.0
+        meter_rows.append((args.device, ts, args.meter_type, json.dumps({
+            "ts": ts, "meter_type": args.meter_type, "voltage_v": round(volts, 1), "current_a": round(amps, 2),
+            "power_w": round(power), "apparent_va": round(volts * amps),
+            "reactive_var": round(volts * amps * math.sqrt(max(0.0, 1 - pf * pf))),
+            "pf": pf, "freq_hz": 0.0 if brownout else round(60 + mrng.uniform(-0.03, 0.03), 2),
+            "import_kwh": round(register, 2), "export_kwh": round(exported, 2), "grid_on": not brownout})))
 
 with db._lock:
     c.execute("BEGIN")
     c.executemany("INSERT INTO telemetry (device_id, ts, pv_w, load_w, grid_w, batt_soc, batt_w, grid_on, inv_temp_c, fault_code) "
                   "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
+    c.executemany("INSERT INTO meter (device_id, ts, meter_type, data) VALUES (?, ?, ?, ?)", meter_rows)
     for o, d in outages:
         c.execute("INSERT INTO outages (device_id, start_ts, end_ts) VALUES (?, ?, ?)", (args.device, o, o + d))
         c.execute("INSERT INTO alerts (device_id, ts, type, severity, title, message, read) VALUES (?, ?, 'brownout', 'critical', 'Brownout', "
-                  "'Nawalan ng kuryente mula sa grid. Battery at solar na ang gamit ng bahay mo.', 1)", (args.device, o))
+                  "?, 1)", (args.device, o, "Nawalan ng kuryente mula sa grid. " + (
+                      "Hugutin muna ang malalaking appliance." if args.meter_only else "Battery at solar na ang gamit ng bahay mo.")))
         c.execute("INSERT INTO alerts (device_id, ts, type, severity, title, message, read) VALUES (?, ?, 'grid_restored', 'info', "
-                  "'Bumalik na ang kuryente', ?, 1)", (args.device, o + d, f"Bumalik na ang grid pagkatapos ng {d // 60} minuto. Magcha-charge ulit ang battery."))
+                  "'Bumalik na ang kuryente', ?, 1)", (args.device, o + d, f"Bumalik na ang grid pagkatapos ng {d // 60} minuto. " + (
+                      "Isaksak ulit ang mga appliance nang paisa-isa." if args.meter_only else "Magcha-charge ulit ang battery.")))
     c.execute("COMMIT")
 
-print(f"seeded {len(rows)} rows ({args.days} days) and {len(outages)} outages for {args.device} into {config.DB_PATH}")
+print(f"seeded {len(rows)} telemetry + {len(meter_rows)} meter rows ({args.days} days) and {len(outages)} outages "
+      f"for {args.device} into {config.DB_PATH}")

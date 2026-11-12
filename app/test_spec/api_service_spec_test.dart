@@ -26,6 +26,7 @@ class FakeServer {
     if (req.method == 'GET' && p == '/api/energy') body = example('energy_${req.url.queryParameters['period']}');
     if (req.method == 'GET' && p == '/api/bill') body = example('bill');
     if (req.method == 'GET' && p == '/api/brownout') body = example('brownout');
+    if (req.method == 'GET' && p == '/api/meter') body = example('meter');
     if (req.method == 'GET' && p == '/api/alerts') body = example('alerts');
     if (req.method == 'POST' && p == '/api/alerts/read-all') body = {'unread': 0};
     if (req.method == 'POST' && RegExp(r'^/api/alerts/\d+/read$').hasMatch(p)) {
@@ -53,7 +54,13 @@ void main() {
     for (final (file, schema) in [
       ('live', 'live'), ('energy_day', 'energy'), ('energy_week', 'energy'), ('energy_month', 'energy'),
       ('bill', 'bill'), ('brownout', 'brownout'), ('alerts', 'alerts'), ('chat', 'chat'),
-      ('summary_daily', 'summary'), ('settings', 'settings'),
+      ('summary_daily', 'summary'), ('settings', 'settings'), ('outlook', 'outlook'), ('upgrade', 'upgrade'), ('tips', 'tips'), ('household', 'household'), ('solar_plan', 'solar_plan'), ('solar_plan_meter_only', 'solar_plan'), ('bill_projection', 'bill_projection'),
+      // Smart meter mode (mock mode serves these for setup meter_only / solar_and_meter)
+      ('meter', 'meter_info'), ('meter_solar_and_meter', 'meter_info'), ('live_meter_only', 'live'),
+      ('live_solar_and_meter', 'live'), ('energy_day_meter_only', 'energy'), ('energy_week_meter_only', 'energy'),
+      ('energy_month_meter_only', 'energy'), ('bill_meter_only', 'bill'), ('bill_solar_and_meter', 'bill'),
+      ('bill_projection_meter_only', 'bill_projection'), ('brownout_meter_only', 'brownout'),
+      ('summary_daily_meter_only', 'summary'),
     ]) {
       test('$file.json is a valid $schema', () => expectContract(schema, example(file)));
     }
@@ -97,6 +104,11 @@ void main() {
     test('getBrownout -> GET /api/brownout', () async {
       expectContract('brownout', await api.getBrownout());
       expectRequest('GET', '/api/brownout');
+    });
+
+    test('getMeter -> GET /api/meter (smart meter mode)', () async {
+      expectContract('meter_info', await api.getMeter());
+      expectRequest('GET', '/api/meter');
     });
 
     test('getAlerts -> GET /api/alerts', () async {
@@ -171,6 +183,23 @@ void main() {
       expectContract('summary', await mock.getDailySummary());
       expectContract('settings', await mock.getSettings());
       expectContract('health', await mock.health());
+      expectContract('meter_info', await mock.getMeter());
+    });
+
+    test('every screen gets contract-shaped data in each household setup', () async {
+      for (final setup in ['meter_only', 'solar_and_meter', 'solar']) {
+        await mock.updateSettings({'setup': setup});
+        expect((await mock.getSettings())['setup'], setup);
+        expectContract('live', await mock.getLive());
+        for (final p in ['day', 'week', 'month']) {
+          expectContract('energy', await mock.getEnergy(p));
+        }
+        expectContract('bill', await mock.getBill());
+        expectContract('bill_projection', await mock.getBillProjection());
+        expectContract('brownout', await mock.getBrownout());
+        expectContract('summary', await mock.getDailySummary());
+        expectContract('meter_info', await mock.getMeter());
+      }
     });
 
     test('is a drop-in replacement for ApiService (one flag flips them)', () {

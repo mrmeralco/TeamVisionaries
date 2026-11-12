@@ -1,25 +1,33 @@
-// Home (Figma "Home"): live status from /ws/live, readings, saved today, est. bill, yesterday's recap.
+// Home (Figma "Home"): live status from /ws/live, readings, saved today, est. bill, solar tips, household, yesterday's recap.
 // States (TESTING.md): solar | battery | grid | brownout | fault | offline, and empty (telemetry null).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart' show SvgPicture;
 import 'package:go_router/go_router.dart';
 
 import '../../core/router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
+import '../../core/utils/clock.dart';
+import '../../providers/appearance_providers.dart';
 import '../../providers/chat_providers.dart';
 import '../../providers/data_providers.dart';
 import '../../providers/live_providers.dart';
 import '../../services/live_connection.dart';
 import '../alerts/alert_detail.dart';
 import '../common/ui.dart';
+import '../meter/meter_cards.dart';
+import 'house_scene.dart';
+import 'household_card.dart';
+import 'solar_tips.dart';
+
+export '../../core/utils/clock.dart' show homeClock;
+
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   static String _greeting() {
-    final h = manilaNow().hour;
+    final h = homeClock().hour;
     if (h < 12) return 'Magandang umaga';
     if (h < 18) return 'Magandang hapon';
     return 'Magandang gabi';
@@ -28,18 +36,27 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final live = ref.watch(liveProvider);
+    // Night (6 PM to 6 AM): the night house, navy sky, light text. Home rebuilds on every reading,
+    // so it turns over within seconds of 6 o'clock.
+    final night = ref.watch(nightProvider);
     final bill = ref.watch(billProvider).value;
     final summary = ref.watch(dailySummaryProvider);
     final name = str(ref.watch(serverSettingsProvider).value?['user_name']);
+    final setup = ref.watch(setupProvider);
+    final hasSolar = setup != 'meter_only';
+    // A meter-only home has nothing "saved": the first money card is what the house used today instead.
+    final today = hasSolar ? null : ref.watch(energyProvider(('day', 0))).value;
     final data = live.live;
-    final w = MediaQuery.sizeOf(context).width;
-    final top = MediaQuery.paddingOf(context).top; // status bar
 
     Future<void> refresh() async {
       ref.invalidate(billProvider);
       ref.invalidate(serverSettingsProvider);
       ref.invalidate(brownoutProvider);
       ref.invalidate(outlookProvider);
+      ref.invalidate(tipsProvider);
+      ref.invalidate(householdProvider);
+      ref.invalidate(meterProvider);
+      if (!hasSolar) ref.invalidate(energyProvider(('day', 0)));
       await ref.refresh(dailySummaryProvider.future).then((_) {}, onError: (_) {});
     }
 
@@ -54,133 +71,194 @@ class HomeScreen extends ConsumerWidget {
       color: C.cream,
       child: RefreshIndicator(
         onRefresh: refresh,
-        child: Stack(
+        child: ListView(
+          padding: EdgeInsets.zero,
           children: [
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              // Ends just below the hero card (Figma: 278 of 852). Width is capped by the app's max width,
-              // so the stretch stays mild on tablets and the web.
-              child: SvgPicture.asset('assets/images/header-circle.svg', width: w, height: 278 + top, fit: BoxFit.fill),
-            ),
-            ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const TopBar(onDark: true),
-                        // Dark text: white on the orange → yellow header was 1.5:1 to 2.8:1.
-                        // The first screen arrives once per launch: greeting, then the hero card.
-                        EnterOnce(
-                          id: 'home-greeting',
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Semantics(
-                                header: true,
-                                child: Text(
-                                  '${_greeting()}${name.isEmpty ? '' : ', $name'}!',
-                                  style: ts(24, w: FontWeight.w700, spacing: -0.48),
-                                ),
-                              ),
-                              const SizedBox(height: S.x1),
-                              Text('Here’s what’s happening at home.', style: ts(13, w: FontWeight.w500)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: S.x4),
-                        Padding(
-                          padding: const EdgeInsets.only(right: S.x2),
-                          child: EnterOnce(
-                            id: 'home-hero',
-                            delay: const Duration(milliseconds: 80),
-                            child: _Hero(live: data),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (data == null && live.link == LinkStatus.waiting)
-                  ErrorBox(onRetry: () => ref.invalidate(liveProvider), error: live.error)
-                else if (data == null)
-                  const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else ...[
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
-                    child: Freshness(readingTs: intOrNull(live.telemetry?['ts']), link: live.link),
-                  ),
-                  _StateBanner(live: live),
-                  if (inBrownout) advisor,
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
-                    child: EnterOnce(
-                      id: 'home-stats',
-                      delay: const Duration(milliseconds: 160),
-                      child: _Stats(telemetry: live.telemetry),
-                    ),
-                  ),
-                  if (live.telemetry != null)
+            // The house leads the page, Tesla-style: greeting and live status on the sky, then the
+            // house across the full width, its lawn fading into the dashboard below.
+            _Sky(
+              state: str(data?['state'], 'offline'),
+              night: night,
+              child: SafeArea(
+                bottom: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
-                      child: _DeviceHealth(telemetry: live.telemetry!, device: live.device),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
-                    child: IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                      padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: _Money(
-                              'Saved today',
-                              formatPhp(numOr(data['saved_today_php'])),
-                              caption: rate == null ? null : 'At ${formatPhp(rate)}/kWh',
-                            ),
-                          ),
-                          const SizedBox(width: S.x2),
-                          Expanded(
-                            child: _Money(
-                              'Est. monthly bill',
-                              forecast is num ? formatPhp(forecast, whole: true) : '—',
-                              caption: 'See bill details',
-                              onTap: () => context.go(Routes.bill),
+                          const TopBar(onDark: true),
+                          // Dark text: white on the orange → yellow sky was 1.5:1 to 2.8:1.
+                          EnterOnce(
+                            id: 'home-greeting',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Semantics(
+                                  header: true,
+                                  child: Text(
+                                    '${_greeting()}${name.isEmpty ? '' : ', $name'}!',
+                                    style: ts(24, w: FontWeight.w700, spacing: -0.48, color: night ? C.onNight : C.ink),
+                                  ),
+                                ),
+                                const SizedBox(height: S.x1),
+                                Padding(
+                                  padding: const EdgeInsets.only(right: S.x2),
+                                  child: Semantics(
+                                    liveRegion: true,
+                                    child: Text(
+                                      str(data?['status_line'], 'Kumokonekta sa Solaris… Ilang saglit lang.'),
+                                      style: ts(13, w: FontWeight.w500, height: 1.4, color: night ? C.onNightMuted : C.ink),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  if (!inBrownout) advisor,
-                ],
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(S.gutter, S.x6, S.gutter, 0),
-                  child: SectionTitle('Yesterday’s summary'),
+                    EnterOnce(
+                      id: 'home-hero',
+                      delay: const Duration(milliseconds: 80),
+                      child: HouseScene(
+                        telemetry: mapOf(data?['telemetry']),
+                        offline: str(data?['state'], 'offline') == 'offline' || live.telemetry == null,
+                        night: night,
+                        // No solar: the house without panels or battery, labelled from the meter.
+                        meterOnly: !hasSolar,
+                        meter: live.meter,
+                        voltageStatus: hasSolar
+                            ? null
+                            : str(mapOf(ref.watch(meterProvider).value?['quality'])['voltage_status'], ''),
+                      ),
+                    ),
+                    // At night the dark lawn eases into the light dashboard.
+                    if (night)
+                      SizedBox(
+                        height: 48,
+                        width: double.infinity,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [C.nightLawn, C.cream],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
+              ),
+            ),
+            if (data == null && live.link == LinkStatus.waiting)
+              ErrorBox(onRetry: () => ref.invalidate(liveProvider), error: live.error)
+            else if (data == null)
+              const Padding(
+                padding: EdgeInsets.all(32),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
+                child: Freshness(readingTs: live.readingTs, link: live.link),
+              ),
+              _StateBanner(live: live),
+              if (inBrownout) advisor,
+              if (hasSolar && live.telemetry == null) const _NoReadings(),
+              // A meter-only home: what the house labels don't say (current, power factor) under it.
+              if (!hasSolar)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, kFabClearance),
-                  child: AsyncBody(
-                    value: summary,
-                    onRetry: () => ref.invalidate(dailySummaryProvider),
-                    data: (s) => _Summary(
-                      s,
-                      onAsk: () {
-                        ref.read(chatProvider.notifier).send('Kumusta ang solar at kuryente ko kahapon?');
-                        context.push(Routes.ask);
-                      },
+                  padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
+                  child: EnterOnce(
+                    id: 'home-meter-stats',
+                    delay: const Duration(milliseconds: 160),
+                    child: _MeterStats(meter: live.meter),
+                  ),
+                ),
+              if (live.telemetry != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
+                  child: _DeviceHealth(telemetry: live.telemetry!, device: live.device),
+                ),
+              if (setup == 'solar_and_meter')
+                const Padding(padding: EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0), child: MeterNowCard()),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
+                child: EnterOnce(
+                  id: 'home-stats',
+                  delay: const Duration(milliseconds: 160),
+                  child: SCard(
+                    padding: EdgeInsets.zero,
+                    child: Column(
+                      children: [
+                        if (hasSolar)
+                          _Row(
+                            Icons.savings_outlined,
+                            'Saved today',
+                            formatPhp(numOr(data['saved_today_php'])),
+                            caption: rate == null ? null : 'At ${formatPhp(rate)}/kWh',
+                          )
+                        else
+                          // A meter-only home has nothing "saved": what the house used today instead.
+                          _Row(
+                            Icons.electric_meter_outlined,
+                            'Used today',
+                            today == null ? '—' : '${kwhNum(mapOf(today['totals'])['grid_import_kwh'])} kWh',
+                            caption: 'See your usage',
+                            onTap: () => context.go(Routes.energy),
+                          ),
+                        Divider(height: 1, thickness: 0.5, indent: 68, color: C.divider),
+                        _Row(
+                          Icons.receipt_long_outlined,
+                          'Est. monthly bill',
+                          forecast is num ? formatPhp(forecast, whole: true) : '—',
+                          caption: 'See bill details',
+                          onTap: () => context.go(Routes.bill),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ],
+              ),
+              if (!inBrownout) advisor,
+              if (hasSolar) const SolarTips(),
+              // No solar: nothing about solar at all. Ways to save from the home's own use lead, then the
+              // rest of what the meter says (voltage, level, reading).
+              if (!hasSolar)
+                const MeterInsights(
+                  key: Key('home-saving-tips'),
+                  title: 'Paano makatipid',
+                  subtitle: 'Batay sa gamit ng bahay mo, mula sa meter',
+                  only: kSavingInsights,
+                ),
+              if (setup != 'solar') MeterInsights(skip: hasSolar ? const {'reading'} : kSavingInsights),
+              const HouseholdCard(),
+            ],
+            const Padding(
+              padding: EdgeInsets.fromLTRB(S.gutter, S.x6, S.gutter, 0),
+              child: SectionTitle('Yesterday’s summary'),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, kFabClearance),
+              child: AsyncBody(
+                value: summary,
+                onRetry: () => ref.invalidate(dailySummaryProvider),
+                data: (s) => _Summary(
+                  s,
+                  onAsk: () {
+                    ref
+                        .read(chatProvider.notifier)
+                        .send(
+                          hasSolar ? 'Kumusta ang solar at kuryente ko kahapon?' : 'Kumusta ang kuryente ko kahapon?',
+                        );
+                    context.push(Routes.ask);
+                  },
+                ),
+              ),
             ),
           ],
         ),
@@ -189,86 +267,45 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-/// Figma hero card: status sentence on the left, trees + house art at the bottom. Sizes scale with the
-/// card's width (designed at 353 px), and the card grows with the text, so a 320 px phone or a large
-/// system font never puts the house over the words or cuts the sentence off.
-class _Hero extends StatelessWidget {
-  const _Hero({required this.live});
-  final Map<String, dynamic>? live;
+/// The sky behind the greeting and the house: the state's colours from the top, easing toward the
+/// page so the house's lawn fades straight into the dashboard. At night: a navy sky.
+class _Sky extends StatelessWidget {
+  const _Sky({required this.state, required this.child, this.night = false});
+  final String state;
+  final bool night;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final state = str(live?['state'], 'offline');
-    final t = mapOf(live?['telemetry']);
-    final sunny = numOr(t['pv_w']) > 0;
-    final text = str(live?['status_line'], 'Kumokonekta sa Solaris… Ilang saglit lang.');
-    final colors = switch (state) {
-      'brownout' => C.heroBrownout,
-      'fault' => C.heroFault,
-      'offline' => C.heroOffline,
-      _ => C.heroSunny,
+    if (night) {
+      return DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: C.nightSky,
+            stops: [0, 0.5, 1],
+          ),
+        ),
+        child: child,
+      );
+    }
+    final (top, low) = switch (state) {
+      'brownout' => (C.heroBrownout[1], C.heroBrownout[0]),
+      'fault' => (C.heroFault[1], C.heroFault[0]),
+      'offline' => (C.heroOffline[1], C.heroOffline[0]),
+      _ => (C.orange, C.yellow),
     };
-    return LayoutBuilder(
-      builder: (context, box) {
-        final w = box.maxWidth;
-        final k = w / 353; // Figma card width
-        return Container(
-          width: double.infinity,
-          constraints: BoxConstraints(minHeight: 154 * k.clamp(0.85, 1.2)),
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            borderRadius: R.card,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: colors,
-              stops: const [0.02, 0.65],
-            ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                left: 0,
-                bottom: 0,
-                width: 264 * k,
-                height: 98 * k,
-                child: ExcludeSemantics(child: Image.asset('assets/images/trees.png', fit: BoxFit.fill)),
-              ),
-              Positioned(
-                right: 0,
-                bottom: 0,
-                width: 194 * k,
-                height: 143 * k,
-                child: ExcludeSemantics(child: Image.asset('assets/images/house.png', fit: BoxFit.fill)),
-              ),
-              if (sunny) ...[
-                Positioned(
-                  left: 95.4 * k,
-                  bottom: 58.4 * k,
-                  child: SvgPicture.asset('assets/images/arrow-up.svg', width: 6 * k, height: 39 * k),
-                ),
-                Positioned(
-                  left: 98 * k,
-                  bottom: 58.4 * k,
-                  child: SvgPicture.asset('assets/images/arrow-right.svg', width: 74 * k, height: 1),
-                ),
-              ],
-              // The only non-positioned child: it sets the card's height. It stops before the house
-              // (which starts at 45 % of the width) and leaves room under it for the trees.
-              Padding(
-                padding: EdgeInsets.fromLTRB(18, 14, 0, 70 * k),
-                child: SizedBox(
-                  width: w * 0.45 - 22,
-                  child: Semantics(
-                    liveRegion: true,
-                    child: Text(text, style: ts(12, w: FontWeight.w600, height: 1.3)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [top, low, Color.lerp(low, C.cream, 0.55)!],
+          stops: const [0, 0.5, 1],
+        ),
+      ),
+      child: child,
     );
   }
 }
@@ -316,22 +353,25 @@ class _StateBanner extends ConsumerWidget {
         minHeight: kMinTap,
         padding: const EdgeInsets.all(S.x3),
         child: Row(
-              children: [
-                Icon(icon, color: color),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: ts(13, w: FontWeight.w700, color: color == C.muted ? C.ink : color)),
-                      const SizedBox(height: 2),
-                      Text(sub, style: ts(12)),
-                    ],
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: ts(13, w: FontWeight.w700, color: color == C.muted ? C.ink : color),
                   ),
-                ),
-                if (onTap != null) Icon(Icons.chevron_right_rounded, color: color),
-              ],
+                  const SizedBox(height: 2),
+                  Text(sub, style: ts(12)),
+                ],
+              ),
             ),
+            if (onTap != null) Icon(Icons.chevron_right_rounded, color: color),
+          ],
+        ),
       ),
     );
   }
@@ -353,9 +393,11 @@ class _BrownoutAdvisor extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final live = ref.watch(liveProvider);
     final on = active(live);
-    ref.listen(liveProvider.select((s) => s.telemetry?['ts']), (prev, next) {
+    ref.listen(liveProvider.select((s) => s.readingTs), (prev, next) {
       if (prev != null && next != prev && active(ref.read(liveProvider))) ref.invalidate(brownoutProvider);
     });
+    // No battery in a meter-only home: nothing to say while the grid is on, and no runtime during a brownout.
+    if (!ref.watch(hasSolarProvider)) return on ? const _MeterBrownout() : const SizedBox.shrink();
     final b = ref.watch(brownoutProvider).value;
     final outlook = ref.watch(outlookProvider).value;
     final ifHits = outlook?['brownout'] is Map ? mapOf(outlook!['brownout']) : null;
@@ -394,17 +436,24 @@ class _BrownoutAdvisor extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: R.control),
-                      child: Icon(on ? Icons.power_off_rounded : Icons.power_rounded, size: 18, color: color),
-                    ),
-                    const SizedBox(width: S.x3),
-                    Expanded(child: Text(title, style: ts(14, w: FontWeight.w700, color: on ? C.orangeDeep : C.ink))),
-                    Icon(Icons.chevron_right_rounded, color: color),
-                  ]),
+                  Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: R.control),
+                        child: Icon(on ? Icons.power_off_rounded : Icons.power_rounded, size: 18, color: color),
+                      ),
+                      const SizedBox(width: S.x3),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: ts(14, w: FontWeight.w700, color: on ? C.orangeDeep : C.ink),
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded, color: color),
+                    ],
+                  ),
                   const SizedBox(height: S.x3),
                   Reading(value, 'hrs', size: 28, valueColor: on ? C.orangeDeep : C.ink),
                   const SizedBox(height: S.x1),
@@ -413,16 +462,19 @@ class _BrownoutAdvisor extends ConsumerWidget {
                     const SizedBox(height: S.x3),
                     Text(advice, maxLines: 3, overflow: TextOverflow.ellipsis, style: ts(13, height: 1.45)),
                   ],
-                  if (facts.isNotEmpty) ...[
-                    const SizedBox(height: S.x3),
-                    Text(facts, style: ts(11, color: C.muted)),
-                  ],
+                  if (facts.isNotEmpty) ...[const SizedBox(height: S.x3), Text(facts, style: ts(11, color: C.muted))],
                   const SizedBox(height: S.x3),
-                  Row(mainAxisSize: MainAxisSize.min, children: [
-                    Text('Open Brownout Advisor', style: ts(12, w: FontWeight.w700, color: C.orangeText)),
-                    const SizedBox(width: S.x1),
-                    const Icon(Icons.arrow_forward_rounded, size: 14, color: C.orangeText),
-                  ]),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Open Brownout Advisor',
+                        style: ts(12, w: FontWeight.w700, color: C.orangeText),
+                      ),
+                      const SizedBox(width: S.x1),
+                      Icon(Icons.arrow_forward_rounded, size: 14, color: C.orangeText),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -433,36 +485,75 @@ class _BrownoutAdvisor extends ConsumerWidget {
   }
 }
 
-class _Stats extends StatelessWidget {
-  const _Stats({required this.telemetry});
-  final Map<String, dynamic>? telemetry;
+/// A meter-only home in a brownout: since when, Mira's advice (protect the appliances), and how often.
+class _MeterBrownout extends ConsumerWidget {
+  const _MeterBrownout();
 
-  /// Contract B: grid_w is + import, − export. The tile shows the size; the note says which way.
-  static String? _gridNote(num? w) {
-    if (w == null || w.abs() < 20) return null;
-    return w > 0 ? 'Importing' : 'Exporting';
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final b = ref.watch(brownoutProvider).value;
+    final start = intOrNull(b?['start_ts']);
+    final outages = b?['outages_this_month'];
+    final facts = [
+      if (start != null) 'Nagsimula ${formatClock(start)}',
+      if (outages != null) '$outages brownout ngayong buwan',
+    ].join(' · ');
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(S.gutter, S.x6, S.gutter, 0),
+      child: SCard(
+        color: C.orangeDeep.withValues(alpha: 0.08),
+        border: Border.all(color: C.orangeDeep.withValues(alpha: 0.5), width: 0.5),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.power_off_rounded, color: C.orangeDeep),
+                const SizedBox(width: S.x2),
+                Expanded(
+                  child: Text(
+                    'May brownout ngayon',
+                    style: ts(14, w: FontWeight.w700, color: C.orangeDeep),
+                  ),
+                ),
+              ],
+            ),
+            if (str(b?['advice']).isNotEmpty) ...[
+              const SizedBox(height: S.x2),
+              Text(str(b?['advice']), style: ts(13, height: 1.45)),
+            ],
+            if (facts.isNotEmpty) ...[const SizedBox(height: S.x2), Text(facts, style: ts(11, color: C.muted))],
+          ],
+        ),
+      ),
+    );
   }
+}
 
-  static String? _battNote(num? w) {
-    if (w == null || w.abs() < 20) return null;
-    return w < 0 ? 'Charging' : 'In use';
-  }
+/// A meter-only home's live tiles: what the house draws from the grid, and the meter's power quality.
+class _MeterStats extends StatelessWidget {
+  const _MeterStats({required this.meter});
+  final Map<String, dynamic>? meter;
 
   @override
   Widget build(BuildContext context) {
-    final t = telemetry;
+    final m = meter;
     final Widget body;
-    if (t == null) {
+    if (m == null) {
       body = Padding(
         padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 12),
         child: Column(
           children: [
-            const Icon(Icons.solar_power_rounded, color: C.orangeDeep, size: 32),
+            Icon(Icons.electric_meter_rounded, color: C.orangeDeep, size: 32),
             const SizedBox(height: 8),
-            Text('Wala pang reading mula sa device.', style: ts(13, w: FontWeight.w700), textAlign: TextAlign.center),
+            Text(
+              'Wala pang reading mula sa meter.',
+              style: ts(13, w: FontWeight.w700),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 2),
             Text(
-              'Lalabas dito ang solar, battery at grid kapag naka-on na ang Solaris device.',
+              'Lalabas dito ang gamit mo, boltahe at kuryente kapag naka-on na ang Solaris device.',
               style: ts(11, color: C.labelOnYellow),
               textAlign: TextAlign.center,
             ),
@@ -470,53 +561,77 @@ class _Stats extends StatelessWidget {
         ),
       );
     } else {
-      final gridOn = t['grid_on'] != false;
-      final soc = t['batt_soc'];
+      // Home use and voltage are on the house's labels above.
+      final on = m['grid_on'] != false;
+      final pf = m['pf'];
+      final amps = m['current_a'];
       body = TwoCol(
         gap: S.x2,
         runGap: S.x2,
         children: [
-          _Tile('Solar production', kwNum(t['pv_w']), 'kW'),
-          _Tile('Home usage', kwNum(t['load_w']), 'kW'),
-          _Tile('Battery level', soc is num ? pctNum(soc) : '—', '%', note: _battNote(t['batt_w'] as num?)),
-          _Tile(
-            'Grid power',
-            gridOn ? kwNum(t['grid_w']) : 'Off',
-            gridOn ? 'kW' : '',
-            note: gridOn ? _gridNote(t['grid_w'] as num?) : 'Brownout',
-          ),
+          _Tile('Current', amps is num && on ? amps.toStringAsFixed(1) : '—', amps is num && on ? 'A' : ''),
+          _Tile('Power factor', pf is num && on ? pf.toStringAsFixed(2) : '—', ''),
         ],
       );
     }
-    // Figma 22:122: yellow panel, 353 × 192, drop shadow 0 2 4 rgba(0,0,0,.25).
     return Container(
       padding: const EdgeInsets.all(S.x3),
       decoration: BoxDecoration(
-        color: C.yellow,
+        color: C.yellowSurface,
         borderRadius: R.card,
-        boxShadow: const [BoxShadow(color: C.shadow, blurRadius: 4, offset: Offset(0, 2))],
+        boxShadow: [BoxShadow(color: C.shadow, blurRadius: 4, offset: Offset(0, 2))],
       ),
       child: body,
     );
   }
 }
 
+/// Shown under the house until the Solaris device sends its first reading.
+class _NoReadings extends StatelessWidget {
+  const _NoReadings();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
+    child: SCard(
+      padding: const EdgeInsets.symmetric(vertical: S.x6, horizontal: S.x3),
+      child: Column(
+        children: [
+          Icon(Icons.solar_power_rounded, color: C.orangeDeep, size: 32),
+          const SizedBox(height: S.x2),
+          Text(
+            'Wala pang reading mula sa device.',
+            style: ts(13, w: FontWeight.w700),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Lalabas sa bahay ang solar, battery at grid kapag naka-on na ang Solaris device.',
+            style: ts(11, color: C.label),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// One row of the dashboard list, Tesla-style: icon, label, the number, a short caption, and a
+/// chevron when it opens something.
 class _Tile extends StatelessWidget {
-  const _Tile(this.label, this.value, this.unit, {this.note});
+  const _Tile(this.label, this.value, this.unit);
   final String label, value, unit;
-  final String? note;
 
   @override
   Widget build(BuildContext context) => Readout(
     label: label,
     value: value,
     unit: unit,
-    note: note,
     child: Container(
       constraints: const BoxConstraints(minHeight: 77),
       padding: const EdgeInsets.fromLTRB(S.x3, S.x3, S.x2, S.x2),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: C.card,
         borderRadius: R.tile,
         border: Border.all(color: C.tileBorder, width: 0.5),
       ),
@@ -524,8 +639,10 @@ class _Tile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: ts(11, w: FontWeight.w600, color: C.label, spacing: -0.1)),
-          if (note != null) Text(note!, style: ts(10, w: FontWeight.w700, color: C.orangeText)),
+          Text(
+            label,
+            style: ts(11, w: FontWeight.w600, color: C.label, spacing: -0.1),
+          ),
           const SizedBox(height: 8),
           Reading(value, unit, valueColor: C.orangeDeep, unitWeight: FontWeight.w700),
         ],
@@ -534,49 +651,58 @@ class _Tile extends StatelessWidget {
   );
 }
 
-/// Figma 22:139 / 29:403: white card, orange hairline, label + value + small caption.
-class _Money extends StatelessWidget {
-  const _Money(this.label, this.value, {this.caption, this.onTap});
+class _Row extends StatelessWidget {
+  const _Row(this.icon, this.label, this.value, {this.caption, this.onTap});
+  final IconData icon;
   final String label, value;
   final String? caption;
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: onTap != null,
-    label: '$label: $value${caption == null ? '' : '. $caption'}',
-    excludeSemantics: true,
-    child: PressCard(
-      onTap: onTap,
-      minHeight: 76,
+  Widget build(BuildContext context) {
+    final row = Padding(
       padding: const EdgeInsets.fromLTRB(S.x4, S.x3, S.x3, S.x3),
-      child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Expanded(child: Text(label, style: ts(11, w: FontWeight.w600, color: C.label))),
-                  if (onTap != null) const Icon(Icons.chevron_right_rounded, size: 18, color: C.orangeText),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(value, style: ts(17, w: FontWeight.w700, spacing: 0.15)),
-              if (caption != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  caption!,
-                  style: ts(
-                    10,
-                    w: onTap == null ? FontWeight.w500 : FontWeight.w700,
-                    color: onTap == null ? C.label : C.orangeText,
-                  ),
-                ),
-              ],
-            ],
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: C.cream, borderRadius: R.control),
+            child: Icon(icon, size: 22, color: C.orangeDeep),
           ),
-    ),
-  );
+          const SizedBox(width: S.x3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: ts(12, w: FontWeight.w600, color: C.label),
+                ),
+                Text(value, style: ts(18, w: FontWeight.w700, height: 1.3)),
+                if (caption != null)
+                  Text(
+                    caption!,
+                    style: ts(
+                      11,
+                      w: onTap == null ? FontWeight.w500 : FontWeight.w700,
+                      color: onTap == null ? C.label : C.orangeText,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (onTap != null) Icon(Icons.chevron_right_rounded, color: C.orangeText),
+        ],
+      ),
+    );
+    return Semantics(
+      button: onTap != null,
+      label: '$label: $value${caption == null ? '' : '. $caption'}',
+      excludeSemantics: true,
+      child: onTap == null ? row : InkWell(onTap: onTap, borderRadius: R.card, child: row),
+    );
+  }
 }
 
 /// Figma 35:422: AI recap with sparkle icon; numbers in bold; "Ask Mira about yesterday →".
@@ -622,7 +748,10 @@ class _Summary extends StatelessWidget {
                       ? Text('Wala pang buod para kahapon.', style: ts(13, color: C.muted))
                       : Text.rich(TextSpan(children: _spans(summary))),
                 ),
-                Transform.translate(offset: const Offset(-8, 0), child: LinkButton('Ask Mira about yesterday', onTap: onAsk)),
+                Transform.translate(
+                  offset: const Offset(-8, 0),
+                  child: LinkButton('Ask Mira about yesterday', onTap: onAsk),
+                ),
               ],
             ),
           ),
@@ -640,11 +769,11 @@ class _DeviceHealth extends StatelessWidget {
   final Map<String, dynamic>? device;
 
   static (String, Color) _signal(num? rssi) => switch (rssi) {
-        null => ('—', C.muted),
-        >= -60 => ('Strong', C.green),
-        >= -75 => ('Fair', C.amber),
-        _ => ('Weak', C.red),
-      };
+    null => ('—', C.muted),
+    >= -60 => ('Strong', C.green),
+    >= -75 => ('Fair', C.amber),
+    _ => ('Weak', C.red),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -654,48 +783,59 @@ class _DeviceHealth extends StatelessWidget {
     final (signal, signalColor) = _signal(device?['rssi'] as num?);
 
     Widget item(IconData icon, Color color, String label, String value, {VoidCallback? onTap}) => Expanded(
-          child: Semantics(
-            button: onTap != null,
-            label: '$label: $value',
-            excludeSemantics: true,
-            child: InkWell(
-              borderRadius: R.control,
-              onTap: onTap,
-              child: Container(
-                constraints: const BoxConstraints(minHeight: kMinTap),
-                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-                child: Row(children: [
-                  Icon(icon, size: 16, color: color),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(label, style: ts(10, w: FontWeight.w600, color: C.label)),
-                        Text(value, overflow: TextOverflow.ellipsis, style: ts(11, w: FontWeight.w700, color: color)),
-                      ],
-                    ),
+      child: Semantics(
+        button: onTap != null,
+        label: '$label: $value',
+        excludeSemantics: true,
+        child: InkWell(
+          borderRadius: R.control,
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: kMinTap),
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+            child: Row(
+              children: [
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: ts(10, w: FontWeight.w600, color: C.label),
+                      ),
+                      Text(
+                        value,
+                        overflow: TextOverflow.ellipsis,
+                        style: ts(11, w: FontWeight.w700, color: color),
+                      ),
+                    ],
                   ),
-                ]),
-              ),
+                ),
+              ],
             ),
           ),
-        );
+        ),
+      ),
+    );
 
     return SCard(
       padding: const EdgeInsets.symmetric(horizontal: S.x3, vertical: S.x1),
-      child: Row(children: [
-        item(Icons.thermostat_rounded, tempColor, 'Inverter', temp == null ? '—' : '${temp.round()}°C'),
-        item(
-          fault == 0 ? Icons.check_circle_rounded : Icons.error_rounded,
-          fault == 0 ? C.green : C.red,
-          'Status',
-          fault == 0 ? 'No issues' : 'Fault $fault',
-          onTap: fault == 0 ? null : () => context.go(Routes.alerts),
-        ),
-        item(Icons.wifi_rounded, signalColor, 'Solaris device', signal),
-      ]),
+      child: Row(
+        children: [
+          item(Icons.thermostat_rounded, tempColor, 'Inverter', temp == null ? '—' : '${temp.round()}°C'),
+          item(
+            fault == 0 ? Icons.check_circle_rounded : Icons.error_rounded,
+            fault == 0 ? C.green : C.red,
+            'Status',
+            fault == 0 ? 'No issues' : 'Fault $fault',
+            onTap: fault == 0 ? null : () => context.go(Routes.alerts),
+          ),
+          item(Icons.wifi_rounded, signalColor, 'Solaris device', signal),
+        ],
+      ),
     );
   }
 }

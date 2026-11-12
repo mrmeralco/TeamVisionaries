@@ -75,7 +75,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   void _snack(String text, {bool critical = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: critical ? C.red : C.ink,
+        backgroundColor: critical ? C.redFill : C.snack,
         content: Text(text, maxLines: 2, overflow: TextOverflow.ellipsis),
         action: SnackBarAction(label: 'View alerts', textColor: C.yellow, onPressed: () => widget.shell.goBranch(alertsTab)),
       ),

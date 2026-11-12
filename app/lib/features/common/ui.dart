@@ -64,7 +64,7 @@ class LinkIndicator extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: onDark ? 0.9 : 1),
+          color: C.card.withValues(alpha: onDark ? 0.9 : 1),
           borderRadius: BorderRadius.circular(R.pill),
         ),
         child: Row(
@@ -148,7 +148,7 @@ class BackHeader extends StatelessWidget {
             children: [
               IconButton(
                 tooltip: 'Back',
-                icon: const Icon(Icons.arrow_back_rounded, color: C.ink),
+                icon: Icon(Icons.arrow_back_rounded, color: C.ink),
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
               const Spacer(),
@@ -174,19 +174,19 @@ class BackHeader extends StatelessWidget {
 }
 
 /// The one card recipe: white, [R.lg] corners, a 0.5 px orange hairline, no shadow.
-const kCardLine = BorderSide(color: C.orangeLine, width: 0.5);
+BorderSide get kCardLine => BorderSide(color: C.orangeLine, width: 0.5);
 
 class SCard extends StatelessWidget {
   const SCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(S.x4),
-    this.color = C.card,
+    this.color,
     this.border,
   });
   final Widget child;
   final EdgeInsets padding;
-  final Color color;
+  final Color? color; // default [C.card]
   final BoxBorder? border;
 
   @override
@@ -194,7 +194,7 @@ class SCard extends StatelessWidget {
     width: double.infinity,
     padding: padding,
     decoration: BoxDecoration(
-      color: color,
+      color: color ?? C.card,
       borderRadius: R.card,
       border: border ?? Border.fromBorderSide(kCardLine),
     ),
@@ -210,15 +210,15 @@ class PressCard extends StatefulWidget {
     super.key,
     required this.child,
     this.onTap,
-    this.color = C.card,
-    this.side = kCardLine,
+    this.color,
+    this.side,
     this.padding = const EdgeInsets.all(S.x4),
     this.minHeight = 0,
   });
   final Widget child;
   final VoidCallback? onTap;
-  final Color color;
-  final BorderSide side;
+  final Color? color; // default [C.card]
+  final BorderSide? side; // default [kCardLine]
   final EdgeInsets padding;
   final double minHeight;
 
@@ -235,8 +235,8 @@ class _PressCardState extends State<PressCard> {
     duration: _down ? M.press : M.release,
     curve: M.ease,
     child: Material(
-      color: widget.color,
-      shape: RoundedRectangleBorder(borderRadius: R.card, side: widget.side),
+      color: widget.color ?? C.card,
+      shape: RoundedRectangleBorder(borderRadius: R.card, side: widget.side ?? kCardLine),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: widget.onTap,
@@ -353,15 +353,15 @@ class Reading extends StatelessWidget {
     this.unit, {
     super.key,
     this.size = 24,
-    this.unitColor = C.orangeText,
-    this.valueColor = C.ink,
+    this.unitColor,
+    this.valueColor,
     this.unitWeight = FontWeight.w600,
   });
   final String value;
   final String unit;
   final double size;
-  final Color unitColor;
-  final Color valueColor;
+  final Color? unitColor; // default [C.orangeText]
+  final Color? valueColor; // default [C.ink]
   final FontWeight unitWeight;
 
   @override
@@ -376,14 +376,14 @@ class Reading extends StatelessWidget {
           child: Text(
             value,
             key: ValueKey(value),
-            style: ts(size, w: FontWeight.w900, color: valueColor),
+            style: ts(size, w: FontWeight.w900, color: valueColor ?? C.ink),
             overflow: TextOverflow.ellipsis,
           ),
         ),
       ),
       if (unit.isNotEmpty) ...[
         const SizedBox(width: 6),
-        Text(unit, style: ts(12, w: unitWeight, color: unitColor)),
+        Text(unit, style: ts(12, w: unitWeight, color: unitColor ?? C.orangeText)),
       ],
     ],
   );
@@ -596,7 +596,7 @@ class LinkButton extends StatelessWidget {
       children: [
         Flexible(child: Text(label, style: ts(size, w: FontWeight.w700, color: C.orangeText))),
         const SizedBox(width: 4),
-        const Icon(Icons.arrow_forward_rounded, size: 14, color: C.orangeText),
+        Icon(Icons.arrow_forward_rounded, size: 14, color: C.orangeText),
       ],
     ),
   );
@@ -634,10 +634,10 @@ class MiraButton extends StatelessWidget {
     child: FloatingActionButton(
       heroTag: 'ask-mira',
       tooltip: 'Ask Mira',
-      backgroundColor: Colors.white,
+      backgroundColor: C.card,
       elevation: 3,
       highlightElevation: 1,
-      shape: const CircleBorder(side: kCardLine),
+      shape: CircleBorder(side: kCardLine),
       onPressed: () => context.push(Routes.ask),
       child: const MiraAvatar(size: 58),
     ),
@@ -662,7 +662,7 @@ class SolarisNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: Colors.white,
+    color: C.card,
     child: SafeArea(
       top: false,
       child: ConstrainedBox(
@@ -706,7 +706,7 @@ class SolarisNavBar extends StatelessWidget {
                                 Badge(
                                   isLabelVisible: i == alertsTab && badge > 0,
                                   label: Text(badgeText(badge)),
-                                  backgroundColor: C.red,
+                                  backgroundColor: C.redFill,
                                   child: svg('nav-${navItems[i].$2}-${i == index ? 'on' : 'off'}', height: 18),
                                 ),
                                 const SizedBox(height: 6),

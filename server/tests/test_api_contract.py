@@ -18,10 +18,16 @@ ENDPOINTS = [
     ("bill", "/api/bill"),
     ("brownout", "/api/brownout"),
     ("outlook", "/api/outlook"),
+    ("upgrade", "/api/upgrade"),
+    ("tips", "/api/tips"),
+    ("household", "/api/household"),
+    ("solar_plan", "/api/solar-plan"),
+    ("bill_projection", "/api/bill/projection"),
     ("alerts", "/api/alerts"),
     ("summary", "/api/summary/daily"),
     ("settings", "/api/settings"),
     ("health", "/api/health"),
+    ("meter_info", "/api/meter"),
 ]
 
 
@@ -41,8 +47,14 @@ def test_mock_mode_endpoint_matches_contract(mock_client, schema, path):
 
 EXAMPLES = {
     "live.json": "live", "energy_day.json": "energy", "energy_week.json": "energy", "energy_month.json": "energy",
-    "bill.json": "bill", "brownout.json": "brownout", "outlook.json": "outlook", "alerts.json": "alerts", "chat.json": "chat",
+    "bill.json": "bill", "brownout.json": "brownout", "outlook.json": "outlook", "upgrade.json": "upgrade", "tips.json": "tips", "household.json": "household", "solar_plan.json": "solar_plan", "solar_plan_meter_only.json": "solar_plan", "bill_projection.json": "bill_projection", "alerts.json": "alerts", "chat.json": "chat",
     "summary_daily.json": "summary", "settings.json": "settings",
+    # Smart meter mode (mock mode serves these for setup meter_only / solar_and_meter)
+    "meter.json": "meter_info", "meter_solar_and_meter.json": "meter_info",
+    "live_meter_only.json": "live", "live_solar_and_meter.json": "live", "energy_day_meter_only.json": "energy",
+    "energy_week_meter_only.json": "energy", "energy_month_meter_only.json": "energy", "bill_meter_only.json": "bill",
+    "bill_solar_and_meter.json": "bill", "bill_projection_meter_only.json": "bill_projection",
+    "brownout_meter_only.json": "brownout", "summary_daily_meter_only.json": "summary",
 }
 
 

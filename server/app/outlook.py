@@ -31,7 +31,8 @@ def _cached(key: tuple, build):
 
 
 def _hourly(device_id: str, start_ts: int, n: int) -> list[dict]:
-    return energy.buckets(device_id, [start_ts + i * 3600 for i in range(n + 1)])
+    # Always the inverter: the outlook is about solar and battery (a meter-only home has neither).
+    return energy.buckets(device_id, [start_ts + i * 3600 for i in range(n + 1)], "inverter")
 
 
 # ---------------------------------------------------------------- history --
@@ -153,7 +154,7 @@ def outlook(device_id: str, settings: dict) -> dict:
         return [i for i in range(HOURS) if energy.to_local(hours[i]["ts"]).date() == day]
 
     today_i, tomorrow_i = on(d), on(d + timedelta(days=1))
-    solar_today = energy.day_totals(device_id, d)["pv_kwh"] + sum(slots[i][2] for i in today_i)
+    solar_today = energy.day_totals(device_id, d, "inverter")["pv_kwh"] + sum(slots[i][2] for i in today_i)
     solar_tomorrow = sum(slots[i][2] for i in tomorrow_i)
     typical = sum(prof["pv"].values()) if len(prof["pv"]) == 24 else None
 

@@ -30,8 +30,17 @@ Color severityColor(String severity) => switch (severity) { 'critical' => C.red,
 
 String severityLabel(String severity) => switch (severity) { 'critical' => 'Critical', 'warning' => 'Warning', _ => 'Info' };
 
-/// (what it means, what to do) per alert type, in the app's Taglish voice.
-(String, String) alertExplanation(String type) => switch (type) {
+/// (what it means, what to do) per alert type, in the app's Taglish voice. [solar] false: a meter-only home,
+/// where a brownout means no power at all (no battery or solar to fall back on).
+(String, String) alertExplanation(String type, {bool solar = true}) => switch (type) {
+      'brownout' when !solar => (
+        'Walang kuryente mula sa grid, at walang solar o battery na sasalo, kaya patay ang kuryente sa bahay.',
+        'Hugutin ang aircon, ref, TV at computer para hindi sila tamaan ng biglang pagbalik ng kuryente.',
+      ),
+      'grid_restored' when !solar => (
+        'Bumalik na ang kuryente mula sa grid.',
+        'Isaksak ulit ang mga appliance nang paisa-isa, ref muna.',
+      ),
       'fault' => (
         'May error code ang inverter, kaya puwedeng huminto o bumaba ang solar output.',
         'I-off at i-on ulit ang inverter. Kung bumalik ang fault, tawagan ang installer at sabihin ang fault code.',
@@ -84,7 +93,7 @@ Future<void> showAlertDetail(BuildContext context, WidgetRef ref, Map<String, dy
     useRootNavigator: true,
     isScrollControlled: true,
     showDragHandle: true,
-    backgroundColor: Colors.white,
+    backgroundColor: C.card,
     constraints: const BoxConstraints(maxWidth: kMaxAppWidth),
     builder: (sheet) => _AlertSheet(a: a, ref: ref, outer: context),
   );
@@ -104,7 +113,7 @@ class _AlertSheet extends StatelessWidget {
     final message = str(a['message']);
     final ts0 = intOrNull(a['ts']);
     final (icon, color) = alertLook(type, severity);
-    final (meaning, todo) = alertExplanation(type);
+    final (meaning, todo) = alertExplanation(type, solar: ref.read(hasSolarProvider));
     final action = alertAction(type);
 
     void close() => Navigator.of(context).pop();

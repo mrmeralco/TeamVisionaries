@@ -38,9 +38,8 @@ for c in cutoffs:
             break  # not enough history before this cutoff for SARIMA: skip it for both
         pred = sum(fc["kwh"])
         rows[fc["method"]].append((pred - actual, actual))
-        if fc["totals"] is not None:
-            import numpy as np
-            lo, hi = np.percentile(fc["totals"], [16, 84])
+        if method == "sarima":
+            _, lo, hi = energy.month_range(0.0, fc)   # the same range the bill shows
             inside.append(lo <= actual <= hi)
 
 n = len(rows["sarima"])
@@ -53,4 +52,4 @@ for method, errs in rows.items():
     mape = statistics.mean(abs(e) / a for e, a in errs) * 100
     bias = statistics.mean(e for e, _ in errs)
     print(f"  {method:8s} MAE {mae:6.2f} kWh  ({mape:5.1f}%)   bias {bias:+6.2f} kWh")
-print(f"  SARIMA 16-84% range held the actual total {sum(inside)}/{len(inside)} times (≈68% expected)")
+print(f"  SARIMA bill range (16-84%) held the actual total {sum(inside)}/{len(inside)} times (≈68% expected)")

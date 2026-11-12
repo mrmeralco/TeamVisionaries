@@ -1,12 +1,15 @@
 // Ask Mira (Figma "Ask Mira"): POST /api/chat. Answer + chips; spinner while the local LLM thinks (~10 s).
 // Suggestions after every answer, "Try again" on a failed answer, selectable text, new conversation.
 // Opens on top of the tabs from the floating Mira button (and "Ask Mira about …" links); back returns.
+// Under each answer: the data it came from (AnswerSources), each linking to its screen.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../providers/chat_providers.dart';
+import '../../providers/data_providers.dart';
 import '../common/ui.dart';
+import 'answer_sources.dart';
 
 /// Is this answer bad news for the household (a brownout, a fault, a low battery, a higher bill, the
 /// device offline, a cloudy day ahead)? Then Mira tells it with her sad face instead of talking
@@ -64,6 +67,19 @@ class _AskScreenState extends ConsumerState<AskScreen> {
   static const _welcome = ChatMessage.solaris(
       'Hi! Ako si Mira. Tanungin mo ako tungkol sa solar, battery, o bill mo, sa Taglish o English.');
 
+  /// A home with only a meter: nothing about solar or battery to ask.
+  static const _meterSuggestions = [
+    'Bakit mataas ang bill ko?',
+    'Paano ko mapapababa ang bill ko?',
+    'Anong oras ako pinakamaraming gumagamit ng kuryente?',
+    'Magkano ang bill ko sa susunod na buwan?',
+    'Normal ba ang boltahe ng kuryente ko?',
+    'Ano ang basa ng meter ko?',
+    'Ano ang gagawin ko kapag may brownout?',
+  ];
+  static const _meterWelcome = ChatMessage.solaris(
+      'Hi! Ako si Mira. Tanungin mo ako tungkol sa gamit mo sa kuryente, bill o meter, sa Taglish o English.');
+
   final _input = TextEditingController();
   final _scroll = ScrollController();
 
@@ -83,7 +99,8 @@ class _AskScreenState extends ConsumerState<AskScreen> {
   /// Three suggestions the user hasn't asked yet.
   List<String> _next(ChatState chat) {
     final asked = {for (final m in chat.messages) if (m.fromUser) m.text};
-    return _suggestions.where((s) => !asked.contains(s)).take(3).toList();
+    final all = ref.read(hasSolarProvider) ? _suggestions : _meterSuggestions;
+    return all.where((s) => !asked.contains(s)).take(3).toList();
   }
 
   @override
@@ -97,7 +114,8 @@ class _AskScreenState extends ConsumerState<AskScreen> {
   Widget build(BuildContext context) {
     final chat = ref.watch(chatProvider);
     ref.listen(chatProvider, (_, _) => _toBottom());
-    final messages = [_welcome, ...chat.messages];
+    final solar = ref.watch(hasSolarProvider);
+    final messages = [solar ? _welcome : _meterWelcome, ...chat.messages];
     final lastFailed = chat.messages.isNotEmpty && chat.messages.last.isError;
     final followUps = chat.waiting || lastFailed ? const <String>[] : _next(chat);
 
@@ -106,13 +124,13 @@ class _AskScreenState extends ConsumerState<AskScreen> {
       body: Column(children: [
         BackHeader(
           'Ask Mira',
-          'Get answers about your solar energy.',
+          solar ? 'Get answers about your solar energy.' : 'Get answers about your electricity.',
           trailing: chat.messages.isEmpty
               ? null
               : IconButton(
                   tooltip: 'New conversation',
                   onPressed: chat.waiting ? null : () => ref.read(chatProvider.notifier).clear(),
-                  icon: const Icon(Icons.add_comment_outlined, color: C.ink),
+                  icon: Icon(Icons.add_comment_outlined, color: C.ink),
                 ),
         ),
         const SizedBox(height: S.x2),
@@ -242,7 +260,7 @@ class _Bubble extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              color: mine ? C.brandDark : (m.isError ? Colors.white : C.miraBubble),
+              color: mine ? C.brandDark : (m.isError ? C.card : C.miraBubble),
               // The corner nearest the sender stays tight, so each bubble points at who said it.
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(mine ? R.md : R.sm / 2),
@@ -260,7 +278,7 @@ class _Bubble extends StatelessWidget {
                   for (final c in m.chips)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(R.pill)),
+                      decoration: BoxDecoration(color: C.card, borderRadius: BorderRadius.circular(R.pill)),
                       child: Text.rich(TextSpan(children: [
                         TextSpan(text: '${c['label']}  ', style: ts(11, w: FontWeight.w600, color: C.label)),
                         TextSpan(text: '${c['value']}', style: ts(11, w: FontWeight.w800, color: C.orangeText)),
@@ -283,6 +301,11 @@ class _Bubble extends StatelessWidget {
             ]),
           ),
         ),
+        if (m.sources.isNotEmpty)
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.86),
+            child: AnswerSources(m.sources),
+          ),
         if (m.source == 'fallback')
           Padding(
             padding: const EdgeInsets.only(top: 4),

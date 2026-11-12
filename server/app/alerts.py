@@ -58,6 +58,33 @@ def evaluate(device_id: str, t: dict) -> list[dict]:
     return out
 
 
+# Meter-only homes: device_id -> grid_on as last read from the meter.
+_meter_grid: dict[str, bool] = {}
+
+
+def evaluate_meter(device_id: str, m: dict) -> list[dict]:
+    """A home with only a meter (no inverter, no battery): brownout and grid-restored from the meter's grid_on,
+    with the same outage log as the inverter rules. Returns the alerts created (already stored)."""
+    on = bool(m["grid_on"])
+    prev = _meter_grid.get(device_id)
+    if prev is None:
+        prev = db.open_outage(device_id) is None  # catch an outage that started or ended while the server was down
+    _meter_grid[device_id] = on
+    ts = m["ts"]
+    if prev and not on:
+        _sync_outage(device_id, {"grid_on": False, "ts": ts})
+        return [db.insert_alert(device_id, ts, "brownout", "critical", "Brownout",
+                                "Nawalan ng kuryente mula sa grid. Hugutin muna ang malalaking appliance.")]
+    if not prev and on:
+        o = db.open_outage(device_id)
+        mins = round((ts - o["start_ts"]) / 60) if o else None
+        _sync_outage(device_id, {"grid_on": True, "ts": ts})
+        dur = f" pagkatapos ng {mins} minuto" if mins is not None else ""
+        return [db.insert_alert(device_id, ts, "grid_restored", "info", "Bumalik na ang kuryente",
+                                f"Bumalik na ang grid{dur}. Isaksak ulit ang mga appliance nang paisa-isa.")]
+    return []
+
+
 def _sync_outage(device_id: str, t: dict) -> None:
     o = db.open_outage(device_id)
     if not t["grid_on"] and o is None:
@@ -66,9 +93,9 @@ def _sync_outage(device_id: str, t: dict) -> None:
         db.execute("UPDATE outages SET end_ts=? WHERE id=?", (t["ts"], o["id"]))
 
 
-def device_online_changed(device_id: str, online: bool, ts: int) -> dict:
+def device_online_changed(device_id: str, online: bool, ts: int, source: str = "inverter") -> dict:
     if online:
         return db.insert_alert(device_id, ts, "device_online", "info", "Konektado na ang Solaris device",
-                               "Tumatanggap na ulit ng data mula sa inverter.")
+                               f"Tumatanggap na ulit ng data mula sa {source}.")
     return db.insert_alert(device_id, ts, "device_offline", "warning", "Offline ang Solaris device",
                            "Walang natatanggap na data. Tingnan kung naka-on ang device at ang Wi-Fi.")
