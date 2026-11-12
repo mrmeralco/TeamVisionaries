@@ -13,12 +13,14 @@ the two ESP32s straight to each other: **TX goes to the other board's RX, and th
 ```
  ESP32 #2  inverter-sim               ESP32 #1  sinag-device
  ──────────────────────               ──────────────────────
- GPIO17 (TX2)  ─────────────────────► GPIO16 (RX2)
- GPIO16 (RX2)  ◄───────────────────── GPIO17 (TX2)
+ GPIO25 (TX)   ─────────────────────► GPIO26 (RX)
+ GPIO26 (RX)   ◄───────────────────── GPIO25 (TX)
  GND           ────────────────────── GND
 ```
 
 Keep the wires short (< 1 m). Both boards are 3.3 V, so they need no level shifting.
+The pins are `MB_RX_PIN 26` / `MB_TX_PIN 25` in both `config.h` files (UART2, remapped).
+Change them there if you rewire.
 
 ### Simulator front panel (ESP32 #2)
 
@@ -45,7 +47,7 @@ Two extra rows will show then.
 ### Later: adding RS485 (MAX3485 / TTL-RS485 module) on both boards
 
 ```
- ESP32 TX2 (17) → DI      ESP32 RX2 (16) → RO
+ ESP32 TX (GPIO25) → DI   ESP32 RX (GPIO26) → RO
  ESP32 GPIO4    → DE + RE (tie together)
  Module A ↔ other module A,   B ↔ B,   GND ↔ GND
  120 Ω across A–B at each end if the cable is long
