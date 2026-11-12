@@ -1,0 +1,69 @@
+{
+  "generated_ts": 1794489393,
+  "enough_data": true,
+  "basis_days": 28,
+  "rate_php_per_kwh": 15.0615,
+  "max_months": 3,
+  "months": [
+    {
+      "month": "2026-11",
+      "label": "Nobyembre 2026",
+      "months_ahead": 0,
+      "kind": "forecast",
+      "grid_kwh": 532.2,
+      "low_kwh": null,
+      "high_kwh": null,
+      "bill_php": 8639.85,
+      "low_php": 7572.98,
+      "high_php": 9522.17,
+      "load_kwh": null,
+      "solar_kwh": null,
+      "range_pct": null
+    },
+    {
+      "month": "2026-12",
+      "label": "Disyembre 2026",
+      "months_ahead": 1,
+      "kind": "projection",
+      "grid_kwh": 542.7,
+      "low_kwh": 407.0,
+      "high_kwh": 678.4,
+      "bill_php": 8809.59,
+      "low_php": 6613.18,
+      "high_php": 11008.84,
+      "load_kwh": 542.7,
+      "solar_kwh": 0.0,
+      "range_pct": 25
+    },
+    {
+      "month": "2027-01",
+      "label": "Enero 2027",
+      "months_ahead": 2,
+      "kind": "projection",
+      "grid_kwh": 536.6,
+      "low_kwh": 348.8,
+      "high_kwh": 724.4,
+      "bill_php": 8711.08,
+      "low_php": 5471.2,
+      "high_php": 11759.02,
+      "load_kwh": 536.6,
+      "solar_kwh": 0.0,
+      "range_pct": 35
+    },
+    {
+      "month": "2027-02",
+      "label": "Pebrero 2027",
+      "months_ahead": 3,
+      "kind": "projection",
+      "grid_kwh": 490.5,
+      "low_kwh": 269.8,
+      "high_kwh": 711.2,
+      "bill_php": 7964.58,
+      "low_php": 4148.59,
+      "high_php": 11543.99,
+      "load_kwh": 490.5,
+      "solar_kwh": 0.0,
+      "range_pct": 45
+    }
+  ]
+}

@@ -6,10 +6,13 @@ Mock mode:          SOLARIS_MOCK=1 uvicorn app.main:app --host 0.0.0.0 --port 80
 import asyncio
 import contextlib
 import logging
+import mimetypes
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from ai import llm, prompts
 from ai import service as ai
@@ -277,3 +280,18 @@ async def ws_live(ws: WebSocket):
         pass
     finally:
         hub.disconnect(ws)
+
+
+# ---------------------------------------------------- landing page + APK --
+# Mounted last so every /api and /ws route above wins. http://<laptop-ip>:8000/ is the landing page,
+# /apk is a short link to type on a phone for the Android app (landing/downloads/solaris.apk).
+mimetypes.add_type("application/vnd.android.package-archive", ".apk")
+
+
+@app.get("/apk", include_in_schema=False)
+def apk():
+    return RedirectResponse("/downloads/solaris.apk")
+
+
+if config.LANDING_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=config.LANDING_DIR, html=True), name="landing")

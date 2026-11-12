@@ -1,0 +1,51 @@
+{
+  "reply": "₱857 na ang bill mo ngayong buwan, at mga ₱2,310 ang forecast. Pinakamaraming kuha mo sa grid tuwing 7AM, 9PM at 10PM, kapag wala nang araw. Subukang gamitin ang aircon at plantsa nang mas maaga, habang maaraw pa.",
+  "chips": [
+    {
+      "label": "Bill this month",
+      "value": "₱857"
+    },
+    {
+      "label": "Bill forecast",
+      "value": "₱2,310"
+    }
+  ],
+  "source": "llm",
+  "facts_used": [
+    "bill.month_to_date_php",
+    "bill.forecast_php",
+    "usage.peak_hours"
+  ],
+  "sources": [
+    {
+      "id": "bill.month_to_date_php",
+      "label": "Bill so far",
+      "value": "₱857",
+      "detail": "Sa ngayon, ₱857 na ang nagastos mo sa kuryente ngayong buwan (49.6 kWh mula sa grid).",
+      "kind": "history",
+      "period": "This month",
+      "screen": "bill",
+      "as_of_ts": 1762912800
+    },
+    {
+      "id": "bill.forecast_php",
+      "label": "Bill forecast",
+      "value": "₱2,310",
+      "detail": "Mga ₱2,310 ang inaasahang bill mo sa katapusan ng buwan (puwedeng ₱2,123 hanggang ₱2,497).",
+      "kind": "forecast",
+      "period": "End of this month",
+      "screen": "bill",
+      "as_of_ts": 1762912800
+    },
+    {
+      "id": "usage.peak_hours",
+      "label": "Peak grid hours",
+      "value": null,
+      "detail": "Sa huling 7 araw, pinakamarami kang kinukuha sa grid tuwing 7AM, 9PM at 10PM.",
+      "kind": "history",
+      "period": "Last 7 days",
+      "screen": "energy",
+      "as_of_ts": 1762912800
+    }
+  ]
+}

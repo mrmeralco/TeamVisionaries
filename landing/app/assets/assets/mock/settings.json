@@ -1,0 +1,15 @@
+{
+  "rate_php_per_kwh": 15.0615,
+  "battery_kwh": 10.0,
+  "user_name": "Juan",
+  "device_id": "solaris-001",
+  "setup": "solar",
+  "meralco_rate": {
+    "status": "sample",
+    "billing_month": null,
+    "source_url": "https://www.meralco.com.ph/",
+    "reference_kwh": 200,
+    "fetched_at": null,
+    "checked_at": null
+  }
+}

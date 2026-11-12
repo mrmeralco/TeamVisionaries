@@ -1,12 +1,45 @@
 # Solaris landing page
 
-One static page (`index.html`) for Solaris, started with [taste-skill](https://github.com/leonxlnx/taste-skill) 2.5.1
+One static page (`index.html`) for Solaris, with the Android app to download, started with [taste-skill](https://github.com/leonxlnx/taste-skill) 2.5.1
 and then redesigned to the team's brief: fluted glass, the app's orange, a business look, little empty space, light
 and dark themes. No build step: serve it over http.
 
 ```bash
 cd landing && python -m http.server 8080   # then http://localhost:8080
 ```
+
+**In production the Solaris server serves it**: `server/host/start-production.*` starts FastAPI, which mounts this
+folder at `/` (after every `/api` and `/ws` route) and redirects `/apk` to `downloads/solaris.apk`. So on the host
+laptop it is `http://<laptop-ip>:8000/`, and the page works with no internet: DM Sans is served from
+`assets/fonts/` (the app's own copy, SIL OFL), nothing loads from another site.
+
+## The web app (`app/`)
+
+`landing/app/` is the Flutter app built for the web, served at `http://<laptop-ip>:8000/app/` (the hero's
+"Open the web app", the second button in **Get the app**, and the footer). Built with
+`--dart-define=SOLARIS_SAME_ORIGIN=true`, so it talks to the server that served it, on any port, with no Settings
+step; CanvasKit is bundled (`--no-web-resources-cdn`), so it works offline too. Rebuild with:
+
+```bash
+bash scripts/build-web.sh
+```
+
+The script keeps only the CanvasKit files a JS build loads (18 MB instead of 42 MB).
+
+## The APK (`downloads/`)
+
+`downloads/solaris.apk` is the release build of `app/`, committed so the host laptop only has to pull and serve it.
+`downloads/latest.json` holds its version, size, SHA-256, date and commit. Rebuild both with:
+
+```bash
+bash scripts/build-apk.sh
+```
+
+It builds for ARM phones only (32- and 64-bit; x86_64 is for emulators and adds ~18 MB to the repo per build).
+The app has no server address built in, so the **Get the app** section (`#download`) gives the steps and, when the
+page is served by the Solaris server, shows the address to type in the app's Settings (`location.host`, after
+`/api/health` answers) with a "server online" dot. Without `latest.json` the page checks the APK is there and
+greys out the buttons if it isn't.
 
 `?theme=light` or `?theme=dark` on the URL forces a theme (handy for sharing a screenshot). Without it the page
 follows the visitor's choice (the sun/moon button, remembered) or else opens in light mode.
@@ -15,16 +48,17 @@ follows the visitor's choice (the sun/moon button, remembered) or else opens in 
 
 | Section | Shows |
 |---|---|
-| Hero | Fluted glass over a blurred sunset behind a house; glass cards with the app's live and bill figures, the headline, Book a demo, a five-item feature strip |
+| Hero | Fluted glass over a blurred sunset behind a house; glass cards with the app's live and bill figures, the headline, Download for Android and Open the web app, a five-item feature strip |
 | `#features` | Eight feature cards, one per feature slide of the presentation (`SOLARIS_PRESENTATION.md`, slides 5 to 12) |
 | `#app` | Ask Mira: the real conversation ("Bakit mataas ang bill ko?") and its sources, in front of the real Home screen |
 | `#bill` | The bill forecast in the app's deep orange, beside the real Bill & Savings screen |
 | `#forecast` | The app screen by screen: real Energy, Solar tips, Your household, System check, Brownout Advisor and Alerts screens |
 | `#meter` | Smart meter mode and the three setups, with the real meter-only Home and its rate-level warning |
 | `#meralco` | How Solaris helps Meralco serve its customers (slide 13): what works today, what needs a partnership, privacy |
+| `#download` | Get the app: three install steps, the server address to type, Download for Android, Open the web app |
 | `#questions` | Eight questions in two columns |
 | `#setup` | Inverter or meter, Solaris device, app, alerts, Mira (diagram) |
-| Footer | Book a demo; Team Visionaries, who built what, GitHub and email |
+| Footer | Download the APK; Team Visionaries, who built what, GitHub and the app |
 
 **The phone screens are real.** `assets/app/*-day.jpg` and `*-night.jpg` are screenshots of the Flutter app
 (`app/`) built for the web and run against the server in mock mode (`SOLARIS_MOCK=1`), so every number on them
@@ -46,8 +80,6 @@ mock server switched to the meter-only setup (`PUT /api/settings {"setup": "mete
 
 ## Still to supply
 
-- **Demo address.** Every "Book a demo" and "Email the team" link is a `mailto:` on `hello@solaris.example`, a
-  stand-in. Search `solaris.example` and swap in the team's address.
 - **Domain.** The `<link rel="canonical">` stays a comment until there is one.
 - **A photograph of the real device** wired to the inverter would make a strong addition.
 
