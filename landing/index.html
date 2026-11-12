@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-type="software" data-radius="soft" data-ground="sage" data-buttons="tonal" data-motion>
+<html lang="en" data-type="software" data-radius="soft" data-ground="orange" data-buttons="tonal" data-motion>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -15,9 +15,12 @@
 <!-- <link rel="canonical" href="https://[the domain, once there is one]/"> -->
 <meta name="site-kind" content="software">
 <meta name="page-type" content="software">
+<!-- the theme before the first paint: the visitor's own choice, else the system's (backgrounds.js and system.js
+     read the palette right after this, so a dark page never paints one light frame) -->
+<script>(function(){var t;try{t=localStorage.getItem('solaris-theme')}catch(e){}var q=/[?&]theme=(dark|light)/.exec(location.search);if(q){t=q[1]}if(t!=='dark'&&t!=='light'){t=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.dataset.theme=t})()</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/system.css">
 <link rel="stylesheet" href="assets/ui/cards.css">
 <link rel="stylesheet" href="assets/motion/motion.css">
@@ -25,18 +28,32 @@
 <link rel="stylesheet" href="assets/layout/layout.css">
 <link rel="stylesheet" href="assets/icons/icon.css">
 <style>
+/* the Solaris app's own palette (app/lib/core/theme/app_theme.dart): cream and orange by day, its navy at night */
 :root {
-  --p-bg: #fff8f0; --p-surface: #fff3e5; --p-ink: #292929; --p-muted: #666666;
+  --p-bg: #fff8f0; --p-surface: #fff3e5; --p-ink: #292929; --p-muted: #5c5c5c;
   --p-accent: #c2500a; --p-accent-ink: #ffffff; --p-action: #c2500a; --p-action-ink: #ffffff;
-  --p-inv-bg: #292929; --p-inv-surface: #363535; --p-inv-ink: #fff8f0; --p-inv-muted: #a7a29e;
-  --p-inv-accent: #c2500a; --p-inv-accent-ink: #ffffff; --p-inv-action: #c2500a; --p-inv-action-ink: #ffffff;
-  --font-display: "Onest", system-ui, sans-serif;
-  --font-text: "Onest", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  --display-weight: 400;
-  --display-tracking: -0.035em;
-  --display-tracking-xl: -0.04em;
+  --p-inv-bg: #292929; --p-inv-surface: #363535; --p-inv-ink: #fff8f0; --p-inv-muted: #b8b2ac;
+  --p-inv-accent: #f47721; --p-inv-accent-ink: #1a1206; --p-inv-action: #f47721; --p-inv-action-ink: #1a1206;
+  --font-display: "DM Sans", system-ui, sans-serif;
+  --font-text: "DM Sans", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display-weight: 500;
+  --display-tracking: -0.03em;
+  --display-tracking-xl: -0.035em;
+  --accent-text: #a94306;
+  color-scheme: light;
 }
+:root[data-theme="dark"] {
+  --p-bg: #0f1729; --p-surface: #1a2440; --p-ink: #f1f3f9; --p-muted: #a9b2c6;
+  --p-accent: #f47721; --p-accent-ink: #1a1206; --p-action: #f47721; --p-action-ink: #1a1206;
+  --p-inv-bg: #080d19; --p-inv-surface: #121a2e; --p-inv-ink: #f1f3f9; --p-inv-muted: #a9b2c6;
+  --p-inv-accent: #f47721; --p-inv-accent-ink: #1a1206; --p-inv-action: #f47721; --p-inv-action-ink: #1a1206;
+  --accent-text: #ffb27a;
+  color-scheme: dark;
+}
+/* the lit ground behind UI: warm orange glass by day, the app's night cards at night */
+html[data-ground="orange"] { --ground-bg: #f9dcbd; --ground-surface: #fdebd7; --ground-ink: #2b1a0c; --ground-muted: #6b4a2c; --ground-accent: #f47721; }
+html[data-theme="dark"][data-ground="orange"] { --ground-bg: #1a2440; --ground-surface: #222e52; --ground-ink: #f1f3f9; --ground-muted: #bac2d3; --ground-accent: #f47721; }
 </style>
 <link rel="stylesheet" href="assets/ui/base.css">
 <link rel="stylesheet" href="assets/ui/window/fragment.css">
@@ -49,68 +66,218 @@
 <link rel="modulepreload" href="assets/moments/moments.js">
 <link rel="modulepreload" href="assets/moments/lib.js">
 <link rel="modulepreload" href="assets/moments/liquid-type/moment.js">
-<!-- page CSS: only what sits inside a visual (the Solaris screens drawn as live HTML), the app-frame recipe and one --p-h per card group -->
 <style>
-  /* ---------- the Solaris Home screen in the hero (the app's own five tabs, cream cards, orange) ---------- */
-  .sx-win { background: #fff; color: #292929; border-radius: 12px; overflow: hidden; font: 400 14px/1.4 var(--font-text);
-            box-shadow: 0 0 0 1px rgb(0 0 0 / .07), 0 24px 60px -28px rgb(0 0 0 / .45); text-align: left; }
-  .sx-win__bar { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 var(--ly-cut-room, 14px) 0 14px; border-bottom: 1px solid rgb(0 0 0 / .07); font-size: 13px; color: #5c5c5c; }
-  .sx-dots { display: flex; gap: 6px; } .sx-dots i { width: 10px; height: 10px; border-radius: 50%; background: #e3ddd6; }
-  .sx-live { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: #292929; }
-  .sx-live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #299d65; }
-  .sx-win__body { display: grid; grid-template-columns: 148px minmax(0, 1fr); min-height: 720px; }
-  .sx-today { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding-top: 12px; border-top: 1px solid rgb(0 0 0 / .07); }
-  .sx-today div { display: grid; gap: 2px; font-size: 13px; color: #5c5c5c; }
-  .sx-today b { font: 500 18px/1.2 var(--font-text); color: #292929; font-variant-numeric: tabular-nums; }
-  .sx-side { padding: 14px 10px; border-right: 1px solid rgb(0 0 0 / .07); display: grid; align-content: start; gap: 2px; font-size: 13px; color: #5c5c5c; }
+  /* ================= tokens for the drawn app screens: the app's day and night colours ================= */
+  :root {
+    --sx-page: #fff3e5; --sx-card: #ffffff; --sx-ink: #292929; --sx-label: #5c5c5c; --sx-faint: #8a8580;
+    --sx-line: rgb(41 41 41 / .1); --sx-orange-text: #a94306; --sx-chip: #fff3e5; --sx-chip-ink: #8f4a10;
+    --sx-tile: #fffaf4; --sx-tile-border: rgb(190 93 27 / .18); --sx-sun: #ffe9c4; --sx-sun-border: rgb(244 119 33 / .35);
+    --sx-bar: #fed47d; --sx-dot: #e3ddd6; --sx-green: #299d65; --sx-red: #d93b30; --sx-amber: #8f6410;
+    --sx-shadow: 0 0 0 1px rgb(0 0 0 / .07), 0 24px 60px -28px rgb(0 0 0 / .45);
+    /* the kit's UI fragments (alerts window, chat, stat) read these */
+    --fx-bg: #ffffff; --fx-ink: #292929; --fx-muted: #5c5c5c;
+    /* fluted glass, drawn in CSS: ribs over a warm field (light) */
+    --glass-panel:
+      repeating-linear-gradient(90deg, rgb(255 255 255 / .38) 0 1px, rgb(255 255 255 / 0) 5px 20px, rgb(150 60 0 / .08) 27px 28px),
+      radial-gradient(70% 60% at 12% 0%, #fff3e4 0, transparent 70%),
+      radial-gradient(60% 70% at 100% 100%, #f6b46f 0, transparent 70%),
+      linear-gradient(160deg, #fde3c6, #f8c897);
+    --sec-pad: clamp(56px, 7vw, 96px);
+  }
+  :root[data-theme="dark"] {
+    --sx-page: #0f1729; --sx-card: #1a2440; --sx-ink: #f1f3f9; --sx-label: #bac2d3; --sx-faint: #a9b2c6;
+    --sx-line: rgb(255 255 255 / .14); --sx-orange-text: #ffb27a; --sx-chip: rgb(255 154 82 / .16); --sx-chip-ink: #ffb27a;
+    --sx-tile: #222e52; --sx-tile-border: rgb(255 178 122 / .3); --sx-sun: rgb(255 200 87 / .16); --sx-sun-border: rgb(255 200 87 / .4);
+    --sx-bar: #56628a; --sx-dot: #2b3760; --sx-green: #4fcb8d; --sx-red: #ff7a70; --sx-amber: #f2c46b;
+    --sx-shadow: 0 0 0 1px rgb(255 255 255 / .08), 0 24px 60px -28px rgb(0 0 0 / .8);
+    --fx-bg: #1a2440; --fx-ink: #f1f3f9; --fx-muted: #a9b2c6;
+    --glass-panel:
+      repeating-linear-gradient(90deg, rgb(255 255 255 / .16) 0 1px, rgb(255 255 255 / 0) 5px 20px, rgb(60 20 0 / .22) 27px 28px),
+      radial-gradient(70% 60% at 12% 0%, rgb(255 178 122 / .4) 0, transparent 70%),
+      linear-gradient(160deg, #d8600f, #ca560b);
+    --glass-night:
+      repeating-linear-gradient(90deg, rgb(255 255 255 / .07) 0 1px, rgb(255 255 255 / 0) 5px 20px, rgb(0 0 0 / .28) 27px 28px),
+      radial-gradient(70% 60% at 12% 0%, #2b3a66 0, transparent 70%),
+      radial-gradient(60% 70% at 100% 100%, rgb(244 119 33 / .38) 0, transparent 70%),
+      linear-gradient(160deg, #1d2848, #121a30);
+  }
+  /* the strong orange glass of the bands, the same by day and night */
+  :root { --glass-dark:
+      repeating-linear-gradient(90deg, rgb(255 255 255 / .07) 0 1px, rgb(255 255 255 / 0) 2px 44px),
+      radial-gradient(55% 45% at 72% 40%, rgb(255 178 122 / .55) 0, rgb(244 119 33 / .35) 40%, transparent 72%),
+      radial-gradient(60% 40% at 30% 85%, rgb(66 19 43 / .8) 0, transparent 70%),
+      linear-gradient(180deg, #160a04, #05080a); }
+  .has-glass > .glass-canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; max-width: none; max-height: none; z-index: -2; display: block; pointer-events: none; }
+
+  /* ================= the page: sections as tall as their content, one even rhythm ================= */
+  main > section:not(.hero) { height: auto !important; min-height: 0 !important; padding-block: var(--sec-pad) !important; }
+  main > section:not(.hero) > .wrap { display: block !important; height: auto !important; }
+  main > section.g2 > .wrap > .grid { margin-top: var(--s-6); }
+  main > section.section--alt { background: var(--p-surface); }
+  .section-head, .eyebrow + h2 { margin-bottom: 0; }
+  html .eyebrow { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 var(--s-4); font: 600 14px/1.2 var(--font-text); color: var(--accent-text); }
+  html .eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #f47721; box-shadow: 0 0 0 4px rgb(244 119 33 / .18); }
+  h1, h2, h3 { text-wrap: balance; }
+  #forecast .section-head h2 { max-width: 30ch; }
+
+  /* ================= nav: the theme switch ================= */
+  .theme-toggle { display: inline-grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 50%; border: 1px solid var(--line-strong, rgb(0 0 0 / .2));
+                  background: transparent; color: var(--ink); cursor: pointer; transition: background-color .18s ease, border-color .18s ease; }
+  .theme-toggle:hover { background: color-mix(in oklab, var(--ink) 7%, transparent); }
+  .theme-toggle svg { width: 20px; height: 20px; }
+  .theme-toggle .i-sun { display: none; }
+  :root[data-theme="dark"] .theme-toggle .i-sun { display: block; }
+  :root[data-theme="dark"] .theme-toggle .i-moon { display: none; }
+  .nav__actions { display: flex; align-items: center; gap: var(--s-3); }
+  @media (max-width: 479px) { .nav__actions > .btn { display: none; } }
+
+  /* ================= hero: orange fluted glass, the app's Home screen on a pane of frosted glass ================= */
+  .hero--glass { position: relative; isolation: isolate; overflow: hidden; background: var(--glass-dark);
+                 --ink: #fffaf4; --muted: #ffe3cc; --action: #f47721; --action-ink: #1a0f05; color: var(--ink); }
+  .hero--glass::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+                        background: linear-gradient(90deg, rgb(0 0 0 / .38), rgb(0 0 0 / .12) 45%, transparent 65%); }
+  .hero--glass h1, .hero--glass .hero__lead { color: #fffaf4; }
+  html .hero--glass .btn--secondary { background: rgb(255 255 255 / .06); color: #fffaf4; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .55); }
+  html .hero--glass .btn--secondary:hover { background: rgb(255 255 255 / .14); }
+  .hero--glass .hero__art { background: rgb(255 255 255 / .05) !important; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .14), 0 30px 80px -40px rgb(0 0 0 / .7);
+                            -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .hero__proof { display: flex; align-items: center; gap: 10px; font-size: var(--t-small); color: #ffe9d6; }
+  .hero__proof::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #7ee2a8; box-shadow: 0 0 0 4px rgb(126 226 168 / .25); flex: none; }
+
+  /* the Solaris Home screen */
+  .sx-win { background: var(--sx-card); color: var(--sx-ink); border-radius: 12px; overflow: hidden; font: 400 14px/1.4 var(--font-text); box-shadow: var(--sx-shadow); text-align: left; }
+  .sx-win__bar { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 var(--ly-cut-room, 14px) 0 14px; border-bottom: 1px solid var(--sx-line); font-size: 13px; color: var(--sx-label); }
+  .sx-dots { display: flex; gap: 6px; } .sx-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--sx-dot); }
+  .sx-live { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: var(--sx-ink); }
+  .sx-live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--sx-green); }
+  .sx-win__body { display: grid; grid-template-columns: 148px minmax(0, 1fr); min-height: 720px; background: var(--sx-page); }
+  .sx-side { padding: 14px 10px; border-right: 1px solid var(--sx-line); display: grid; align-content: start; gap: 2px; font-size: 13px; color: var(--sx-label); background: var(--sx-card); }
   .sx-side > span { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 7px; }
   .sx-side > span i { width: 14px; height: 14px; border-radius: 4px; background: currentColor; opacity: .28; flex: none; }
-  .sx-side > span.is-on { background: #fff3e5; color: #292929; font-weight: 500; }
+  .sx-side > span.is-on { background: rgb(244 119 33 / .16); color: var(--sx-ink); font-weight: 500; }
   .sx-side > span.is-on i { background: #f47721; opacity: 1; }
   .sx-main { padding: 16px var(--ly-cut-room, 18px) 18px 18px; display: grid; align-content: start; gap: 14px; min-width: 0; }
   .sx-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .sx-head h4 { margin: 0; font: 500 16px/1.2 var(--font-text); }
-  .sx-chip { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 99px; font-size: 13px; font-weight: 500; background: #fff3e5; color: #8f4a10; white-space: nowrap; }
+  .sx-head h4 { margin: 0; font: 600 16px/1.2 var(--font-text); color: var(--sx-ink); }
+  .sx-chip { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 99px; font-size: 13px; font-weight: 500; background: var(--sx-chip); color: var(--sx-chip-ink); white-space: nowrap; }
   .sx-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .sx-tile { display: grid; gap: 2px; padding: 12px 14px; border-radius: 10px; background: #fffaf4; border: 1px solid rgb(190 93 27 / .18); }
-  .sx-tile small { font-size: 13px; color: #5c5c5c; }
-  .sx-tile b { font: 500 24px/1.15 var(--font-text); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .sx-tile span { font-size: 13px; color: #5c5c5c; }
-  .sx-tile--sun { background: #ffe9c4; border-color: rgb(244 119 33 / .35); }
-  .sx-tile--sun b { color: #a94306; }
+  .sx-tile { display: grid; gap: 2px; padding: 12px 14px; border-radius: 12px; background: var(--sx-card); border: 1px solid var(--sx-tile-border); }
+  .sx-tile small, .sx-tile span { font-size: 13px; color: var(--sx-label); }
+  .sx-tile b { font: 600 24px/1.15 var(--font-text); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--sx-ink); }
+  .sx-tile--sun { background: var(--sx-sun); border-color: var(--sx-sun-border); }
+  .sx-tile--sun b { color: var(--sx-orange-text); }
   .sx-chart { display: grid; gap: 6px; }
-  .sx-chart__head { display: flex; justify-content: space-between; font-size: 13px; color: #5c5c5c; }
-  .sx-chart__head b { color: #292929; font-weight: 500; }
+  .sx-chart__head { display: flex; justify-content: space-between; font-size: 13px; color: var(--sx-label); }
+  .sx-chart__head b { color: var(--sx-ink); font-weight: 600; }
   .sx-bars { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); align-items: end; gap: 5px; height: 72px; }
-  .sx-bars i { display: block; height: var(--v); border-radius: 3px 3px 0 0; background: #fed47d; }
+  .sx-bars i { display: block; height: var(--v); border-radius: 3px 3px 0 0; background: var(--sx-bar); }
   .sx-bars i.is-now { background: #f47721; }
-  .sx-axis { display: flex; justify-content: space-between; font-size: 13px; color: #8a8580; }
+  .sx-axis { display: flex; justify-content: space-between; font-size: 13px; color: var(--sx-faint); }
+  .sx-today { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding-top: 12px; border-top: 1px solid var(--sx-line); }
+  .sx-today div { display: grid; gap: 2px; font-size: 13px; color: var(--sx-label); }
+  .sx-today b { font: 600 18px/1.2 var(--font-text); color: var(--sx-ink); font-variant-numeric: tabular-nums; }
   @media (max-width: 1279px) { .sx-win__body { grid-template-columns: minmax(0, 1fr); } .sx-side { display: none; } }
-  @media (max-width: 639px) { .sx-tile span, .sx-tile:nth-child(n+3) { display: none; } .sx-main { padding-bottom: 96px; } .sx-today { display: none; } .sx-win__body { grid-template-columns: 1fr; min-height: 0; } .sx-side { display: none; } .sx-tile b { font-size: 20px; } .sx-chart { display: none; } }
+  @media (max-width: 639px) { .sx-tile span, .sx-tile:nth-child(n+3), .sx-today, .sx-chart { display: none; } .sx-main { padding-bottom: 96px; } .sx-win__body { min-height: 0; } .sx-tile b { font-size: 20px; } }
 
-  /* the small result card over the window's lower-left corner */
+  /* the bill card over the window's lower-left corner */
   .hero__art > .ly-piece--note { left: var(--s-6); bottom: var(--s-6); width: 300px; z-index: 2; }
-  .sx-card { background: #fff; color: #292929; border-radius: 12px; padding: 14px 16px; font: 400 14px/1.4 var(--font-text); text-align: left;
-             box-shadow: 0 0 0 1px rgb(0 0 0 / .07), 0 18px 44px -20px rgb(0 0 0 / .45); }
-  .sx-card h5 { margin: 0; font: 500 14px/1.3 var(--font-text); }
-  .sx-card p { margin: 6px 0 0; font-size: 13px; color: #5c5c5c; }
-  .sx-card p b { color: #292929; font-weight: 500; }
+  .sx-card { background: var(--sx-card); color: var(--sx-ink); border-radius: 12px; padding: 14px 16px; font: 400 14px/1.4 var(--font-text); text-align: left; box-shadow: var(--sx-shadow); }
+  .sx-card h5 { margin: 0; font: 600 14px/1.3 var(--font-text); color: var(--sx-ink); }
+  .sx-card p { margin: 6px 0 0; font-size: 13px; color: var(--sx-label); }
+  .sx-card p b { color: var(--sx-ink); font-weight: 600; }
   .sx-card__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
-  .sx-line { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 13px; color: #4a4a4a; border-top: 1px solid rgb(0 0 0 / .06); }
-  .sx-line i { width: 18px; height: 18px; border-radius: 50%; flex: none; display: grid; place-items: center; background: #fff3e5; color: #a94306; font-style: normal; font-size: 13px; font-weight: 600; }
-  .sx-line b { font-weight: 500; color: #292929; }
-  .hero__proof { font-size: var(--t-small); color: var(--ink); }
+  .sx-line { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 13px; color: var(--sx-label); border-top: 1px solid var(--sx-line); }
+  .sx-line i { width: 18px; height: 18px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--sx-chip); color: var(--sx-orange-text); font-style: normal; font-size: 13px; font-weight: 600; }
+  .sx-line b { font-weight: 600; color: var(--sx-ink); }
   @media (max-width: 1023px) { .hero__art > .ly-piece--note { left: var(--s-4); bottom: var(--s-4); width: 270px; } }
+  @media (max-width: 639px) and (max-height: 780px) {
+    .hero__proof { display: none; }
+    .hero .btn-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
+    .hero .btn-row > .btn { width: auto; padding-inline: var(--s-3); }
+  }
+  @media (max-width: 639px) and (max-height: 700px) { .hero h1 { font-size: 34px; } }
 
-  /* ---------- app-frame: the alert list beside Mira's answer (sections-library.md, app-frame) ---------- */
-  .app.ui { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); margin-top: var(--s-7); background: var(--u-bg); border: 1px solid var(--u-border); border-radius: var(--u-r); box-shadow: var(--u-shadow); }
+
+  /* ================= the studio hero: fine fluted glass over a sunset behind a house ================= */
+  .hero--studio { position: relative; isolation: isolate; overflow: hidden; height: 100svh !important; min-height: 680px;
+                  padding: calc(var(--nav) + 32px) 0 28px !important; color: #fff;
+                  background: radial-gradient(40% 50% at 64% 40%, #f47721 0, rgb(222 76 120 / .7) 35%, transparent 70%), linear-gradient(180deg, #091027, #1c3370 50%, #060a19);
+                  --ink: #fff; --muted: rgb(255 255 255 / .78); --action: #fff; --action-ink: #14110f; --r-btn: 999px; }
+  .hero--studio::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+                         background: linear-gradient(0deg, rgb(4 8 22 / .78), rgb(4 8 22 / .35) 38%, transparent 62%), linear-gradient(90deg, rgb(4 8 22 / .45), transparent 55%); }
+  .hero--studio > .wrap.studio { height: 100% !important; display: grid !important; grid-template-rows: auto minmax(0, 1fr) auto auto; row-gap: var(--s-6); }
+  .hero--studio .studio__cards { grid-row: 1; justify-self: end; width: min(100%, 380px); display: grid; gap: var(--s-3); }
+  .gcard { color: #fff; padding: 14px 16px; border-radius: 16px; background: rgb(10 16 36 / .55); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .16), 0 20px 50px -30px rgb(0 0 0 / .8);
+           -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); font-size: 13px; }
+  .gcard__head { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+  .gcard__head > span:first-child { display: inline-flex; align-items: center; gap: 8px; }
+  .gdot { width: 7px; height: 7px; border-radius: 50%; background: #5ee39b; box-shadow: 0 0 0 4px rgb(94 227 155 / .2); }
+  .gcard__meta { font-size: 13px; font-weight: 500; color: rgb(255 255 255 / .86); }
+  .gcard__row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .gcard__row > div { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; background: rgb(255 255 255 / .07); }
+  .gcard__row small { font-size: 13px; color: rgb(255 255 255 / .86); }
+  .gcard__row b { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .studio__main { grid-row: 3; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-6) 24px; align-items: end; }
+  .studio__copy { grid-column: 1 / span 1; }
+  .studio__copy h1 { margin: 0; color: #fff; font-size: clamp(44px, 6.4vw, 92px); line-height: 1; font-weight: 500; letter-spacing: -0.04em; max-width: 11ch; }
+  .studio__lead { margin: var(--s-5) 0 0; max-width: 52ch; font-size: 17px; line-height: 1.6; color: rgb(255 255 255 / .9); }
+  .studio__ctas { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--s-5); }
+  .studio__ctas .btn { border-radius: 999px; padding-inline: 22px; gap: 8px; }
+  .studio .up { width: 12px; height: 12px; }
+  .studio__link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: #fff; font-weight: 500; text-decoration: none; }
+  .studio__link:hover { text-decoration: underline; text-underline-offset: 4px; }
+  .studio__strip { grid-row: 4; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s-5); margin: 0; padding: var(--s-5) 0 0; list-style: none;
+                   border-top: 1px solid rgb(255 255 255 / .22); }
+  .studio__strip li { display: grid; gap: 10px; align-content: start; font-size: 14px; line-height: 1.4; color: rgb(255 255 255 / .88); }
+  .studio__strip svg { width: 20px; height: 20px; color: #ffb27a; }
+  @media (max-width: 1023px) {
+    .studio__main { grid-template-columns: minmax(0, 1fr); }
+    .studio__ctas { justify-content: flex-start; }
+    .studio__strip { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--s-4); }
+    .studio__strip li:nth-child(n+4) { display: none; }
+  }
+  @media (max-width: 639px) {
+    .hero--studio { height: auto !important; min-height: 100svh; padding-bottom: var(--s-6) !important; }
+    .hero--studio > .wrap.studio { grid-template-rows: auto minmax(0, 1fr) auto; height: auto !important; min-height: calc(100svh - var(--nav) - 32px - var(--s-6)); }
+    .hero--studio .studio__cards { justify-self: stretch; width: 100%; }
+    .studio__cards .gcard + .gcard { display: none; }
+    .studio__main { grid-row: 3; }
+    .studio__strip { display: none; }
+    .studio__ctas .btn { flex: 1 1 auto; justify-content: center; }
+  }
+
+  /* ================= the nav over the hero: clear, with the words in a glass pill ================= */
+  header.nav { transition: background-color .25s ease, border-color .25s ease, color .25s ease; }
+  html.at-top header.nav { background: transparent; border-bottom-color: transparent; color: #fff; --ink: #fff; }
+  html.at-top header.nav .nav__link, html.at-top header.nav .nav__logo { color: #fff; }
+  html.at-top header.nav .theme-toggle { color: #fff; border-color: rgb(255 255 255 / .4); }
+  html.at-top header.nav .nav__toggle { color: #fff; }
+  @media (min-width: 1024px) {
+    header.nav .nav__links { height: auto; align-self: center; padding: 4px 6px; border-radius: 999px; transition: background-color .25s ease, box-shadow .25s ease; }
+    html.at-top header.nav .nav__links { background: rgb(255 255 255 / .1); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .2);
+                                        -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+  }
+  header.nav .nav__actions .btn { border-radius: 999px; }
+
+  /* ================= facts band ================= */
+  main > section.facts { padding-block: var(--s-7) !important; background: var(--p-surface); border-bottom: 1px solid var(--line); }
+  .facts__row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
+  .facts__row > div { display: grid; gap: 6px; padding: var(--s-2) var(--s-6); border-left: 1px solid var(--line); }
+  .facts__row > div:first-child { border-left: 0; padding-left: 0; }
+  .facts__row dt { order: 2; font-size: 15px; color: var(--muted); }
+  .facts__row dd { order: 1; margin: 0; font: 600 clamp(28px, 2.6vw, 40px)/1 var(--font-display); letter-spacing: -0.03em; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+  @media (max-width: 1023px) { .facts__row { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: var(--s-6); } .facts__row > div:nth-child(3) { border-left: 0; padding-left: 0; } }
+  @media (max-width: 479px) { .facts__row > div { padding-inline: var(--s-4); } .facts__row > div:nth-child(odd) { padding-left: 0; } }
+
+  /* ================= app-frame: the alerts list beside Mira ================= */
+  .app.ui { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); height: clamp(460px, 62vh, 600px); margin-top: var(--s-7); background: var(--u-bg); border: 1px solid var(--u-border); border-radius: var(--u-r); box-shadow: var(--u-shadow); overflow: hidden; }
   .app > .app__pane { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
   .app > .app__pane + .app__pane { border-left: 1px solid var(--u-line); }
   .app > .app__pane > .ui-panel { width: 100%; border: 0; border-radius: 0; box-shadow: none; }
   .app > .app__pane::after { content: ""; position: absolute; inset: auto 0 0 0; height: 64px; background: linear-gradient(transparent, var(--u-bg)); pointer-events: none; }
   @media (min-width: 1024px) and (max-width: 1279px) { .app.ui { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); } }
   @media (max-width: 1023px) {
-    .app.ui { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .app.ui { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); height: 620px; }
     .app > .app__pane--list { max-height: 252px; }
     .app > .app__pane--list::after { display: none; }
     .app .ui-win__side { display: none; }
@@ -118,98 +285,97 @@
     .app > .app__pane + .app__pane { border-left: 0; border-top: 1px solid var(--u-line); }
   }
   @media (max-width: 639px) {
-    .app.ui { grid-template-rows: minmax(0, 1fr); }
+    .app.ui { grid-template-rows: minmax(0, 1fr); height: 480px; }
     .app > .app__pane--list { display: none; }
     .app > .app__pane + .app__pane { border-top: 0; }
   }
   .ui-avatar.sx-glyph { font-size: 13px; }
+  .split-head { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-6) 24px; align-items: end; }
+  .split-head > div:last-child { display: grid; gap: var(--s-4); justify-items: start; }
+  @media (max-width: 1023px) { .split-head { grid-template-columns: minmax(0, 1fr); } }
 
-  /* ---------- feature cards ---------- */
-  #forecast .panel { --p-h: 300px; }
-  @media (min-width: 640px) and (max-width: 1023px) { #forecast .panel { --p-h: clamp(300px, calc(100svh - 540px), 600px); } }
-  /* a short phone (360x740): the hero and the two forecast screens drop their quieter lines */
-  @media (max-width: 639px) { #forecast h2 .muted { display: none; } }
-  @media (max-width: 639px) { #forecast .panel { --p-h: 180px; } }
-  /* a short phone (360x740): the hero's buttons share a row, and the four forecast cards flow at their own
-     height in place of two fixed screens (they cannot fit two screens there) */
-  @media (max-width: 639px) and (max-height: 780px) {
-    .hero__proof { display: none; }
-    .hero .btn-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
-    .hero .btn-row > .btn { width: auto; padding-inline: var(--s-3); }
-    #forecast .panel { --p-h: 130px; }
-    main > section#forecast > .wrap { display: block; }
-    main > section#forecast > .wrap > .grid { margin-top: var(--s-6); }
-  }
-  @media (max-width: 639px) and (max-height: 700px) {
-    .hero h1 { font-size: 34px; }
-    #forecast .panel { --p-h: 110px; }
-  }
-  /* the 48-hour outlook card, drawn as the app draws it */
+  /* ================= the bill band: orange fluted glass ================= */
+  .band--glass { position: relative; isolation: isolate; overflow: hidden; background: var(--glass-dark); --ink: #fffaf4; --muted: #ffe3cc; --action: #f47721; --action-ink: #1a0f05; color: var(--ink); }
+  .band--glass .band__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-6) 24px; align-items: end; }
+  .band--glass .mo-lt__type { font-size: clamp(40px, 5.6vw, 84px); line-height: 1.02; letter-spacing: -0.035em; max-width: 13ch; color: #fffaf4; }
+  .band--glass .band__side { display: grid; gap: var(--s-5); justify-items: start; }
+  .band--glass .band__side p { margin: 0; font-size: 18px; line-height: 1.55; color: #fffaf4; }
+  @media (max-width: 1023px) { .band--glass .band__grid { grid-template-columns: minmax(0, 1fr); align-items: start; } }
+
+  /* ================= feature cards: panels of warm fluted glass ================= */
+  #forecast .panel, #setup .frame { background: var(--glass-panel) !important; }
+  :root[data-theme="dark"] #setup .frame { background: var(--glass-night) !important; }
+  #forecast .panel { --p-h: 380px; }
+  @media (min-width: 640px) and (max-width: 1023px) { #forecast .panel { --p-h: 400px; } }
+  @media (max-width: 639px) { #forecast .panel { --p-h: 220px; } }
   .sx-outlook svg { display: block; width: 100%; height: 96px; margin-top: 10px; }
   .sx-outlook .sx-axis { margin-top: 4px; }
-  .sx-legend { display: flex; gap: 14px; margin-top: 8px; font-size: 13px; color: #5c5c5c; }
-  .sx-legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .sx-legend span::before { content: ""; width: 12px; height: 3px; border-radius: 2px; background: var(--sw); }
+  .sx-outlook .sx-curve-fill { fill: var(--sx-bar); }
+  .sx-outlook .sx-curve-batt { stroke: var(--sx-ink); }
+  .sx-outlook .sx-curve-base { stroke: var(--sx-line); }
 
-  /* ---------- the app's own Brownout Advisor and Alerts screens (app/lib/features/brownout, alerts) ----------
-     fluid: they take the width their slot gives them and re-flow by container width, never a fixed size */
-  .sx-app { width: 100%; display: grid; gap: 12px; color: #292929; font: 400 13px/1.4 var(--font-text); text-align: left; container-type: inline-size; }
+  /* the app's Brownout Advisor and Alerts screens, fluid by container width */
+  .sx-app { width: 100%; display: grid; gap: 12px; color: var(--sx-ink); font: 400 13px/1.4 var(--font-text); text-align: left; container-type: inline-size; }
   .sx-app > .sx-bo { box-shadow: 0 18px 40px -22px rgb(120 50 0 / .7); }
   .sx-bo { display: grid; gap: 2px; padding: 16px 18px; border-radius: 15px; color: #fff; background: linear-gradient(135deg, #c2500a, #a94306); }
   .sx-bo__top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
   .sx-bo__top svg { width: 20px; height: 20px; flex: none; }
-  .sx-bo b { font: 600 32px/1.05 var(--font-text); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .sx-bo b { font: 700 32px/1.05 var(--font-text); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
   .sx-bo span { font-size: 13px; font-weight: 500; }
   .sx-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .sx-stats > div { display: grid; gap: 4px; padding: 10px 12px; border-radius: 12px; background: #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / .05), 0 6px 16px -10px rgb(0 0 0 / .35); min-width: 0; }
-  .sx-stats small { font-size: 13px; font-weight: 500; color: #5c5c5c; }
-  .sx-stats b { font: 500 20px/1.1 var(--font-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .sx-stats b i { margin-left: 3px; font-style: normal; font-size: 13px; font-weight: 400; color: #5c5c5c; }
-  .sx-stats em { font-style: normal; font-size: 13px; color: #5c5c5c; }
-  .sx-advice { padding: 12px 14px; border-radius: 12px; background: #fff; border: 1px solid #ff7415; }
+  .sx-stats > div { display: grid; gap: 4px; padding: 10px 12px; border-radius: 12px; background: var(--sx-card); box-shadow: 0 0 0 1px var(--sx-line), 0 6px 16px -10px rgb(0 0 0 / .35); min-width: 0; }
+  .sx-stats small { font-size: 13px; font-weight: 500; color: var(--sx-label); }
+  .sx-stats b { font: 600 20px/1.1 var(--font-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .sx-stats b i { margin-left: 3px; font-style: normal; font-size: 13px; font-weight: 400; color: var(--sx-label); }
+  .sx-stats em { font-style: normal; font-size: 13px; color: var(--sx-label); }
+  .sx-advice { padding: 12px 14px; border-radius: 12px; background: var(--sx-card); border: 1px solid #ff7415; }
   .sx-advice b { display: block; margin-bottom: 6px; font-weight: 600; }
   .sx-advice p { margin: 0; font-size: 13px; line-height: 1.45; }
-  .sx-group-label { font-size: 13px; font-weight: 600; padding-left: 2px; }
-  .sx-group { overflow: hidden; border-radius: 12px; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / .18); }
+  .sx-group-label { justify-self: start; padding: 3px 10px; border-radius: 99px; font-size: 13px; font-weight: 600; color: var(--sx-ink); background: var(--sx-card); box-shadow: 0 0 0 1px var(--sx-line); }
+  .sx-group { overflow: hidden; border-radius: 12px; background: var(--sx-card); box-shadow: 0 0 0 1px var(--sx-line), 0 10px 24px -14px rgb(0 0 0 / .4); }
   .sx-alert { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding: 14px 14px 10px; }
-  .sx-alert + .sx-alert { border-top: 1px solid rgb(41 41 41 / .12); }
+  .sx-alert + .sx-alert { border-top: 1px solid var(--sx-line); }
   .sx-alert__ic { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 6px; color: var(--c); background: color-mix(in srgb, var(--c) 16%, transparent); }
   .sx-alert__ic svg { width: 18px; height: 18px; }
   .sx-alert__t { display: flex; align-items: center; gap: 8px; }
   .sx-alert__t b { flex: 1; min-width: 0; font-weight: 600; }
   .sx-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #f47721; }
   .sx-alert p { margin: 4px 0 0; font-size: 13px; line-height: 1.4; }
-  .sx-alert__f { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; margin-top: 6px; font-size: 13px; color: #5c5c5c; }
-  .sx-alert__f span + span { color: #a94306; font-weight: 500; }
-  /* a phone's short panel holds the advisor's headline card alone */
-  @media (max-width: 639px) { .sx-app > .sx-stats, .sx-app > .sx-advice, .sx-bo > span { display: none; } }
-  /* the fifth question only where the FAQ has the room for it */
-  @media (max-width: 1279px) { .faq__item--more { display: none; } }
+  .sx-alert__f { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; margin-top: 6px; font-size: 13px; color: var(--sx-label); }
+  .sx-alert__f span + span { color: var(--sx-orange-text); font-weight: 600; }
+  .ic-red { --c: var(--sx-red); } .ic-green { --c: var(--sx-green); } .ic-amber { --c: var(--sx-amber); }
+  .sx-app > .sx-advice { display: none; }
+  @media (min-width: 640px) and (max-width: 1023px) { .sx-alert:nth-child(n+3) { display: none; } }
+  @media (max-width: 639px) { .sx-app > .sx-stats { display: none; } .sx-alert:nth-child(n+2) { display: none; } }
   @container (max-width: 300px) { .sx-bo { padding: 14px; } .sx-bo b { font-size: 26px; } .sx-stats { gap: 8px; } .sx-stats b { font-size: 18px; } }
 
-  /* ---------- the setup split: the diagram fills its frame ---------- */
-  #setup .frame { --ratio: 80%; }
-  @media (min-width: 1024px) and (max-width: 1279px) { #setup .frame { --ratio: 125%; } }
+  /* ================= questions and setup ================= */
+  .faq__item h3 { font-weight: 600; }
+  .faq--cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; margin-top: var(--s-7); }
+  @media (max-width: 767px) { .faq--cols { grid-template-columns: minmax(0, 1fr); } }
+  #setup .frame { --ratio: 72%; }
+  @media (min-width: 1024px) and (max-width: 1279px) { #setup .frame { --ratio: 100%; } }
   @media (max-width: 639px) { #setup .frame { --ratio: 100%; } }
   #setup .frame .dg { position: absolute; inset: 0; }
-  .facts-list { display: grid; gap: var(--s-2); margin: 0; padding: 0; list-style: none; }
-  .close__word { line-height: 1.02; }
-  /* short laptop windows (1536x730 at 125% scaling): the name scales with the height too, and the closing
-     screen grows rather than let the name run over the links row */
-  @media (min-width: 640px) {
-    .close__word { font-size: clamp(64px, min(14.5vw, 26svh), 216px); }
-    footer.closing { height: auto; min-height: calc(var(--h, 1) * 100svh); }
-  }
-  .facts-list li { font-size: var(--t-body); }
-  .facts-list b { font-weight: 500; }
+  .facts-list { display: grid; gap: var(--s-3); padding: 0; list-style: none; margin-bottom: 0; }
+  .facts-list li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; font-size: var(--t-body); }
+  .facts-list li::before { content: ""; width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; background: #f47721; }
+  .facts-list b { font-weight: 600; }
+
+  /* ================= footer: the dark close, compact ================= */
+  footer.closing { height: auto !important; min-height: 0 !important; padding-block: var(--sec-pad) var(--s-7) !important; }
+  footer.closing > .wrap { height: auto !important; row-gap: var(--s-8); }
+  footer.closing .close__word { margin-top: var(--s-6); line-height: 1.02; font-size: clamp(56px, 11vw, 168px) !important; font-weight: 600; letter-spacing: -0.05em;
+                 background: linear-gradient(100deg, #fff8f0 30%, #ffb27a 70%, #f47721); -webkit-background-clip: text; background-clip: text; color: transparent !important; -webkit-text-fill-color: transparent; }
+  .footer__col h3 { font-weight: 600; }
 </style>
 </head>
 <body>
 <!-- type: software (a monitoring device whose product is its app: the page shows the app as live HTML)
-     deal: hero collage, nav nav-centre, close close-word, footer footer-columns, rhythm space, buttons tonal, mark ring,
-           ground sage, effect fluted-glass (hero art frame), palette: the client's own app colours via start.mjs brand
-           (orange #c2500a on cream #fff8f0, ink #292929: the Solaris app's buttons and cards), type onest
-     moments: liquid-type on the statement section (#bill) -->
+     look: the client's brief overrides the dealt layout: orange fluted glass (hero and the bill band), the app's own
+     colours and DM Sans, sections as tall as their content, light and dark themes (the app's day cream and night navy).
+     kept from the deal: hero collage, nav nav-centre, close close-word, buttons tonal, mark ring, effect fluted-glass
+     moments: liquid-type on the bill band (#bill) -->
 
 <header class="nav nav--centre">
   <div class="wrap nav__bar">
@@ -223,6 +389,10 @@
       <div class="nav__item"><a class="nav__link" href="#questions">Questions</a></div>
     </nav>
     <div class="nav__actions">
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark mode" aria-pressed="false">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
       <a class="btn btn--primary" href="mailto:hello@solaris.example?subject=Solaris%20demo">Book a demo</a>
     </div>
     <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
@@ -232,62 +402,48 @@
 </header>
 
 <main id="top">
-  <section class="hero hero--collage" data-enter aria-labelledby="hero-h">
-    <div class="wrap"><div class="hero-text grid hero__grid">
-      <div class="hero__text span-5">
-        <h1 id="hero-h">Solar monitor and app for Filipino homes</h1>
-        <p class="hero__lead">Solaris reads your hybrid inverter every 5 seconds, shows where each kilowatt goes and forecasts this month&rsquo;s Meralco bill, even offline.</p>
-        <div class="btn-row"><a class="btn btn--primary" href="mailto:hello@solaris.example?subject=Solaris%20demo">Book a demo<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a><a class="btn btn--secondary" href="#app">See the app</a></div>
-        <p class="hero__proof">The server and Mira, its assistant, run on a laptop in your home.</p>
-      </div>
-      <div class="hero__art span-6 start-7" data-fx="fluted-glass" data-fx-seed="31" role="img" aria-label="The Solaris Home screen: solar at 3.42 kW charging the battery at 78%, nothing bought from the grid, and November's bill forecast at 2,790 pesos">
-        <div class="ly-piece ly-piece--main ui sx-win" aria-hidden="true">
-          <div class="sx-win__bar"><span class="sx-dots"><i></i><i></i><i></i></span><span>Solaris &middot; Home</span><span class="sx-live">Live</span></div>
-          <div class="sx-win__body">
-            <div class="sx-side">
-              <span class="is-on"><i></i>Home</span><span><i></i>Energy</span><span><i></i>Bill</span><span><i></i>Ask Mira</span><span><i></i>Alerts</span>
-            </div>
-            <div class="sx-main">
-              <div class="sx-head"><h4>Right now</h4><span class="sx-chip">Charging</span></div>
-              <div class="sx-tiles">
-                <div class="sx-tile sx-tile--sun"><small>Solar</small><b>3.42 kW</b><span>68% of 5 kWp</span></div>
-                <div class="sx-tile"><small>Home</small><b>1.18 kW</b><span>Using now</span></div>
-                <div class="sx-tile"><small>Battery</small><b>78%</b><span>Charging, 2.24 kW</span></div>
-                <div class="sx-tile"><small>Grid</small><b>0.00 kW</b><span>Not buying</span></div>
-              </div>
-              <div class="sx-chart">
-                <div class="sx-chart__head"><span>Solar today</span><span>Saved today <b>&#8369;38.40</b></span></div>
-                <div class="sx-bars"><i style="--v:6%"></i><i style="--v:18%"></i><i style="--v:34%"></i><i style="--v:52%"></i><i style="--v:66%"></i><i style="--v:78%"></i><i class="is-now" style="--v:70%"></i><i style="--v:0%"></i><i style="--v:0%"></i><i style="--v:0%"></i><i style="--v:0%"></i><i style="--v:0%"></i><i style="--v:0%"></i></div>
-                <div class="sx-axis"><span>6:00</span><span>12:00</span><span>18:00</span></div>
-              </div>
-              <div class="sx-today">
-                <div>Made today<b>14.2 kWh</b></div>
-                <div>Used today<b>9.8 kWh</b></div>
-                <div>Bought today<b>0.6 kWh</b></div>
-              </div>
-            </div>
-          </div>
+  <section class="hero hero--studio" data-enter data-glass data-glass-scene="sunset" data-glass-rib="16" aria-labelledby="hero-h">
+    <div class="wrap studio">
+      <div class="studio__cards" aria-hidden="true">
+        <div class="ui gcard">
+          <div class="gcard__head"><span><i class="gdot"></i>Right now</span><span class="gcard__meta">Live &middot; every 5 s</span></div>
+          <div class="gcard__row"><div><small>Solar</small><b>3.42 kW</b></div><div><small>Battery</small><b>78%</b></div><div><small>Grid</small><b>0.00 kW</b></div></div>
         </div>
-        <div class="ly-piece ly-piece--note ui sx-card" aria-hidden="true" data-ly-steps="700">
-          <div class="sx-card__row"><h5>November bill</h5><span class="sx-chip" data-step data-step-at="4">Forecast</span></div>
-          <div class="sx-line" data-step><i>1</i><span><b>74 kWh</b> from the grid so far</span></div>
-          <div class="sx-line" data-step><i>2</i><span><b>&#8369;1,114</b> at &#8369;15.06 per kWh</span></div>
-          <div class="sx-line" data-step><i>3</i><span>Likely <b>&#8369;2,790</b> by Nov 30</span></div>
+        <div class="ui gcard">
+          <div class="gcard__head"><span>November bill</span><span class="gcard__meta">Forecast</span></div>
+          <div class="gcard__row"><div><small>So far</small><b>&#8369;1,114</b></div><div><small>Likely</small><b>&#8369;2,790</b></div><div><small>Range</small><b>&#8369;2.5k&ndash;3.1k</b></div></div>
         </div>
       </div>
-    </div></div>
+      <div class="studio__main">
+        <div class="studio__copy">
+          <h1 id="hero-h">Your home solar, made clear</h1>
+          <p class="studio__lead">Solaris reads your hybrid inverter every 5 seconds, forecasts your Meralco bill and tells you how long the battery lasts in a brownout. Mira explains it in Taglish.</p>
+        </div>
+        <div class="studio__ctas">
+          <a class="btn btn--primary" href="mailto:hello@solaris.example?subject=Solaris%20demo">Book a demo<svg class="up" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 8.5 8.5 3.5M4.5 3.5h4v4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+          <a class="studio__link" href="#app">See how it works<svg class="up" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 8.5 8.5 3.5M4.5 3.5h4v4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        </div>
+      </div>
+      <ul class="studio__strip">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Live readings every 5 seconds</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2.5h12v19l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>Meralco bill forecast</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="7" width="16" height="10" rx="2"/><path d="M21.5 10.5v3M6 10.5v3M9.5 10.5v3"/></svg>Brownout battery timer</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2 12h2.5M19.5 12H22M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>48-hour solar outlook</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16v10H9l-5 4z"/><path d="M8 9.5h8M8 12.5h5"/></svg>Answers in Taglish from Mira</li>
+      </ul>
+    </div>
   </section>
 
   <section class="section" id="app" aria-labelledby="app-h">
     <div class="wrap">
-      <div class="grid">
-        <h2 class="span-5" id="app-h">App alerts that Mira explains in Taglish</h2>
-        <div class="span-6 start-7">
+      <div class="split-head">
+        <div><p class="eyebrow">Alerts and Mira</p><h2 id="app-h">App alerts that Mira explains in Taglish</h2></div>
+        <div>
           <p>When the grid drops, the battery runs low or the inverter gets hot, Solaris alerts your phone. Ask Mira what to do and she answers from your live numbers.</p>
           <a class="link" href="#forecast">See the forecasts</a>
         </div>
       </div>
-      <div class="ui app fill" role="img" aria-label="The Solaris alerts list with a brownout on top, and Mira saying the battery lasts about 7.1 hours at 900 watts" data-ui-pause-host>
+      <div class="ui app" role="img" aria-label="The Solaris alerts list with a brownout on top, and Mira saying the battery lasts about 7.1 hours at 900 watts" data-ui-pause-host>
         <div class="app__pane app__pane--list">
           <div class="ui ui-panel ui-win" data-ui="window" data-open="New" data-work="Mira is reading" data-done="Explained">
             <div class="ui-win__bar">
@@ -357,10 +513,15 @@
     </div>
   </section>
 
-  <section class="section statement" id="bill" data-moment="liquid-type" aria-labelledby="bill-h">
-    <div class="wrap stack-6">
-      <h2 class="mo-lt__type" id="bill-h">Know the bill before it arrives</h2>
-      <p class="t-lead measure">Most solar owners learn what a month cost when the Meralco bill comes. Solaris shows the running cost every day and where the month is likely to end.</p>
+  <section class="section band--glass" id="bill" data-moment="liquid-type" data-glass data-glass-curve="1.02,-0.16,0.04,0.8" data-glass-rib="40" aria-labelledby="bill-h">
+    <div class="wrap">
+      <div class="band__grid">
+        <h2 class="mo-lt__type" id="bill-h">Know the bill before it arrives</h2>
+        <div class="band__side">
+          <p>Most solar owners learn what a month cost when the Meralco bill comes. Solaris shows the running cost every day and where the month is likely to end.</p>
+          <a class="btn btn--primary" href="#forecast">See the forecasts<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -368,6 +529,7 @@
     <div class="wrap">
       <div class="group">
         <div class="section-head">
+          <p class="eyebrow">Forecasts</p>
           <h2 id="forecast-h">Solaris forecasts your bill, sun and battery. <span class="muted">Each one learns from your own readings.</span></h2>
         </div>
         <div class="grid">
@@ -409,10 +571,10 @@
                   <div class="sx-card__row"><h5>Solar, next 48 hours</h5><span class="sx-chip">Weather</span></div>
                   <p>Tomorrow about <b>19.6 kWh</b>, clouds after 14:00</p>
                   <svg viewBox="0 0 320 96" preserveAspectRatio="none">
-                    <path d="M0 95.5H320" stroke="rgb(41 41 41 / .2)" stroke-width="1"/>
-                    <path d="M20 96C40 96 50 30 80 22S120 90 140 96M180 96C200 96 205 40 232 34S262 70 270 66 290 96 300 96Z" fill="#fed47d"/>
+                    <path class="sx-curve-base" d="M0 95.5H320" stroke-width="1"/>
+                    <path class="sx-curve-fill" d="M20 96C40 96 50 30 80 22S120 90 140 96M180 96C200 96 205 40 232 34S262 70 270 66 290 96 300 96Z"/>
                     <path d="M20 96C40 96 50 30 80 22S120 90 140 96M180 96C200 96 205 40 232 34S262 70 270 66 290 96 300 96" fill="none" stroke="#f47721" stroke-width="2"/>
-                    <path d="M0 40C30 34 60 18 100 16S150 60 180 76 230 30 260 22 300 40 320 46" fill="none" stroke="#292929" stroke-width="1.5" stroke-dasharray="4 4"/>
+                    <path class="sx-curve-batt" d="M0 40C30 34 60 18 100 16S150 60 180 76 230 30 260 22 300 40 320 46" fill="none" stroke-width="1.5" stroke-dasharray="4 4"/>
                   </svg>
                   <div class="sx-axis"><span>Now</span><span>Tomorrow</span><span>Saturday</span></div>
                   <div class="sx-line" style="margin-top:8px"><i>!</i><span>Battery reaches the 20% reserve at <b>05:10</b></span></div>
@@ -453,11 +615,11 @@
               <div class="ui sx-app" aria-hidden="true">
                 <div class="sx-group-label">Today &middot; 3</div>
                 <div class="sx-group">
-                  <div class="sx-alert"><span class="sx-alert__ic" style="--c:#d93b30"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v7M7 6.5a7 7 0 1 0 10 0"/><path d="m4 4 16 16"/></svg></span>
+                  <div class="sx-alert"><span class="sx-alert__ic ic-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v7M7 6.5a7 7 0 1 0 10 0"/><path d="m4 4 16 16"/></svg></span>
                     <div><div class="sx-alert__t"><b>Brownout</b><i class="sx-dot"></i></div><p lang="fil">Nawalan ng kuryente mula sa grid. Battery at solar na ang gamit ng bahay mo.</p><div class="sx-alert__f"><span>18:40 &middot; just now</span><span>Brownout Advisor</span></div></div></div>
-                  <div class="sx-alert"><span class="sx-alert__ic" style="--c:#299d65"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v7M7 6.5a7 7 0 1 0 10 0"/></svg></span>
+                  <div class="sx-alert"><span class="sx-alert__ic ic-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v7M7 6.5a7 7 0 1 0 10 0"/></svg></span>
                     <div><div class="sx-alert__t"><b lang="fil">Bumalik na ang kuryente</b></div><p lang="fil">Bumalik na ang grid pagkatapos ng 30 minuto. Magcha-charge ulit ang battery.</p><div class="sx-alert__f"><span>14:32</span><span>See explanation</span></div></div></div>
-                  <div class="sx-alert"><span class="sx-alert__ic" style="--c:#8f6410"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z"/><path d="M12 9v6"/></svg></span>
+                  <div class="sx-alert"><span class="sx-alert__ic ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z"/><path d="M12 9v6"/></svg></span>
                     <div><div class="sx-alert__t"><b lang="fil">Mainit ang inverter</b></div><p lang="fil">66&deg;C ang inverter. Siguraduhing may hangin sa paligid nito.</p><div class="sx-alert__f"><span>13:05</span><span>See explanation</span></div></div></div>
                 </div>
               </div>
@@ -468,19 +630,19 @@
     </div>
   </section>
 
-  <section class="section" id="questions" aria-labelledby="questions-h">
+  <section class="section section--alt" id="questions" aria-labelledby="questions-h">
     <div class="wrap">
-      <div class="grid grid--top">
-        <div class="span-5 stack-4">
-          <h2 id="questions-h">Questions</h2>
-          <p>What people ask us at demos.</p>
-          <a class="link" href="mailto:hello@solaris.example?subject=Solaris%20question">Email the team</a>
-        </div>
-        <div class="faq span-6 start-7">
+      <div class="split-head">
+        <div><p class="eyebrow">Questions</p><h2 id="questions-h">What people ask us at demos</h2></div>
+        <div><p>Something else you want to know about Solaris, the device or Mira? Write to the team.</p><a class="link" href="mailto:hello@solaris.example?subject=Solaris%20question">Email the team</a></div>
+      </div>
+      <div>
+        <div class="faq faq--cols">
           <div class="faq__item"><h3>Which inverters does Solaris work with?</h3><p>Hybrid inverters with an RS485 Modbus port. A new brand needs its register map added first.</p></div>
           <div class="faq__item"><h3>Does Solaris need the internet?</h3><p>No. Everything runs on your home network. Offline, the solar forecast uses your last 14 days in place of the weather.</p></div>
+          <div class="faq__item"><h3>How does Solaris forecast the bill?</h3><p>From your daily grid use so far, at your Meralco rate: &#8369;15.06 per kWh unless you set another.</p></div>
           <div class="faq__item"><h3>Does Mira make up numbers?</h3><p>No. She answers from your own readings, and tests check she adds no new figures.</p></div>
-          <div class="faq__item faq__item--more"><h3>How does Solaris forecast the bill?</h3><p>From your daily grid use so far, at your Meralco rate: &#8369;15.06 per kWh unless you set another.</p></div>
+          <div class="faq__item"><h3>What happens during a brownout?</h3><p>Solaris alerts your phone, and the Brownout Advisor shows how long the battery lasts at your current load, with Mira&rsquo;s advice.</p></div>
           <div class="faq__item"><h3>Can I buy a Solaris today?</h3><p>Not yet. It is a working prototype by Team Visionaries of PLV, built for the IDOL Hackathon 2026.</p></div>
         </div>
       </div>
@@ -491,12 +653,13 @@
     <div class="wrap">
       <div class="grid">
         <div class="span-5 stack-5">
+          <p class="eyebrow">How it connects</p>
           <h2 id="setup-h">Wires into your inverter&rsquo;s RS485 port</h2>
           <p class="t-lead">A small Solaris device reads the hybrid inverter over Modbus and sends each reading over Wi-Fi to a laptop at home.</p>
           <ul class="facts-list">
-            <li><b>Device:</b> an ESP32 with an RS485 adapter</li>
-            <li><b>Server:</b> FastAPI and SQLite on your laptop</li>
-            <li><b>Mira:</b> Qwen 3.5 on Ollama, no cloud account</li>
+            <li><span><b>Device:</b> an ESP32 with an RS485 adapter</span></li>
+            <li><span><b>Server:</b> FastAPI and SQLite on your laptop</span></li>
+            <li><span><b>Mira:</b> Qwen 3.5 on Ollama, no cloud account</span></li>
           </ul>
           <a class="link" href="#questions">Read the setup questions</a>
         </div>
@@ -506,7 +669,6 @@
       </div>
     </div>
   </section>
-
 </main>
 
 <footer class="footer closing footer--dark ground-inverse" id="contact" aria-labelledby="close-h">
@@ -536,9 +698,35 @@
   </div>
 </footer>
 
+<script>
+(function () {
+  var r = document.documentElement;
+  function at() { r.classList.toggle('at-top', window.scrollY < 24); }
+  at(); window.addEventListener('scroll', at, { passive: true });
+})();
+</script>
+<!-- the theme switch: flips the palette live and keeps the visitor's choice -->
+<script>
+(function () {
+  var root = document.documentElement, btn = document.querySelector('[data-theme-toggle]'), meta = document.querySelector('meta[name="theme-color"]');
+  function show(t) {
+    btn.setAttribute('aria-pressed', String(t === 'dark'));
+    btn.setAttribute('aria-label', t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+    if (meta) meta.setAttribute('content', t === 'dark' ? '#0f1729' : '#fff8f0');
+  }
+  show(root.dataset.theme);
+  btn.addEventListener('click', function () {
+    var t = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = t; root.dataset.tone = t; root.dataset.mode = t;
+    try { localStorage.setItem('solaris-theme', t); } catch (e) {}
+    show(t);
+  });
+})();
+</script>
 <script type="module" src="assets/system.js"></script>
 <script type="module" src="assets/motion/motion.js"></script>
 <script type="module" src="assets/layout/layout.js"></script>
 <script type="module" src="assets/diagrams/mount.js"></script>
+<script type="module" src="assets/solaris-glass.js"></script>
 </body>
 </html>
