@@ -427,6 +427,53 @@ def month_range(done_kwh: float, fc: dict) -> tuple[float, float, float]:
 
 
 # --------------------------------------------------------------------- bill --
+def forecast_detail(rate: float, done: list[float], fc: dict, month: tuple[float, float, float],
+                    hist: list[float | None]) -> dict:
+    """How this month's forecast is made, for the Bill screen to show its evidence.
+
+    done   grid kWh of each finished day this month (1st .. yesterday)
+    fc     forecast_days() for today .. the last day (today = its expected full-day total)
+    month  month_range(): (expected, low, high) kWh for the whole month
+    hist   the season-adjusted history the model learned from (daily_history())
+
+    `days`: one point per day, the month's running total. Finished days are metered; from today on it is
+    the forecast, with a likely range that opens up towards the month's low-high (each day's share of the
+    range is its share of the forecast kWh still to come)."""
+    mid, lo, hi = month
+    done_kwh = sum(done)
+    left = fc["kwh"]
+    left_kwh = sum(left)
+    days, cum, ahead = [], 0.0, 0.0
+    for i, k in enumerate(done):
+        cum += k
+        days.append({"day": i + 1, "kwh": round(k, 2), "kind": "actual",
+                     "cum_kwh": round(cum, 2), "cum_low_kwh": round(cum, 2), "cum_high_kwh": round(cum, 2)})
+    for j, k in enumerate(left):
+        ahead += k
+        share = ahead / left_kwh if left_kwh > 0 else 1.0
+        c = done_kwh + ahead
+        days.append({"day": len(done) + j + 1, "kwh": round(k, 2), "kind": "today" if j == 0 else "forecast",
+                     "cum_kwh": round(c, 2),
+                     "cum_low_kwh": round(max(done_kwh, c - (mid - lo) * share), 2),
+                     "cum_high_kwh": round(c + (hi - mid) * share, 2)})
+    seen = [v for v in hist if v is not None]
+    recent = [v for v in hist[-RECENT_DAYS:] if v is not None]
+    return {
+        "kwh": round(mid, 1), "low_kwh": round(lo, 1), "high_kwh": round(hi, 1),
+        "method": fc["method"], "model": fc["model"],
+        "history_days": len(seen),
+        "done_days": len(done), "done_kwh": round(done_kwh, 1),
+        "days_left": len(left), "days_left_kwh": round(left_kwh, 1),
+        # Season-adjusted like the history: the level the forecast starts from, before the season and the
+        # battery simulation carry it to the days ahead.
+        "recent_kwh_per_day": round(statistics.mean(recent), 2) if len(recent) >= 7 else None,
+        "level": tariff.level_steps(mid, rate),
+        "charges": tariff.charges(mid, rate),
+        "rates": tariff.schedule(rate),
+        "days": days,
+    }
+
+
 def bill(device_id: str, settings: dict) -> dict:
     rate = settings["rate_php_per_kwh"]
     d = today()
@@ -471,6 +518,9 @@ def bill(device_id: str, settings: dict) -> dict:
         weekly.append({"week_start_ts": local_midnight(ws), "label": _label(ws, "md"), "php": round(cost, 2)})
 
     level_lo, level_hi, _ = tariff.bracket(fc_kwh)
+    hist = daily_history(device_id, d, sarima.HISTORY_DAYS, src)  # same days forecast_days() read (day_totals caches them)
+    detail = forecast_detail(rate, [t["grid_import_kwh"] for t in month_t[:-1]], fc, (fc_kwh, lo_kwh, hi_kwh),
+                             [v for _, v in hist])
     return {
         "month": d.strftime("%Y-%m"), "days_elapsed": d.day, "days_in_month": n_days, "rate_php_per_kwh": rate,
         "month_to_date_kwh": round(mtd_kwh, 2), "month_to_date_php": round(mtd_php, 2),
@@ -483,6 +533,7 @@ def bill(device_id: str, settings: dict) -> dict:
         "savings_month_php": round(savings_month, 2),
         "weekly_costs": weekly,
         "grid_source": src,
+        "forecast_detail": detail,
         # Not in Contract C (FastAPI drops them from /api/bill); used by the AI facts.
         "forecast_kwh": round(fc_kwh, 1),
         "forecast_rate_php_per_kwh": round(eff_rate, 2),

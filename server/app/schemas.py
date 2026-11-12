@@ -102,6 +102,74 @@ class WeeklyCost(BaseModel):
     php: float
 
 
+class BillDay(BaseModel):
+    day: int = Field(ge=1, le=31)
+    kwh: float = Field(description="Grid kWh that day: metered (actual), expected full day (today, forecast)")
+    kind: Literal["actual", "today", "forecast"]
+    cum_kwh: float = Field(description="Month's running total at the end of the day")
+    cum_low_kwh: float = Field(description="Likely range of the running total; = cum_kwh on metered days")
+    cum_high_kwh: float
+
+
+class LevelStep(BaseModel):
+    at_kwh: float = Field(description="The level boundary")
+    kwh_away: float = Field(description="kWh between the forecast and the boundary")
+    jump_php: float = Field(description="Crossing it moves the whole month's kWh to the next distribution rate: "
+                                        "the bill's jump at the boundary, on top of the extra kWh themselves")
+
+
+class BillLevel(BaseModel):
+    min_kwh: float = Field(description="Lower boundary (the level is over this; 0 = from the first kWh)")
+    max_kwh: float | None = Field(description="Upper boundary; null = the open top level")
+    distribution_php_per_kwh: float = Field(description="This level's distribution charge, before VAT")
+    up: LevelStep | None = Field(description="The next level up; null at the top level")
+    down: LevelStep | None = Field(description="The level below; null at the lowest level")
+
+
+class BillCharge(BaseModel):
+    id: Literal["energy", "distribution", "fixed", "energy_tax"] = Field(
+        description="energy: generation, transmission, system loss, subsidies and taxes in the overall rate | "
+                    "distribution: the level's distribution charge on all the month's kWh, + VAT | "
+                    "fixed: supply + metering, + VAT | energy_tax: BP 36, kWh above 650")
+    kwh: float | None = Field(description="kWh it is charged on; null for fixed charges")
+    php_per_kwh: float | None = Field(description="incl. VAT; null when not per kWh")
+    php: float = Field(description="The parts add up to forecast_php")
+
+
+class DistributionRate(BaseModel):
+    max_kwh: float | None = Field(description="Level's upper boundary; null = over the last one")
+    php_per_kwh: float = Field(description="Before VAT")
+
+
+class BillRates(BaseModel):
+    source: str = Field(description="The Meralco schedule the tables come from")
+    overall_php_per_kwh: float = Field(description="The rate setting: Meralco's overall rate for a 200 kWh home")
+    vat_pct: float
+    supply_php: float = Field(description="Per month, before VAT")
+    metering_php: float = Field(description="Per month, before VAT")
+    distribution: list[DistributionRate]
+    energy_tax_from_kwh: float
+
+
+class ForecastDetail(BaseModel):
+    """How forecast_php is made: the evidence the Bill screen shows."""
+    kwh: float = Field(description="Expected grid kWh for the whole month (priced into forecast_php)")
+    low_kwh: float
+    high_kwh: float
+    method: Literal["sarima", "average"] = Field(description="sarima: weekly SARIMA model | average: weekday/weekend averages")
+    model: str
+    history_days: int = Field(description="Past days with data the model learned from (up to 56)")
+    done_days: int = Field(description="Finished days this month (metered)")
+    done_kwh: float
+    days_left: int = Field(description="Today and the days after it (forecast)")
+    days_left_kwh: float
+    recent_kwh_per_day: float | None = Field(description="Average of the last 14 days, season-adjusted; null under 7 days")
+    level: BillLevel = Field(description="The consumption level the forecast lands in")
+    charges: list[BillCharge]
+    rates: BillRates
+    days: list[BillDay] = Field(description="Every day of the month: running total, metered then forecast")
+
+
 class Bill(BaseModel):
     month: str = Field(description="YYYY-MM", pattern=r"^\d{4}-\d{2}$")
     days_elapsed: int
@@ -119,6 +187,8 @@ class Bill(BaseModel):
     weekly_costs: list[WeeklyCost]
     grid_source: Literal["inverter", "meter"] = Field(
         "inverter", description="Where the grid kWh come from: the meter whenever the home has one")
+    forecast_detail: ForecastDetail | None = Field(
+        None, description="How the forecast is made: kWh, level, charges, rates, day by day; null on older servers")
 
 
 # ------------------------------------------------------------ /api/brownout --

@@ -124,6 +124,46 @@ forecast lands in. Savings stay at `rate_php_per_kwh`, matching `saved_today_php
 With a meter (`grid_source: "meter"`) the kWh are the meter's, which is what Meralco bills. A home without solar
 has no savings (0) and its forecast level follows the air-con season directly.
 
+`forecast_detail` (optional; older servers leave it out) is the evidence behind the forecast, for the Bill screen:
+
+```jsonc
+"forecast_detail": {
+  "kwh": 153.0, "low_kwh": 140.5, "high_kwh": 165.5,       // the month's grid kWh priced into forecast_php (+ range)
+  "method": "sarima", "model": "SARIMA(1,0,1)(1,0,1)7",     // or "average": weekday/weekend averages
+  "history_days": 56,                                        // past days with data the model learned from
+  "done_days": 11, "done_kwh": 52.6,                         // finished days this month, metered
+  "days_left": 19, "days_left_kwh": 100.4,                   // today + the rest, forecast
+  "recent_kwh_per_day": 4.6,                                 // last 14 days, season-adjusted; null under 7 days
+  "level": {                                                 // the Meralco consumption level the month lands in
+    "min_kwh": 0, "max_kwh": 200, "distribution_php_per_kwh": 0.9803,   // before VAT
+    "up": { "at_kwh": 200, "kwh_away": 47.0, "jump_php": 69.56 },       // null at the top level
+    "down": null                                                         // null at the lowest level
+  },
+  "charges": [                                               // add up to forecast_php
+    { "id": "energy", "kwh": 153.0, "php_per_kwh": 11.7822, "php": 1802.67 },
+    { "id": "distribution", "kwh": 153.0, "php_per_kwh": 1.0979, "php": 167.98 },
+    { "id": "fixed", "kwh": null, "php_per_kwh": null, "php": 23.95 }
+  ],
+  "rates": { "source": "Meralco Summary Schedule of Rates, October 2026 billing", "overall_php_per_kwh": 13.0,
+             "vat_pct": 12, "supply_php": 16.38, "metering_php": 5.0, "energy_tax_from_kwh": 650,
+             "distribution": [ { "max_kwh": 200, "php_per_kwh": 0.9803 }, { "max_kwh": 300, "php_per_kwh": 1.2908 },
+                               { "max_kwh": 400, "php_per_kwh": 1.5837 }, { "max_kwh": null, "php_per_kwh": 2.0941 } ] },
+  "days": [                                                  // every day of the month, running total
+    { "day": 1, "kwh": 5.2, "kind": "actual", "cum_kwh": 5.2, "cum_low_kwh": 5.2, "cum_high_kwh": 5.2 },
+    { "day": 12, "kwh": 4.9, "kind": "today", "cum_kwh": 57.5, "cum_low_kwh": 56.9, "cum_high_kwh": 58.2 },
+    { "day": 30, "kwh": 6.0, "kind": "forecast", "cum_kwh": 153.0, "cum_low_kwh": 140.5, "cum_high_kwh": 165.5 }
+  ]
+}
+```
+
+Charges (`tariff.charges`): `energy` is everything else in the overall rate (generation, transmission, system loss,
+subsidies, universal charges, taxes): the overall rate less the 0-200 kWh distribution charge with VAT and the fixed
+charges spread over 200 kWh. `distribution` is the level's distribution charge with VAT on **all** the month's kWh.
+`fixed` is supply + metering with VAT. `energy_tax` (BP 36) only appears above 650 kWh. `jump_php` is the bill's jump
+at a level boundary alone (every kWh moving to the other level's rate), on top of the kWh themselves.
+`days`: `actual` = metered finished days; `today` = today's expected full day; `forecast` after it. The range opens
+from today towards the month's low-high, each day by its share of the forecast kWh still to come.
+
 ### `GET /api/brownout`
 
 ```jsonc

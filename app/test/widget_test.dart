@@ -199,6 +199,10 @@ Future<ProviderContainer> pumpApp(WidgetTester t,
   return ProviderScope.containerOf(t.element(find.byType(SolarisApp)));
 }
 
+/// [f] inside the "Coming months" card.
+Finder _inComingMonths(Finder f) =>
+    find.descendant(of: find.ancestor(of: find.text('Coming months'), matching: find.byType(Column)).first, matching: f);
+
 /// A tall phone, so a whole Ask Mira conversation (answer + its sources) fits without scrolling.
 const tallPhone = Size(393, 1600);
 
@@ -629,7 +633,7 @@ void main() {
       expect(find.text('Likely ${formatPhp(m['low_php'] as num, whole: true)} – ${formatPhp(m['high_php'] as num, whole: true)}'),
           findsOneWidget);
     }
-    expect(find.text('Forecast'), findsOneWidget);
+    expect(_inComingMonths(find.text('Forecast')), findsOneWidget); // the chart's legend has one too
     for (final m in months.skip(1)) {
       expect(find.text('Estimate ±${m['range_pct']}%'), findsOneWidget);
     }
@@ -642,7 +646,7 @@ void main() {
         api: ProjectionMock({...p, 'enough_data': false, 'months': [(p['months'] as List).first]}),
         size: const Size(393, 3200));
     await tab(t, 'Bill');
-    expect(find.text('Forecast'), findsOneWidget);
+    expect(_inComingMonths(find.text('Forecast')), findsOneWidget); // the chart's legend has one too
     expect(find.textContaining('Estimate ±'), findsNothing);
     expect(find.textContaining('Needs about 2 weeks of readings'), findsOneWidget);
   });

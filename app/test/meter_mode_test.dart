@@ -88,8 +88,15 @@ void main() {
       final tier = example('meter')['tier'] as Map;
       expect(find.text(formatPhp(b['forecast_php'] as num, whole: true)), findsWidgets); // hero + coming months
       expect(find.textContaining('measured by your meter'), findsOneWidget);
-      expect(find.text('Meralco level this month'), findsOneWidget);
-      expect(find.text(levelLabel(tier['level_min_kwh'] as num, tier['level_max_kwh'] as num?)), findsOneWidget);
+      // The level, with its evidence: the distribution levels, this month's highlighted (forecast_cards.dart).
+      expect(find.text('Distribution charge by level'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('bill-level-current')),
+          matching: find.text(levelLabel(tier['level_min_kwh'] as num, tier['level_max_kwh'] as num?)),
+        ),
+        findsOneWidget,
+      );
       for (final gone in ['Your solar savings', 'System check', 'Saved this month']) {
         expect(find.text(gone), findsNothing, reason: gone);
       }
@@ -139,7 +146,7 @@ void main() {
       await pumpApp(t, api: await _home('solar_and_meter'), size: _tall);
       await tab(t, 'Bill');
       expect(find.text('Your solar savings'), findsOneWidget);
-      expect(find.text('Meralco level this month'), findsOneWidget);
+      expect(find.text('Distribution charge by level'), findsOneWidget);
       expect(find.textContaining('measured by your meter'), findsOneWidget);
     });
 

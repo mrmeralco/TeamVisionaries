@@ -131,3 +131,58 @@ def test_forecast_follows_the_last_two_weeks_not_the_eight_week_average(device, 
         put_kwh(device, d - timedelta(days=i), 6.0)
     fc = energy.forecast_days(device, d, 26, settings={"battery_kwh": 10})
     assert sum(fc["kwh"]) / 26 == pytest.approx(6.0, rel=0.1)
+
+
+# ------------------------------------------------- forecast evidence (Bill) --
+@pytest.mark.parametrize("kwh", [0, 57.3, 199.9, 200.1, 250, 333.3, 450, 700, 1600])
+def test_charges_add_up_to_the_bill(kwh):
+    parts = tariff.charges(kwh, 15.06)
+    assert sum(c["php"] for c in parts) == pytest.approx(round(tariff.cost(kwh, 15.06), 2), abs=0.005)
+    ids = [c["id"] for c in parts]
+    assert ids[:3] == ["energy", "distribution", "fixed"]
+    assert ("energy_tax" in ids) == (kwh > 650)
+
+
+def test_distribution_charge_is_the_levels_rate_on_every_kwh():
+    d = {c["id"]: c for c in tariff.charges(250, 15.06)}["distribution"]
+    assert d["php_per_kwh"] == pytest.approx(1.2908 * 1.12, abs=1e-4)
+    assert d["php"] == pytest.approx(250 * 1.2908 * 1.12, abs=0.01)
+
+
+def test_a_200_kwh_month_splits_the_announced_rate():
+    """The overall rate for 200 kWh is the whole bill: energy + distribution + fixed = rate x 200."""
+    parts = {c["id"]: c["php"] for c in tariff.charges(200, 15.06)}
+    assert sum(parts.values()) == pytest.approx(15.06 * 200, abs=0.01)
+    assert parts["fixed"] == pytest.approx((16.38 + 5.00) * 1.12, abs=0.01)
+
+
+def test_level_steps_say_how_far_the_next_level_is_and_what_crossing_it_costs():
+    s = tariff.level_steps(253, 15.06)
+    assert (s["min_kwh"], s["max_kwh"]) == (200, 300)
+    assert s["up"]["kwh_away"] == pytest.approx(47) and s["down"]["kwh_away"] == pytest.approx(53)
+    # Crossing 300 kWh moves all 300 kWh to the 301-400 rate.
+    assert s["up"]["jump_php"] == pytest.approx(300 * (1.5837 - 1.2908) * 1.12, abs=0.05)
+    assert s["down"]["jump_php"] == pytest.approx(200 * (1.2908 - 0.9803) * 1.12, abs=0.05)
+    assert tariff.level_steps(50, 15.06)["down"] is None
+    assert tariff.level_steps(900, 15.06)["up"] is None
+
+
+def test_bill_shows_how_its_forecast_is_made(client):
+    from solaris_contract import validate
+    b = client.get("/api/bill").json()
+    validate("bill", b)
+    f = b["forecast_detail"]
+    assert sum(c["php"] for c in f["charges"]) == pytest.approx(b["forecast_php"], abs=0.02)
+    days = f["days"]
+    assert [x["day"] for x in days] == list(range(1, b["days_in_month"] + 1))
+    assert [x["kind"] for x in days].count("today") == 1
+    assert days[b["days_elapsed"] - 1]["kind"] == "today"
+    assert f["done_days"] == b["days_elapsed"] - 1 and f["days_left"] == b["days_in_month"] - f["done_days"]
+    cum = [x["cum_kwh"] for x in days]
+    assert cum == sorted(cum) and cum[-1] == pytest.approx(f["kwh"], abs=0.1)
+    assert days[-1]["cum_low_kwh"] == pytest.approx(f["low_kwh"], abs=0.1)
+    assert days[-1]["cum_high_kwh"] == pytest.approx(f["high_kwh"], abs=0.1)
+    assert all(x["cum_low_kwh"] <= x["cum_kwh"] <= x["cum_high_kwh"] for x in days)
+    assert f["done_kwh"] + f["days_left_kwh"] == pytest.approx(f["kwh"], abs=0.2)
+    lo, hi = f["level"]["min_kwh"], f["level"]["max_kwh"]
+    assert lo <= f["kwh"] and (hi is None or f["kwh"] <= hi)

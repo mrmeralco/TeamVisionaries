@@ -1,4 +1,7 @@
 // Bill & Savings (Figma "Bill"): GET /api/bill: forecast + range, vs last month, savings, weekly costs.
+// Under the forecast, its evidence (`forecast_detail`, forecast_cards.dart): the month day by day with the
+// forecast and its range drawn on, how the number is made, and the charges it is made of (distribution
+// charge by Meralco level, supply and metering, energy tax).
 // The tip comes from GET /api/outlook (weather-aware advice from the server) when it's available.
 // System check at the bottom: GET /api/upgrade (does the setup still fit this household's use?).
 // Smart meter mode: the Meralco level card (GET /api/meter); a meter-only home has no solar savings, outlook
@@ -13,6 +16,7 @@ import '../common/charts.dart';
 import '../common/ui.dart';
 import '../meter/meter_cards.dart';
 import 'coming_months.dart';
+import 'forecast_cards.dart';
 import 'system_check.dart';
 
 String _php(Object? v) => formatPhp(numOr(v), whole: true);
@@ -71,6 +75,7 @@ class _BillBody extends StatelessWidget {
     final weeks = listOfMaps(b['weekly_costs']);
     final solar = setup != 'meter_only';
     final fromMeter = b['grid_source'] == 'meter';
+    final detail = b['forecast_detail'] is Map<String, dynamic> ? b['forecast_detail'] as Map<String, dynamic> : null;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(S.gutter, S.x4, S.gutter, kFabClearance),
@@ -107,7 +112,16 @@ class _BillBody extends StatelessWidget {
           '${fromMeter ? ' · measured by your meter' : ''}',
           style: ts(12, color: C.muted),
         ),
-        if (setup != 'solar') ...[
+        if (detail != null) ...[
+          const SizedBox(height: S.x3),
+          ForecastChartCard(detail,
+              month: str(b['month'], '2000-01'), daysInMonth: numOr(b['days_in_month'], 30).toInt()),
+          const SizedBox(height: S.x3),
+          ForecastHowCard(detail, b: b, solar: solar),
+          const SizedBox(height: S.x3),
+          ChargesCard(detail, total: forecast),
+        ] else if (setup != 'solar') ...[
+          // An older server: no forecast detail, so the meter's level card tells the level instead.
           const SizedBox(height: S.x3),
           const MeralcoLevelCard(),
         ],

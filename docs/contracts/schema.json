@@ -144,7 +144,102 @@
             "properties": { "week_start_ts": { "$ref": "#/$defs/ts" }, "label": { "type": "string" }, "php": { "$ref": "#/$defs/php" } }
           }
         },
-        "grid_source": { "enum": ["inverter", "meter"], "description": "the meter whenever the home has one" }
+        "grid_source": { "enum": ["inverter", "meter"], "description": "the meter whenever the home has one" },
+        "forecast_detail": {
+          "oneOf": [{ "$ref": "#/$defs/forecast_detail" }, { "type": "null" }],
+          "description": "How the forecast is made (kWh, level, charges, rates, day by day). Optional: older servers leave it out"
+        }
+      }
+    },
+    "forecast_detail": {
+      "description": "The `forecast_detail` object in GET /api/bill",
+      "type": "object",
+      "required": ["kwh", "low_kwh", "high_kwh", "method", "model", "history_days", "done_days", "done_kwh", "days_left",
+                   "days_left_kwh", "recent_kwh_per_day", "level", "charges", "rates", "days"],
+      "properties": {
+        "kwh": { "$ref": "#/$defs/kwh" },
+        "low_kwh": { "$ref": "#/$defs/kwh" },
+        "high_kwh": { "$ref": "#/$defs/kwh" },
+        "method": { "enum": ["sarima", "average"] },
+        "model": { "type": "string" },
+        "history_days": { "type": "integer", "minimum": 0 },
+        "done_days": { "type": "integer", "minimum": 0, "maximum": 30 },
+        "done_kwh": { "$ref": "#/$defs/kwh" },
+        "days_left": { "type": "integer", "minimum": 1, "maximum": 31 },
+        "days_left_kwh": { "$ref": "#/$defs/kwh" },
+        "recent_kwh_per_day": { "type": ["number", "null"], "minimum": 0 },
+        "level": {
+          "type": "object",
+          "required": ["min_kwh", "max_kwh", "distribution_php_per_kwh", "up", "down"],
+          "properties": {
+            "min_kwh": { "$ref": "#/$defs/kwh" },
+            "max_kwh": { "type": ["number", "null"] },
+            "distribution_php_per_kwh": { "type": "number", "minimum": 0 },
+            "up": { "oneOf": [{ "$ref": "#/$defs/level_step" }, { "type": "null" }] },
+            "down": { "oneOf": [{ "$ref": "#/$defs/level_step" }, { "type": "null" }] }
+          }
+        },
+        "charges": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "object",
+            "required": ["id", "kwh", "php_per_kwh", "php"],
+            "properties": {
+              "id": { "enum": ["energy", "distribution", "fixed", "energy_tax"] },
+              "kwh": { "type": ["number", "null"] },
+              "php_per_kwh": { "type": ["number", "null"] },
+              "php": { "$ref": "#/$defs/php" }
+            }
+          }
+        },
+        "rates": {
+          "type": "object",
+          "required": ["source", "overall_php_per_kwh", "vat_pct", "supply_php", "metering_php", "distribution", "energy_tax_from_kwh"],
+          "properties": {
+            "source": { "type": "string", "minLength": 1 },
+            "overall_php_per_kwh": { "type": "number", "exclusiveMinimum": 0 },
+            "vat_pct": { "type": "number", "minimum": 0 },
+            "supply_php": { "type": "number", "minimum": 0 },
+            "metering_php": { "type": "number", "minimum": 0 },
+            "distribution": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["max_kwh", "php_per_kwh"],
+                "properties": { "max_kwh": { "type": ["number", "null"] }, "php_per_kwh": { "type": "number", "minimum": 0 } }
+              }
+            },
+            "energy_tax_from_kwh": { "type": "number", "minimum": 0 }
+          }
+        },
+        "days": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 31,
+          "items": {
+            "type": "object",
+            "required": ["day", "kwh", "kind", "cum_kwh", "cum_low_kwh", "cum_high_kwh"],
+            "properties": {
+              "day": { "type": "integer", "minimum": 1, "maximum": 31 },
+              "kwh": { "$ref": "#/$defs/kwh" },
+              "kind": { "enum": ["actual", "today", "forecast"] },
+              "cum_kwh": { "$ref": "#/$defs/kwh" },
+              "cum_low_kwh": { "$ref": "#/$defs/kwh" },
+              "cum_high_kwh": { "$ref": "#/$defs/kwh" }
+            }
+          }
+        }
+      }
+    },
+    "level_step": {
+      "type": "object",
+      "required": ["at_kwh", "kwh_away", "jump_php"],
+      "properties": {
+        "at_kwh": { "$ref": "#/$defs/kwh" },
+        "kwh_away": { "$ref": "#/$defs/kwh" },
+        "jump_php": { "$ref": "#/$defs/php" }
       }
     },
     "brownout": {

@@ -34,5 +34,317 @@
       "php": 874.29
     }
   ],
-  "grid_source": "meter"
+  "grid_source": "meter",
+  "forecast_detail": {
+    "kwh": 532.2,
+    "low_kwh": 466.3,
+    "high_kwh": 586.7,
+    "method": "sarima",
+    "model": "SARIMA(1,0,1)(1,0,1)7",
+    "history_days": 56,
+    "done_days": 11,
+    "done_kwh": 201.1,
+    "days_left": 19,
+    "days_left_kwh": 331.1,
+    "recent_kwh_per_day": 17.73,
+    "level": {
+      "min_kwh": 400,
+      "max_kwh": null,
+      "distribution_php_per_kwh": 2.0941,
+      "up": null,
+      "down": {
+        "at_kwh": 400,
+        "kwh_away": 132.2,
+        "jump_php": 228.66
+      }
+    },
+    "charges": [
+      {
+        "id": "energy",
+        "kwh": 532.2,
+        "php_per_kwh": 11.7823,
+        "php": 6270.69
+      },
+      {
+        "id": "distribution",
+        "kwh": 532.2,
+        "php_per_kwh": 2.3454,
+        "php": 1248.25
+      },
+      {
+        "id": "fixed",
+        "kwh": null,
+        "php_per_kwh": null,
+        "php": 23.95
+      }
+    ],
+    "rates": {
+      "source": "Meralco Summary Schedule of Rates, October 2026 billing",
+      "overall_php_per_kwh": 13.0,
+      "vat_pct": 12,
+      "supply_php": 16.38,
+      "metering_php": 5.0,
+      "distribution": [
+        {
+          "max_kwh": 200,
+          "php_per_kwh": 0.9803
+        },
+        {
+          "max_kwh": 300,
+          "php_per_kwh": 1.2908
+        },
+        {
+          "max_kwh": 400,
+          "php_per_kwh": 1.5837
+        },
+        {
+          "max_kwh": null,
+          "php_per_kwh": 2.0941
+        }
+      ],
+      "energy_tax_from_kwh": 650
+    },
+    "days": [
+      {
+        "day": 1,
+        "kwh": 20.92,
+        "kind": "actual",
+        "cum_kwh": 20.92,
+        "cum_low_kwh": 20.92,
+        "cum_high_kwh": 20.92
+      },
+      {
+        "day": 2,
+        "kwh": 17.29,
+        "kind": "actual",
+        "cum_kwh": 38.21,
+        "cum_low_kwh": 38.21,
+        "cum_high_kwh": 38.21
+      },
+      {
+        "day": 3,
+        "kwh": 17.29,
+        "kind": "actual",
+        "cum_kwh": 55.5,
+        "cum_low_kwh": 55.5,
+        "cum_high_kwh": 55.5
+      },
+      {
+        "day": 4,
+        "kwh": 17.29,
+        "kind": "actual",
+        "cum_kwh": 72.79,
+        "cum_low_kwh": 72.79,
+        "cum_high_kwh": 72.79
+      },
+      {
+        "day": 5,
+        "kwh": 17.29,
+        "kind": "actual",
+        "cum_kwh": 90.08,
+        "cum_low_kwh": 90.08,
+        "cum_high_kwh": 90.08
+      },
+      {
+        "day": 6,
+        "kwh": 17.29,
+        "kind": "actual",
+        "cum_kwh": 107.37,
+        "cum_low_kwh": 107.37,
+        "cum_high_kwh": 107.37
+      },
+      {
+        "day": 7,
+        "kwh": 20.92,
+        "kind": "actual",
+        "cum_kwh": 128.29,
+        "cum_low_kwh": 128.29,
+        "cum_high_kwh": 128.29
+      },
+      {
+        "day": 8,
+        "kwh": 20.92,
+        "kind": "actual",
+        "cum_kwh": 149.21,
+        "cum_low_kwh": 149.21,
+        "cum_high_kwh": 149.21
+      },
+      {
+        "day": 9,
+        "kwh": 17.29,
+        "kind": "actual",
+        "cum_kwh": 166.5,
+        "cum_low_kwh": 166.5,
+        "cum_high_kwh": 166.5
+      },
+      {
+        "day": 10,
+        "kwh": 17.29,
+        "kind": "actual",
+        "cum_kwh": 183.79,
+        "cum_low_kwh": 183.79,
+        "cum_high_kwh": 183.79
+      },
+      {
+        "day": 11,
+        "kwh": 17.29,
+        "kind": "actual",
+        "cum_kwh": 201.08,
+        "cum_low_kwh": 201.08,
+        "cum_high_kwh": 201.08
+      },
+      {
+        "day": 12,
+        "kwh": 16.34,
+        "kind": "today",
+        "cum_kwh": 217.42,
+        "cum_low_kwh": 214.17,
+        "cum_high_kwh": 220.11
+      },
+      {
+        "day": 13,
+        "kwh": 16.34,
+        "kind": "forecast",
+        "cum_kwh": 233.76,
+        "cum_low_kwh": 227.26,
+        "cum_high_kwh": 239.14
+      },
+      {
+        "day": 14,
+        "kwh": 19.78,
+        "kind": "forecast",
+        "cum_kwh": 253.55,
+        "cum_low_kwh": 243.11,
+        "cum_high_kwh": 262.18
+      },
+      {
+        "day": 15,
+        "kwh": 19.78,
+        "kind": "forecast",
+        "cum_kwh": 273.33,
+        "cum_low_kwh": 258.95,
+        "cum_high_kwh": 285.22
+      },
+      {
+        "day": 16,
+        "kwh": 16.34,
+        "kind": "forecast",
+        "cum_kwh": 289.67,
+        "cum_low_kwh": 272.04,
+        "cum_high_kwh": 304.25
+      },
+      {
+        "day": 17,
+        "kwh": 16.34,
+        "kind": "forecast",
+        "cum_kwh": 306.01,
+        "cum_low_kwh": 285.13,
+        "cum_high_kwh": 323.28
+      },
+      {
+        "day": 18,
+        "kwh": 16.34,
+        "kind": "forecast",
+        "cum_kwh": 322.35,
+        "cum_low_kwh": 298.22,
+        "cum_high_kwh": 342.31
+      },
+      {
+        "day": 19,
+        "kwh": 16.34,
+        "kind": "forecast",
+        "cum_kwh": 338.69,
+        "cum_low_kwh": 311.31,
+        "cum_high_kwh": 361.34
+      },
+      {
+        "day": 20,
+        "kwh": 16.34,
+        "kind": "forecast",
+        "cum_kwh": 355.03,
+        "cum_low_kwh": 324.4,
+        "cum_high_kwh": 380.38
+      },
+      {
+        "day": 21,
+        "kwh": 19.78,
+        "kind": "forecast",
+        "cum_kwh": 374.82,
+        "cum_low_kwh": 340.25,
+        "cum_high_kwh": 403.41
+      },
+      {
+        "day": 22,
+        "kwh": 19.78,
+        "kind": "forecast",
+        "cum_kwh": 394.6,
+        "cum_low_kwh": 356.1,
+        "cum_high_kwh": 426.45
+      },
+      {
+        "day": 23,
+        "kwh": 16.34,
+        "kind": "forecast",
+        "cum_kwh": 410.94,
+        "cum_low_kwh": 369.19,
+        "cum_high_kwh": 445.48
+      },
+      {
+        "day": 24,
+        "kwh": 16.34,
+        "kind": "forecast",
+        "cum_kwh": 427.28,
+        "cum_low_kwh": 382.28,
+        "cum_high_kwh": 464.51
+      },
+      {
+        "day": 25,
+        "kwh": 16.34,
+        "kind": "forecast",
+        "cum_kwh": 443.62,
+        "cum_low_kwh": 395.37,
+        "cum_high_kwh": 483.55
+      },
+      {
+        "day": 26,
+        "kwh": 16.34,
+        "kind": "forecast",
+        "cum_kwh": 459.96,
+        "cum_low_kwh": 408.46,
+        "cum_high_kwh": 502.58
+      },
+      {
+        "day": 27,
+        "kwh": 16.34,
+        "kind": "forecast",
+        "cum_kwh": 476.31,
+        "cum_low_kwh": 421.55,
+        "cum_high_kwh": 521.61
+      },
+      {
+        "day": 28,
+        "kwh": 19.78,
+        "kind": "forecast",
+        "cum_kwh": 496.09,
+        "cum_low_kwh": 437.39,
+        "cum_high_kwh": 544.65
+      },
+      {
+        "day": 29,
+        "kwh": 19.78,
+        "kind": "forecast",
+        "cum_kwh": 515.87,
+        "cum_low_kwh": 453.24,
+        "cum_high_kwh": 567.69
+      },
+      {
+        "day": 30,
+        "kwh": 16.34,
+        "kind": "forecast",
+        "cum_kwh": 532.21,
+        "cum_low_kwh": 466.33,
+        "cum_high_kwh": 586.72
+      }
+    ]
+  }
 }
