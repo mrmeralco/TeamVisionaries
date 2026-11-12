@@ -168,7 +168,8 @@ def gather(device_id: str, settings: dict) -> FactSet:
            (bill["forecast_kwh"], bill["forecast_rate_php_per_kwh"]))
     how = ("SARIMA model ng araw-araw na kuha sa grid, natuto sa lingguhang pattern ng bahay mo" if bill["forecast_method"] == "sarima"
            else "average ng weekdays at weekends sa huling 28 araw")
-    fs.add("bill.forecast_method", "bill", f"Paano ginawa ang forecast: {how}, inayos ayon sa panahon ng taon")
+    fs.add("bill.forecast_method", "bill", f"Paano ginawa ang forecast: {how}, sa antas ng kuha mo sa grid sa huling "
+           "dalawang linggo, inayos ayon sa panahon (init at araw) gamit ang simulation ng solar at battery mo")
     days_left = bill["days_in_month"] - bill["days_elapsed"]
     fs.add("bill.days_left", "bill", f"Ika-{bill['days_elapsed']} araw na ng buwan; {days_left} araw pa ang natitira bago ito matapos",
            (bill["days_elapsed"], days_left), say=f"{days_left} araw pa bago matapos ang buwan.")

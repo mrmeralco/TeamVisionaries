@@ -1,6 +1,7 @@
 """Bill projection for the next months: this month's forecast + up to MAX_MONTHS calendar months after it.
 
-Only THIS month is a forecast (energy.bill: SARIMA on the last 8 weeks + the days already metered). Months
+Only THIS month is a forecast (energy.bill: the days already metered + the rest at the last 14 days' level,
+carried there with the same battery simulation, day-to-day shape and noise from SARIMA). Months
 after it are PROJECTIONS: "if the household keeps using electricity the way it did the last few weeks",
 adjusted for the season. They are less reliable and the range widens every month, because weather, new
 appliances, and Meralco's monthly rate change in ways the past can't show. Beyond MAX_MONTHS the range

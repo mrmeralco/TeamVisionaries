@@ -205,6 +205,12 @@ AVG_DAYS = 28  # window for the weekday/weekend average fallback
 # remaining days' total, is how much this home's weekly use varies, at least LEVEL_SD_MIN.
 LEVEL_SD_MIN = 0.2
 LEVEL_SD_DEFAULT = 0.3   # fewer than 3 weeks with use to measure it on
+# The level of the days ahead comes from the last RECENT_DAYS, not SARIMA's 8 weeks: in backtests SARIMA's
+# level lagged the season and recent_level() cut the month-end error by 20-40% from day 1 to day 15. With
+# fewer than RELEVEL_DAYS left, SARIMA's own level takes over gradually (it was slightly better there).
+RECENT_DAYS = 14
+RELEVEL_DAYS = 10
+RATIO_BOUNDS = (0.5, 2.0)   # how far the simulated season change may move the recent level
 
 
 def daily_history(device_id: str, d: date, n: int) -> list[tuple[date, float | None]]:
@@ -218,13 +224,15 @@ def daily_history(device_id: str, d: date, n: int) -> list[tuple[date, float | N
 
 
 def forecast_days(device_id: str, d: date, n: int, today_kwh: float = 0.0, fallback_level: float = 0.0,
-                  method: str | None = None) -> dict:
+                  method: str | None = None, settings: dict | None = None) -> dict:
     """Expected grid import for days d .. d+n-1, season factor applied; day d is at least `today_kwh`.
 
-    SARIMA (sarima.py) when there are 4+ weeks of history, else weekday/weekend averages of the last 28
-    days (or `fallback_level` per day with no history at all). `method` overrides FORECAST_METHOD. Returns {method, model, kwh: per day,
-    totals: SARIMA's simulated sums of the n days (None for averages), sd: daily std dev (averages only),
-    level_sd: uncertainty of the household's level, see LEVEL_SD_MIN}.
+    Day-to-day SHAPE and noise: SARIMA (sarima.py) when there are 4+ weeks of history, else weekday/weekend
+    averages of the last 28 days (or `fallback_level` per day with no history at all). `method` overrides
+    FORECAST_METHOD. LEVEL: re-levelled to `recent_level()` (the last 14 days carried to these days with
+    the battery simulation), fully while RELEVEL_DAYS or more days are left, fading out after that.
+    Returns {method, model, kwh: per day, totals: SARIMA's simulated sums of the n days (None for averages),
+    sd: daily std dev (averages only), level_sd: uncertainty of the household's level, see LEVEL_SD_MIN}.
     """
     hist = daily_history(device_id, d, sarima.HISTORY_DAYS)
     days = [d + timedelta(days=i) for i in range(n)]
@@ -236,23 +244,62 @@ def forecast_days(device_id: str, d: date, n: int, today_kwh: float = 0.0, fallb
         import numpy as np
         kwh = [float(m * fx) for m, fx in zip(model["mean"], f)]
         sims = model["paths"] * np.array(f)[:, None]
-        kwh[0] = max(today_kwh, kwh[0])
-        sims[0] = np.maximum(sims[0], today_kwh)
-        return {"method": "sarima", "model": model["model"], "kwh": kwh, "totals": sims.sum(axis=0), "sd": None,
-                "level_sd": level_sd}
+        out = {"method": "sarima", "model": model["model"], "sd": None}
+    else:
+        recent = [(x, v) for x, v in hist[-AVG_DAYS:] if v is not None]
+        wk = [v for x, v in recent if x.weekday() < 5]
+        we = [v for x, v in recent if x.weekday() >= 5]
+        allv = [v for _, v in recent]
+        avg_all = statistics.mean(allv) if allv else fallback_level
+        avg_wk = statistics.mean(wk) if wk else avg_all
+        avg_we = statistics.mean(we) if we else avg_all
+        sd = statistics.pstdev(allv) if len(allv) > 1 else avg_all * 0.2
+        kwh = [(avg_wk if x.weekday() < 5 else avg_we) * fx for x, fx in zip(days, f)]
+        sims = None
+        out = {"method": "average", "model": "weekday/weekend average", "sd": sd * f[0]}
 
-    recent = [(x, v) for x, v in hist[-AVG_DAYS:] if v is not None]
-    wk = [v for x, v in recent if x.weekday() < 5]
-    we = [v for x, v in recent if x.weekday() >= 5]
-    allv = [v for _, v in recent]
-    avg_all = statistics.mean(allv) if allv else fallback_level
-    avg_wk = statistics.mean(wk) if wk else avg_all
-    avg_we = statistics.mean(we) if we else avg_all
-    sd = statistics.pstdev(allv) if len(allv) > 1 else avg_all * 0.2
-    kwh = [(avg_wk if x.weekday() < 5 else avg_we) * fx for x, fx in zip(days, f)]
+    level = recent_level(device_id, d, n, hist, settings)
+    if level is not None and sum(kwh) > 0:
+        w = min(1.0, n / RELEVEL_DAYS)
+        x = (w * level * n + (1 - w) * sum(kwh)) / sum(kwh)
+        kwh = [k * x for k in kwh]
+        if sims is not None:
+            sims = sims * x
+        if out["sd"] is not None:
+            out["sd"] *= x
+
     kwh[0] = max(today_kwh, kwh[0])
-    return {"method": "average", "model": "weekday/weekend average", "kwh": kwh, "totals": None, "sd": sd * f[0],
-            "level_sd": level_sd}
+    if sims is not None:
+        import numpy as np
+        sims[0] = np.maximum(sims[0], today_kwh)
+    return {**out, "kwh": kwh, "totals": sims.sum(axis=0) if sims is not None else None, "level_sd": level_sd}
+
+
+def recent_level(device_id: str, d: date, n: int, hist: list[tuple[date, float | None]],
+                 settings: dict | None = None) -> float | None:
+    """Expected grid kWh per day over days d .. d+n-1: the mean of the last RECENT_DAYS metered days, times
+    how much the battery simulation (projection.py: this home's own hourly profiles, load and sun scaled
+    for the season) says grid use changes from the middle of those days to the middle of the forecast.
+    A solar home's grid use is what is left after sun and battery, so it swings with the season far more
+    than tariff.SEASON_INDEX (a whole-home prior) suggests. None = fewer than 7 recent days with data."""
+    from . import outlook, projection
+
+    recent = [v * tariff.season_factor(x) for x, v in hist[-RECENT_DAYS:] if v is not None]
+    if len(recent) < 7:
+        return None
+    then = d - timedelta(days=RECENT_DAYS // 2)
+    mid = d + timedelta(days=(n - 1) // 2)
+    prof = outlook.profiles(device_id)
+    if len(prof["pv"]) < 24 or len(prof["load"]) < 24:
+        ratio = tariff.season_factor(mid) / tariff.season_factor(then)
+    else:
+        s = settings or db.get_settings()
+        now = projection._daily_grid(prof, 1.0, 1.0, s)["grid"]
+        later = projection._daily_grid(
+            prof, projection._season(projection.LOAD_SEASON, mid) / projection._season(projection.LOAD_SEASON, then),
+            projection._season(projection.SOLAR_SEASON, mid) / projection._season(projection.SOLAR_SEASON, then), s)["grid"]
+        ratio = later / now if now > 0.05 else 1.0
+    return statistics.mean(recent) * min(max(ratio, RATIO_BOUNDS[0]), RATIO_BOUNDS[1])
 
 
 def _level_sd(series: list[float | None]) -> float:
@@ -298,7 +345,7 @@ def bill(device_id: str, settings: dict) -> dict:
     # Forecast in kWh first (SARIMA, or weekday/weekend averages), then priced with Meralco's levels.
     today_kwh = month_t[-1]["grid_import_kwh"]
     fc = forecast_days(device_id, d, n_days - d.day + 1, today_kwh,
-                       fallback_level=mtd_kwh / max(1, d.day) / tariff.season_factor(d))
+                       fallback_level=mtd_kwh / max(1, d.day) / tariff.season_factor(d), settings=settings)
     done_kwh = mtd_kwh - today_kwh  # finished days this month
     fc_kwh, lo_kwh, hi_kwh = month_range(done_kwh, fc)
 
