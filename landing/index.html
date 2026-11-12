@@ -56,16 +56,12 @@ html[data-ground="orange"] { --ground-bg: #f9dcbd; --ground-surface: #fdebd7; --
 html[data-theme="dark"][data-ground="orange"] { --ground-bg: #1a2440; --ground-surface: #222e52; --ground-ink: #f1f3f9; --ground-muted: #bac2d3; --ground-accent: #f47721; }
 </style>
 <link rel="stylesheet" href="assets/ui/base.css">
-<link rel="stylesheet" href="assets/ui/window/fragment.css">
-<link rel="stylesheet" href="assets/ui/chat/fragment.css">
-<link rel="stylesheet" href="assets/ui/stat/fragment.css">
 <link rel="stylesheet" href="assets/diagrams/diagram.css">
 <script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
 <script src="assets/backgrounds/backgrounds.js"></script>
 <script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
 <link rel="modulepreload" href="assets/moments/moments.js">
 <link rel="modulepreload" href="assets/moments/lib.js">
-<link rel="modulepreload" href="assets/moments/liquid-type/moment.js">
 <style>
   /* ================= tokens for the drawn app screens: the app's day and night colours ================= */
   :root {
@@ -259,6 +255,101 @@ html[data-theme="dark"][data-ground="orange"] { --ground-bg: #1a2440; --ground-s
   }
   header.nav .nav__actions .btn { border-radius: 999px; }
 
+
+  /* ================= real app screens in a phone ================= */
+  .phone { position: relative; width: 100%; max-width: 300px; aspect-ratio: 393 / 852; padding: 7px; border-radius: 42px; background: #17171b;
+           box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08), 0 40px 80px -42px rgb(60 25 0 / .55), 0 12px 30px -18px rgb(0 0 0 / .35); }
+  .phone img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; border-radius: 35px; }
+  .shot--night { display: none !important; }
+  :root[data-theme="dark"] .shot--day { display: none !important; }
+  :root[data-theme="dark"] .shot--night { display: block !important; }
+
+  /* Ask Mira: the copy, then the conversation in front of Home */
+  main > section > .wrap.showcase { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-8) 24px; align-items: center; }
+  .showcase__copy { display: grid; gap: var(--s-5); justify-items: start; }
+  .showcase__copy h2 { margin: 0; }
+  .showcase__copy p { margin: 0; max-width: 46ch; }
+  .asks { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+  .asks li { justify-self: start; padding: 9px 18px; border-radius: 999px; border: 1px solid #f47721; color: var(--accent-text); font-weight: 500; background: color-mix(in oklab, #f47721 6%, transparent); }
+  .showcase__phones { position: relative; display: grid; place-items: center; min-height: 640px; isolation: isolate; }
+  .showcase__phones::before { content: ""; position: absolute; inset: 6% 4%; z-index: -1; border-radius: 48px;
+                              background: radial-gradient(60% 55% at 60% 40%, rgb(244 119 33 / .28), transparent 70%), linear-gradient(160deg, var(--p-surface), transparent); }
+  .showcase__phones .phone { position: absolute; }
+  .phone--front { width: 290px; right: 12%; top: 0; z-index: 2; }
+  .phone--back { width: 250px; left: 8%; top: 70px; }
+
+  /* the bill card: the app's own deep orange */
+  .billcard { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-6) 24px; align-items: center;
+              padding: clamp(32px, 5vw, 64px); border-radius: 32px; color: #fff; overflow: hidden;
+              background: linear-gradient(135deg, #b84a08, #a04005); }
+  .billcard__copy { display: grid; gap: var(--s-5); align-content: center; }
+  .billcard__copy h2 { margin: 0; color: #fff; }
+  .billcard__copy > p { margin: 0; max-width: 44ch; font-size: 17px; line-height: 1.6; color: #fff; }
+  .billcard__facts { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; gap: var(--s-4) var(--s-7); margin: var(--s-2) 0 0; }
+  .billcard__facts > div { display: grid; gap: 4px; }
+  .billcard__facts dt { order: 2; font-size: 14px; color: #fff; }
+  .billcard__facts dd { order: 1; margin: 0; font: 600 clamp(22px, 2.2vw, 32px)/1.1 var(--font-display); letter-spacing: -0.02em; color: #fff; white-space: nowrap; }
+  .billcard__phone { display: grid; justify-items: center; margin-block: -24px calc(-1 * clamp(140px, 16vw, 220px)); }
+  .billcard__phone .phone { max-width: 320px; }
+  .eyebrow--on-brand { color: #fff !important; }
+  html .eyebrow--on-brand::before { background: #fff; box-shadow: 0 0 0 4px rgb(255 255 255 / .25); }
+
+  /* the gallery: three real screens */
+  .gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-7) 24px; margin-top: var(--s-8); }
+  .gallery__item { display: grid; gap: var(--s-3); justify-items: start; align-content: start; }
+  .gallery__item .phone { justify-self: center; max-width: 280px; margin-bottom: var(--s-4); }
+  .gallery__item h3 { margin: 0; font-size: 20px; font-weight: 600; }
+  .gallery__item p { margin: 0; max-width: 36ch; }
+
+  /* the setup diagram on a plain brand surface */
+  #setup .frame { background: var(--p-surface) !important; box-shadow: inset 0 0 0 1px var(--line); }
+  :root[data-theme="dark"] #setup .frame { background: var(--p-surface) !important; }
+
+  @media (max-width: 1023px) {
+    main > section > .wrap.showcase, .billcard { grid-template-columns: minmax(0, 1fr); }
+    .showcase__phones { min-height: 640px; }
+    .phone--front { right: 14%; }
+    .phone--back { left: 12%; }
+    .billcard__phone { margin: 0; }
+    .gallery { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-6) 16px; }
+    .gallery__item h3 { font-size: 18px; }
+  }
+  @media (max-width: 639px) {
+    .showcase__phones { min-height: 540px; }
+    .phone--front { width: 230px; right: 0; }
+    .phone--back { width: 190px; left: 0; top: 60px; }
+    .billcard__facts { grid-template-columns: repeat(2, auto); }
+    .gallery { grid-template-columns: minmax(0, 1fr); }
+    .gallery__item .phone { max-width: 260px; }
+  }
+
+  /* ================= the footer: the team ================= */
+  .sitefoot { padding-block: var(--sec-pad) var(--s-7) !important; }
+  .sitefoot > .wrap { display: grid !important; gap: var(--s-8); row-gap: var(--s-8) !important; }
+  .sitefoot__cta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-5);
+                   padding-bottom: var(--s-8); border-bottom: 1px solid rgb(255 255 255 / .12); }
+  .sitefoot__cta h2 { margin: 0; color: #fff; font-size: clamp(28px, 3.4vw, 44px); }
+  .sitefoot .btn { border-radius: 999px; }
+  .sitefoot__team { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-7) 24px; }
+  .sitefoot__brand { display: grid; gap: var(--s-4); align-content: start; justify-items: start; }
+  .sitefoot__brand p { margin: 0; max-width: 40ch; color: rgb(255 255 255 / .82); }
+  .sitefoot__brand b { color: #fff; font-weight: 600; }
+  .sitefoot__social { display: flex; flex-wrap: wrap; gap: 10px; }
+  .sitefoot__social a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; color: #fff; text-decoration: none;
+                        background: rgb(255 255 255 / .07); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .16); transition: background-color .18s ease; }
+  .sitefoot__social a:hover { background: rgb(255 255 255 / .14); }
+  .sitefoot__social svg { width: 18px; height: 18px; }
+  .sitefoot__people { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-4) 24px; margin: 0; padding: 0; list-style: none; }
+  .sitefoot__people li { display: grid; gap: 2px; padding-left: 14px; border-left: 2px solid #f47721; }
+  .sitefoot__people b { color: #fff; font-weight: 600; }
+  .sitefoot__people span { font-size: 14px; color: rgb(255 255 255 / .75); }
+  .sitefoot__legal { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-4); padding-top: var(--s-5); border-top: 1px solid rgb(255 255 255 / .12);
+                     font-size: 14px; color: rgb(255 255 255 / .7); }
+  .sitefoot__legal nav { display: flex; flex-wrap: wrap; gap: 4px var(--s-5); }
+  .sitefoot__legal a { display: inline-flex; align-items: center; min-height: 44px; color: rgb(255 255 255 / .85); text-decoration: none; }
+  .sitefoot__legal a:hover { color: #fff; text-decoration: underline; }
+  @media (max-width: 767px) { .sitefoot__team { grid-template-columns: minmax(0, 1fr); } }
+
   /* ================= facts band ================= */
   main > section.facts { padding-block: var(--s-7) !important; background: var(--p-surface); border-bottom: 1px solid var(--line); }
   .facts__row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
@@ -383,8 +474,8 @@ html[data-theme="dark"][data-ground="orange"] { --ground-bg: #1a2440; --ground-s
     <a class="nav__logo" href="#top"><span class="mark" data-mark="ring" aria-hidden="true"></span>Solaris</a>
     <nav class="nav__links" aria-label="Main">
       <div class="nav__item"><a class="nav__link" href="#top">Home</a></div>
-      <div class="nav__item"><a class="nav__link" href="#app">Alerts</a></div>
-      <div class="nav__item"><a class="nav__link" href="#forecast">Forecasts</a></div>
+      <div class="nav__item"><a class="nav__link" href="#app">Ask Mira</a></div>
+      <div class="nav__item"><a class="nav__link" href="#forecast">The app</a></div>
       <div class="nav__item"><a class="nav__link" href="#setup">Setup</a></div>
       <div class="nav__item"><a class="nav__link" href="#questions">Questions</a></div>
     </nav>
@@ -407,11 +498,11 @@ html[data-theme="dark"][data-ground="orange"] { --ground-bg: #1a2440; --ground-s
       <div class="studio__cards" aria-hidden="true">
         <div class="ui gcard">
           <div class="gcard__head"><span><i class="gdot"></i>Right now</span><span class="gcard__meta">Live &middot; every 5 s</span></div>
-          <div class="gcard__row"><div><small>Solar</small><b>3.42 kW</b></div><div><small>Battery</small><b>78%</b></div><div><small>Grid</small><b>0.00 kW</b></div></div>
+          <div class="gcard__row"><div><small>Solar</small><b>3.1 kW</b></div><div><small>Battery</small><b>78%</b></div><div><small>Grid</small><b>0.0 kW</b></div></div>
         </div>
         <div class="ui gcard">
           <div class="gcard__head"><span>November bill</span><span class="gcard__meta">Forecast</span></div>
-          <div class="gcard__row"><div><small>So far</small><b>&#8369;1,114</b></div><div><small>Likely</small><b>&#8369;2,790</b></div><div><small>Range</small><b>&#8369;2.5k&ndash;3.1k</b></div></div>
+          <div class="gcard__row"><div><small>So far</small><b>&#8369;746</b></div><div><small>Likely</small><b>&#8369;1,995</b></div><div><small>Range</small><b>&#8369;1.8k&ndash;2.2k</b></div></div>
         </div>
       </div>
       <div class="studio__main">
@@ -435,196 +526,64 @@ html[data-theme="dark"][data-ground="orange"] { --ground-bg: #1a2440; --ground-s
   </section>
 
   <section class="section" id="app" aria-labelledby="app-h">
+    <div class="wrap showcase">
+      <div class="showcase__copy">
+        <p class="eyebrow">Ask Mira</p>
+        <h2 id="app-h">Ask about your power in Taglish</h2>
+        <p>Mira reads your live numbers before she answers. Ask &ldquo;Bakit mataas ang bill ko?&rdquo; and she gives your bill so far, the forecast and the hours you buy most from the grid, with where each figure comes from.</p>
+        <ul class="asks" aria-label="Questions people ask Mira">
+          <li lang="fil">Bakit mataas ang bill ko?</li>
+          <li lang="fil">Kakayanin ba ng battery mamaya?</li>
+          <li lang="fil">Magkano ang natipid ko dahil sa solar?</li>
+        </ul>
+        <a class="link" href="#forecast">See the other screens</a>
+      </div>
+      <div class="showcase__phones">
+        <div class="phone phone--back"><img class="shot shot--day" src="assets/app/home-day.jpg" alt="The Solaris Home screen: the house with solar at 3.1 kW, home use 1.8 kW, the battery at 78% and charging" width="590" height="1278" loading="lazy"><img class="shot shot--night" src="assets/app/home-night.jpg" alt="" aria-hidden="true" width="590" height="1278" loading="lazy"></div>
+        <div class="phone phone--front"><img class="shot shot--day" src="assets/app/ask-day.jpg" alt="Ask Mira: the question Bakit mataas ang bill ko, and Mira answering that the bill is 746 pesos so far with a 1,995 peso forecast, with her three sources" width="590" height="1278" loading="lazy"><img class="shot shot--night" src="assets/app/ask-night.jpg" alt="" aria-hidden="true" width="590" height="1278" loading="lazy"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="bill" aria-labelledby="bill-h">
+    <div class="wrap">
+      <div class="billcard">
+        <div class="billcard__copy">
+          <p class="eyebrow eyebrow--on-brand">Bill &amp; Savings</p>
+          <h2 id="bill-h">Know the bill before it arrives</h2>
+          <p>Solaris counts your grid use every day at your Meralco rate and shows where the month is likely to end, with a low and a high beside it.</p>
+          <dl class="billcard__facts">
+            <div><dt>So far</dt><dd>&#8369;746</dd></div>
+            <div><dt>Predicted for November</dt><dd>&#8369;1,995</dd></div>
+            <div><dt>Likely range</dt><dd>&#8369;1,833&ndash;&#8369;2,156</dd></div>
+          </dl>
+        </div>
+        <div class="billcard__phone"><div class="phone "><img class="shot shot--day" src="assets/app/bill-day.jpg" alt="The Bill and Savings screen: 1,995 pesos predicted for November, 186 pesos less than last month, a likely range of 1,833 to 2,156 pesos, and 1,694 pesos saved this month" width="590" height="1278" loading="lazy"><img class="shot shot--night" src="assets/app/bill-night.jpg" alt="" aria-hidden="true" width="590" height="1278" loading="lazy"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="forecast" aria-labelledby="forecast-h">
     <div class="wrap">
       <div class="split-head">
-        <div><p class="eyebrow">Alerts and Mira</p><h2 id="app-h">App alerts that Mira explains in Taglish</h2></div>
-        <div>
-          <p>When the grid drops, the battery runs low or the inverter gets hot, Solaris alerts your phone. Ask Mira what to do and she answers from your live numbers.</p>
-          <a class="link" href="#forecast">See the forecasts</a>
-        </div>
+        <div><p class="eyebrow">Inside the app</p><h2 id="forecast-h">The Solaris app, screen by screen</h2></div>
+        <div><p>Real screens from the app, in Taglish and English. It follows the time of day: cream by day, navy at night.</p></div>
       </div>
-      <div class="ui app" role="img" aria-label="The Solaris alerts list with a brownout on top, and Mira saying the battery lasts about 7.1 hours at 900 watts" data-ui-pause-host>
-        <div class="app__pane app__pane--list">
-          <div class="ui ui-panel ui-win" data-ui="window" data-open="New" data-work="Mira is reading" data-done="Explained">
-            <div class="ui-win__bar">
-              <span class="ui-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-              <span class="ui-win__crumb"><svg class="ui-brand" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 5.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z"/></svg>Solaris <i>/</i> <b>Alerts</b></span>
-              <span class="ui-spacer"></span>
-              <span class="ui-win__search" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg><span class="ui-win__ph">Search</span><span class="ui-kbd">/</span></span>
-            </div>
-            <div class="ui-win__body">
-              <nav class="ui-win__side" aria-hidden="true">
-                <span class="ui-win__nav is-on"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M8 2.5a3.5 3.5 0 0 1 3.5 3.5c0 3 1.5 4.5 1.5 4.5H3s1.5-1.5 1.5-4.5A3.5 3.5 0 0 1 8 2.5z"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0"/></svg>New<em>3</em></span>
-                <span class="ui-win__nav"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/></svg>Today<em>6</em></span>
-                <span class="ui-win__nav"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg>Explained</span>
-                <span class="ui-win__label">Kinds</span>
-                <span class="ui-win__nav"><span class="ui-win__hash">#</span>Brownout</span>
-                <span class="ui-win__nav"><span class="ui-win__hash">#</span>Battery</span>
-                <span class="ui-win__nav"><span class="ui-win__hash">#</span>Inverter</span>
-              </nav>
-              <div class="ui-win__main">
-                <div class="ui-win__cols" aria-hidden="true"><span>Alert</span><span>What happened</span><span>Status</span><span>Age</span></div>
-                <ul class="ui-win__rows">
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="2">BO</span><span class="ui-win__who" lang="fil">Brownout</span><span class="ui-win__sub" lang="fil">Battery at solar na ang gamit</span><span class="ui-win__st" data-st>New</span><span class="ui-win__age">2m</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="4">MI</span><span class="ui-win__who" lang="fil">Mainit ang inverter</span><span class="ui-win__sub" lang="fil">66 &deg;C, kailangan ng hangin</span><span class="ui-win__st" data-st>New</span><span class="ui-win__age">40m</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="5">MB</span><span class="ui-win__who" lang="fil">Mababa na ang battery</span><span class="ui-win__sub" lang="fil">18% na lang ang natitira</span><span class="ui-win__st" data-st>New</span><span class="ui-win__age">3h</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="3">BK</span><span class="ui-win__who" lang="fil">Bumalik na ang kuryente</span><span class="ui-win__sub" lang="fil">Pagkatapos ng 30 minuto</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">5h</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="1">FT</span><span class="ui-win__who" lang="fil">Fault 21</span><span class="ui-win__sub" lang="fil">Sobrang init ng inverter</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">6h</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="2">BO</span><span class="ui-win__who" lang="fil">Brownout</span><span class="ui-win__sub" lang="fil">Nawalan ng kuryente, 14:02</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">7h</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="4">OD</span><span class="ui-win__who" lang="fil">Offline ang Solaris device</span><span class="ui-win__sub" lang="fil">Walang data nang 3 minuto</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">1d</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="3">BK</span><span class="ui-win__who" lang="fil">Bumalik na ang kuryente</span><span class="ui-win__sub" lang="fil">Pagkatapos ng 1 oras</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">2d</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="5">MB</span><span class="ui-win__who" lang="fil">Mababa na ang battery</span><span class="ui-win__sub" lang="fil">20% na, ang reserve</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">3d</span></li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="app__pane app__pane--open" data-ui-loop>
-          <div class="ui ui-panel ui-chat" data-ui="chat">
-            <div class="ui-head"><span class="ui-agent" aria-hidden="true"></span><div class="ui-title">Mira</div><span class="ui-chat__online">Online</span><span class="ui-spacer"></span></div>
-            <div class="ui-chat__body">
-              <div class="ui-chat__day">Today, 13:05</div>
-              <div class="ui-msg ui-msg--me"><span class="ui-msg__text" lang="fil">Okay ba ang solar production ko ngayon?</span></div>
-              <div class="ui-msg ui-msg--bot">
-                <span class="ui-agent ui-msg__av" aria-hidden="true"></span>
-                <span class="ui-msg__col"><span class="ui-chat__answer" lang="fil">Oo, <b>3.42 kW</b> ngayon, malapit sa karaniwan mo sa ganitong oras. Puno na ang battery bago mag-hapon.</span></span>
-              </div>
-              <div class="ui-chat__day">Today, 18:42</div>
-              <div class="ui-msg ui-msg--me"><span class="ui-msg__text" lang="fil">Mira, nag-brownout ba?</span></div>
-              <div class="ui-msg ui-msg--bot">
-                <span class="ui-agent ui-msg__av" aria-hidden="true"></span>
-                <span class="ui-msg__col"><span class="ui-chat__answer" lang="fil">Oo, wala pang kuryente mula sa grid simula 18:40. Battery na ang gamit ng bahay, nasa <b>64%</b> pa.</span></span>
-              </div>
-              <div class="ui-msg ui-msg--me" data-chat-q><span class="ui-msg__text" lang="fil">Gaano katagal ang battery?</span></div>
-              <div class="ui-msg ui-msg--bot" data-chat-a>
-                <span class="ui-agent ui-msg__av" aria-hidden="true"></span>
-                <span class="ui-msg__col">
-                  <span class="ui-chat__typing" aria-hidden="true"><i></i><i></i><i></i></span>
-                  <span class="ui-chat__answer" lang="fil">Sa 900 W na gamit ngayon, aabot pa ng mga <b>7.1 oras</b> ang battery mo. Patayin muna ang aircon para umabot hanggang umaga.</span>
-                  <span class="ui-chat__srcs"><span class="ui-chat__src"><svg class="ui-icon" viewBox="0 0 16 16"><rect x="2.5" y="5" width="10" height="6" rx="1.5"/><path d="M13.5 7v2"/></svg>Battery 64%</span><span class="ui-chat__src"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M9 2 4 9h4l-1 5 5-7H8z"/></svg>Load 900 W</span></span>
-                </span>
-              </div>
-              <div class="ui-msg ui-msg--me"><span class="ui-msg__text" lang="fil">Sige, salamat.</span></div>
-            </div>
-            <div class="ui-chat__input"><span class="ui-chat__ph">Ask Mira</span><span class="ui-chat__send" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 13V3.5M3.8 7.5 8 3.3l4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section band--glass" id="bill" data-moment="liquid-type" data-glass data-glass-curve="1.02,-0.16,0.04,0.8" data-glass-rib="40" aria-labelledby="bill-h">
-    <div class="wrap">
-      <div class="band__grid">
-        <h2 class="mo-lt__type" id="bill-h">Know the bill before it arrives</h2>
-        <div class="band__side">
-          <p>Most solar owners learn what a month cost when the Meralco bill comes. Solaris shows the running cost every day and where the month is likely to end.</p>
-          <a class="btn btn--primary" href="#forecast">See the forecasts<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section g2" id="forecast" aria-labelledby="forecast-h">
-    <div class="wrap">
-      <div class="group">
-        <div class="section-head">
-          <p class="eyebrow">Forecasts</p>
-          <h2 id="forecast-h">Solaris forecasts your bill, sun and battery. <span class="muted">Each one learns from your own readings.</span></h2>
-        </div>
-        <div class="grid">
-          <article class="card card--row card--open m-nolift span-6">
-            <h3>Forecasts the month&rsquo;s energy bill</h3>
-            <p>A likely figure with a low and a high beside it, from your daily grid use at your Meralco rate.</p>
-            <div class="panel" role="img" aria-label="Grid cost so far in November, 1,114 pesos, with a bar for each day">
-              <div class="stage stage--fade-b"><div class="at-corner fit" style="--fit-max:420px;--ax:40px;--ay:40px" data-ui-loop>
-                <div class="ui ui-panel ui-stat" data-ui="stat" aria-hidden="true" data-values="88,104,79,121,96,83,112,74,91,99,86,81" data-prev="96,111,92,118,104,99,120,88,97,108,95,90">
-                  <div class="ui-stat__head">
-                    <div class="ui-stat__top">
-                      <span class="ui-stat__label">Grid cost this month</span>
-                      <span class="ui-stat__range">November<svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"/></svg></span>
-                    </div>
-                    <div class="ui-stat__line">
-                      <span class="ui-stat__num" data-stat-num>&#8369;1,114</span>
-                      <span class="ui-chip ui-chip--plain ui-stat__delta">&#8369;2,520 to &#8369;3,060</span>
-                      <span class="ui-stat__sub">by Nov 30</span>
-                    </div>
-                  </div>
-                  <div class="ui-stat__chart">
-                    <svg class="ui-stat__svg" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden="true">
-                      <path class="ui-stat__grid" d="M0 30.5H400M0 60.5H400M0 90.5H400"/>
-                      <path class="ui-stat__cover" fill-rule="evenodd" d=""/>
-                      <g class="ui-stat__bars"></g>
-                    </svg>
-                    <div class="ui-stat__axis" aria-hidden="true"><span>Nov 1</span><span>Nov 6</span><span>Today</span></div>
-                  </div>
-                </div>
-              </div></div>
-            </div>
-          </article>
-          <article class="card card--row card--open m-nolift span-6">
-            <h3>Plans the next 48 hours of sun</h3>
-            <p>Hourly weather from Open-Meteo, tuned to what your panels made over the last 7 days.</p>
-            <div class="panel" role="img" aria-label="Solar expected over the next 48 hours: about 19.6 kWh tomorrow, the battery reaching its 20 percent reserve at 05:10">
-              <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:380px;--ax:max(24px, 50% - 190px);--ay:40px;--ay-sm:16px">
-                <div class="ui sx-card sx-outlook" aria-hidden="true">
-                  <div class="sx-card__row"><h5>Solar, next 48 hours</h5><span class="sx-chip">Weather</span></div>
-                  <p>Tomorrow about <b>19.6 kWh</b>, clouds after 14:00</p>
-                  <svg viewBox="0 0 320 96" preserveAspectRatio="none">
-                    <path class="sx-curve-base" d="M0 95.5H320" stroke-width="1"/>
-                    <path class="sx-curve-fill" d="M20 96C40 96 50 30 80 22S120 90 140 96M180 96C200 96 205 40 232 34S262 70 270 66 290 96 300 96Z"/>
-                    <path d="M20 96C40 96 50 30 80 22S120 90 140 96M180 96C200 96 205 40 232 34S262 70 270 66 290 96 300 96" fill="none" stroke="#f47721" stroke-width="2"/>
-                    <path class="sx-curve-batt" d="M0 40C30 34 60 18 100 16S150 60 180 76 230 30 260 22 300 40 320 46" fill="none" stroke-width="1.5" stroke-dasharray="4 4"/>
-                  </svg>
-                  <div class="sx-axis"><span>Now</span><span>Tomorrow</span><span>Saturday</span></div>
-                  <div class="sx-line" style="margin-top:8px"><i>!</i><span>Battery reaches the 20% reserve at <b>05:10</b></span></div>
-                </div>
-              </div></div>
-            </div>
-          </article>
-        </div>
-      </div>
-      <div class="grid">
-        <article class="card card--row card--open m-nolift span-6">
-          <h3>Times the home battery in a brownout</h3>
-          <p>Solaris shows how long the battery lasts at the load you have on now, and Mira says what to switch off.</p>
-          <div class="panel" role="img" aria-label="The Brownout Advisor: brownout in progress, about 7.1 hours of battery left at 900 watts, battery at 64 percent">
-            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:400px;--ax:max(24px, 50% - 200px);--ay:32px;--ay-sm:16px">
-              <div class="ui sx-app" aria-hidden="true">
-                <div class="sx-bo">
-                  <div class="sx-bo__top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v7M7 6.5a7 7 0 1 0 10 0"/><path d="m4 4 16 16"/></svg>Brownout in progress</div>
-                  <b>~7.1 hrs</b>
-                  <span lang="fil">tatagal pa ang battery sa kasalukuyang gamit</span>
-                </div>
-                <div class="sx-stats">
-                  <div><small>Battery</small><b>64<i>%</i></b></div>
-                  <div><small>Home Usage</small><b>0.90<i>kW</i></b></div>
-                  <div><small>Started</small><b>18:40</b><em>Nov 12</em></div>
-                  <div><small>Duration</small><b>30<i>min</i></b><em>ongoing</em></div>
-                </div>
-                <div class="sx-advice"><b>Mira&rsquo;s advice</b><p lang="fil">Sa 900 W na gamit, aabot pa ng mga 7.1 oras ang battery mo (64%). Ilaw, electric fan, ref at charger lang muna para tumagal.</p></div>
-              </div>
-            </div></div>
-          </div>
+      <div class="gallery">
+        <article class="gallery__item">
+          <div class="phone "><img class="shot shot--day" src="assets/app/energy-day.jpg" alt="The Energy screen: today 2.21 kWh of solar, 2.15 kWh from the grid, 46% self-sufficiency, and solar against home and grid by the hour" width="590" height="1278" loading="lazy"><img class="shot shot--night" src="assets/app/energy-night.jpg" alt="" aria-hidden="true" width="590" height="1278" loading="lazy"></div>
+          <h3>Read your day hour by hour</h3>
+          <p>Solar, home use and the grid by day, week or month, with how much of your power was your own.</p>
         </article>
-        <article class="card card--row card--open m-nolift span-6">
-          <h3>Sends app alerts the moment they happen</h3>
-          <p>Brownout, low battery, inverter heat, faults and a device going offline, each with what it means and what to do.</p>
-          <div class="panel" role="img" aria-label="The Solaris Alerts screen: a brownout, the grid coming back and a hot inverter, today">
-            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:420px;--ax:max(24px, 50% - 210px);--ay:32px;--ay-sm:16px">
-              <div class="ui sx-app" aria-hidden="true">
-                <div class="sx-group-label">Today &middot; 3</div>
-                <div class="sx-group">
-                  <div class="sx-alert"><span class="sx-alert__ic ic-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v7M7 6.5a7 7 0 1 0 10 0"/><path d="m4 4 16 16"/></svg></span>
-                    <div><div class="sx-alert__t"><b>Brownout</b><i class="sx-dot"></i></div><p lang="fil">Nawalan ng kuryente mula sa grid. Battery at solar na ang gamit ng bahay mo.</p><div class="sx-alert__f"><span>18:40 &middot; just now</span><span>Brownout Advisor</span></div></div></div>
-                  <div class="sx-alert"><span class="sx-alert__ic ic-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v7M7 6.5a7 7 0 1 0 10 0"/></svg></span>
-                    <div><div class="sx-alert__t"><b lang="fil">Bumalik na ang kuryente</b></div><p lang="fil">Bumalik na ang grid pagkatapos ng 30 minuto. Magcha-charge ulit ang battery.</p><div class="sx-alert__f"><span>14:32</span><span>See explanation</span></div></div></div>
-                  <div class="sx-alert"><span class="sx-alert__ic ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z"/><path d="M12 9v6"/></svg></span>
-                    <div><div class="sx-alert__t"><b lang="fil">Mainit ang inverter</b></div><p lang="fil">66&deg;C ang inverter. Siguraduhing may hangin sa paligid nito.</p><div class="sx-alert__f"><span>13:05</span><span>See explanation</span></div></div></div>
-                </div>
-              </div>
-            </div></div>
-          </div>
+        <article class="gallery__item">
+          <div class="phone "><img class="shot shot--day" src="assets/app/brownout-day.jpg" alt="The Brownout Advisor: brownout in progress, about 7.1 hours of battery left, battery at 64%, and Mira advising which appliances to keep on" width="590" height="1278" loading="lazy"><img class="shot shot--night" src="assets/app/brownout-night.jpg" alt="" aria-hidden="true" width="590" height="1278" loading="lazy"></div>
+          <h3>Know how long the battery lasts</h3>
+          <p>In a brownout, the hours left at your current load, what to switch off, and the next 48 hours of sun.</p>
+        </article>
+        <article class="gallery__item">
+          <div class="phone "><img class="shot shot--day" src="assets/app/alerts-day.jpg" alt="The Alerts screen: a hot inverter, low battery, an inverter fault and a brownout, each in Taglish with what to do" width="590" height="1278" loading="lazy"><img class="shot shot--night" src="assets/app/alerts-night.jpg" alt="" aria-hidden="true" width="590" height="1278" loading="lazy"></div>
+          <h3>Act on alerts in Taglish</h3>
+          <p>Heat, low battery, faults and brownouts arrive with what they mean and the next step.</p>
         </article>
       </div>
     </div>
@@ -671,29 +630,32 @@ html[data-theme="dark"][data-ground="orange"] { --ground-bg: #1a2440; --ground-s
   </section>
 </main>
 
-<footer class="footer closing footer--dark ground-inverse" id="contact" aria-labelledby="close-h">
+<footer class="footer closing footer--dark ground-inverse sitefoot" id="contact" aria-labelledby="close-h">
   <div class="wrap">
-    <div class="closing__cta close--word">
-      <div class="section-head--split">
-        <div><h2 id="close-h">See Solaris run on a real inverter</h2><p class="t-lead">Live readings, a brownout and the bill forecast.</p></div>
-        <a class="btn btn--primary" href="mailto:hello@solaris.example?subject=Solaris%20demo">Book a demo<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
-      </div>
-      <p class="close__word" aria-hidden="true">Solaris</p>
+    <div class="sitefoot__cta">
+      <h2 id="close-h">See Solaris run on a real inverter</h2>
+      <a class="btn btn--primary" href="mailto:hello@solaris.example?subject=Solaris%20demo">Book a demo<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
     </div>
-    <div class="closing__links">
-      <div class="grid">
-        <div class="span-4 stack-4">
-          <a class="nav__logo" href="#top"><span class="mark" data-mark="ring" aria-hidden="true"></span>Solaris</a>
-          <p class="footer__lede">Solar monitoring for Filipino homes.</p>
+    <div class="sitefoot__team">
+      <div class="sitefoot__brand">
+        <a class="nav__logo" href="#top"><span class="mark" data-mark="ring" aria-hidden="true"></span>Solaris</a>
+        <p>Built by <b>Team Visionaries</b> at Pamantasan ng Lungsod ng Valenzuela for the IDOL Hackathon 2026.</p>
+        <div class="sitefoot__social">
+          <a href="https://github.com/Adrian-stuff/TeamVisionaries" aria-label="Solaris on GitHub" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.04 1.53 1.04.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02A9.6 9.6 0 0 1 12 6.84c.85 0 1.7.11 2.5.34 1.9-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg><span>GitHub</span></a>
+          <a href="mailto:hello@solaris.example?subject=Solaris" aria-label="Email Team Visionaries"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/></svg><span>Email</span></a>
         </div>
-        <div class="span-2 start-7 footer__col"><h3>Product</h3><ul><li><a href="#top">Home</a></li><li><a href="#app">Alerts</a></li><li><a href="#forecast">Forecasts</a></li><li><a href="#setup">Setup</a></li></ul></div>
-        <div class="span-2 footer__col"><h3>Help</h3><ul><li><a href="#questions">Questions</a></li><li><a href="mailto:hello@solaris.example?subject=Solaris%20question">Email the team</a></li></ul></div>
-        <div class="span-2 footer__col"><h3>Team</h3><ul><li>Team Visionaries</li><li>Adrian, Lead developer</li><li>PLV, Valenzuela</li><li>IDOL Hackathon 2026</li></ul></div>
       </div>
-      <div class="footer__legal">
-        <span>&copy; 2026 Team Visionaries &middot; Readings stay on your home network.</span>
-        <div class="socials"></div>
-      </div>
+      <ul class="sitefoot__people" aria-label="Team Visionaries">
+        <li><b>Adrian</b><span>Lead developer · Solaris device firmware</span></li>
+        <li><b>Stephen</b><span>Inverter simulator</span></li>
+        <li><b>Andy</b><span>Server and Mira</span></li>
+        <li><b>Aldrin</b><span>App</span></li>
+        <li><b>Shane</b><span>App</span></li>
+      </ul>
+    </div>
+    <div class="sitefoot__legal">
+      <span>&copy; 2026 Team Visionaries</span>
+      <nav aria-label="Footer"><a href="#top">Home</a><a href="#app">Ask Mira</a><a href="#forecast">The app</a><a href="#setup">Setup</a><a href="#questions">Questions</a></nav>
     </div>
   </div>
 </footer>
