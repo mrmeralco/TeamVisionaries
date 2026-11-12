@@ -118,6 +118,15 @@ final unreadAlertsProvider = Provider<int>(
   (ref) => ref.watch(alertsProvider).value?['unread'] as int? ?? 0,
 );
 
+/// The server answered PUT /api/settings but didn't keep [fields] (e.g. a server from before smart meter
+/// mode drops `setup`). The app then shows what the server has, and says so instead of looking saved.
+class SettingsNotKept implements Exception {
+  const SettingsNotKept(this.fields);
+  final List<String> fields;
+  @override
+  String toString() => 'SettingsNotKept($fields)';
+}
+
 /// GET / PUT /api/settings (rate ₱/kWh, battery kWh, user name, device id).
 class SettingsNotifier extends AsyncNotifier<Json> {
   @override
@@ -141,6 +150,8 @@ class SettingsNotifier extends AsyncNotifier<Json> {
       ref.invalidate(energyProvider);
       ref.invalidate(liveProvider); // reconnect: the first message carries the new setup
     }
+    final dropped = [for (final e in changes.entries) if (saved[e.key] != e.value) e.key];
+    if (dropped.isNotEmpty) throw SettingsNotKept(dropped);
   }
 }
 

@@ -9,7 +9,7 @@ import pytest
 
 SERVER = Path(__file__).resolve().parent.parent
 _tmp = tempfile.mkdtemp(prefix="solaris-test-")
-os.environ.update({"SOLARIS_DB": f"{_tmp}/test.db", "MQTT_ENABLED": "0", "AI_LOG": f"{_tmp}/ai.jsonl",
+os.environ.update({"SOLARIS_DB": f"{_tmp}/test.db", "SOLARIS_MOCK_SETTINGS": f"{_tmp}/mock_settings.json", "MQTT_ENABLED": "0", "AI_LOG": f"{_tmp}/ai.jsonl",
                    "SOLARIS_MOCK": "0", "LLM_ENABLED": "0", "WEATHER_ENABLED": "0"})
 sys.path.insert(0, str(SERVER))
 sys.path.insert(0, str(SERVER.parent / "tests"))  # solaris_contract.py

@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import '../../core/router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
+import '../../providers/data_providers.dart' show SettingsNotKept;
 import '../../providers/live_providers.dart';
 import '../../providers/server_providers.dart';
 import '../../services/api_service.dart';
@@ -505,6 +506,15 @@ class FriendlyError {
 }
 
 FriendlyError friendlyError(Object? e) {
+  if (e is SettingsNotKept) {
+    return FriendlyError(
+      ErrorKind.server,
+      e.fields.contains('setup')
+          ? 'Hindi naitago ng server ang setup ng bahay.'
+          : 'Hindi naitago ng server ang ilang settings.',
+      'Baka luma ang Solaris server: i-update ito (git pull), i-restart, tapos subukan ulit.',
+    );
+  }
   if (e is ApiException) {
     return FriendlyError(
       ErrorKind.server,

@@ -30,3 +30,4 @@ app/ios/Flutter/flutter_export_environment.sh
 # OS / editors
 .DS_Store
 .vscode/
+server/mock_settings.json

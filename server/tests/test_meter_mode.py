@@ -360,8 +360,9 @@ def test_meter_only_daily_summary(setup_mode):
 def mock_mode(monkeypatch):
     from app import config
     monkeypatch.setattr(config, "MOCK", True)
+    mock.reset()
     yield
-    mock.set_setup("solar")
+    mock.reset()
 
 
 def test_mock_mode_demos_each_setup(client, mock_mode):
@@ -381,3 +382,22 @@ def test_mock_mode_demos_each_setup(client, mock_mode):
             assert client.get(path).status_code == 200
     mock.set_setup("meter_only")
     assert client.get("/api/energy?period=month").json()["totals"]["pv_kwh"] == 0
+
+
+def test_mock_mode_keeps_what_onboarding_saved(client, mock_mode):
+    """The app remembers it was set up; the demo server must remember the answers, even after a restart."""
+    import importlib
+
+    from app import config
+    out = client.put("/api/settings", json={"setup": "meter_only", "user_name": "Ana"}).json()
+    assert (out["setup"], out["user_name"]) == ("meter_only", "Ana")
+    client.put("/api/settings", json={"rate_php_per_kwh": 14.5})
+    got = client.get("/api/settings").json()
+    assert (got["setup"], got["user_name"], got["rate_php_per_kwh"]) == ("meter_only", "Ana", 14.5)
+    assert client.get("/api/live").json()["setup"] == "meter_only"
+
+    importlib.reload(mock)   # a restart: read back from the file
+    assert config.MOCK_SETTINGS_PATH.exists()
+    got = client.get("/api/settings").json()
+    assert (got["setup"], got["user_name"]) == ("meter_only", "Ana")
+    assert client.get("/api/live").json()["telemetry"] is None

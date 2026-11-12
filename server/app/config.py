@@ -29,6 +29,8 @@ def _bool(name: str, default: str = "0") -> bool:
 MOCK = _bool("SOLARIS_MOCK")
 
 DB_PATH = Path(os.getenv("SOLARIS_DB", SERVER_DIR / "solaris.db"))
+# Mock mode has no DB: the settings saved in it (setup, name, rate) are kept here, so a restart keeps them.
+MOCK_SETTINGS_PATH = Path(os.getenv("SOLARIS_MOCK_SETTINGS", SERVER_DIR / "mock_settings.json"))
 TZ = ZoneInfo(os.getenv("SOLARIS_TZ", "Asia/Manila"))
 EXAMPLES_DIR = REPO_DIR / "docs" / "contracts" / "examples"
 
