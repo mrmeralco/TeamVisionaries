@@ -119,6 +119,11 @@ def gather(device_id: str, settings: dict) -> FactSet:
     fs.add("bill.forecast_php", "bill", f"Forecast ng bill sa katapusan ng buwan: mga {peso(bill['forecast_php'])} "
            f"(mula {peso(bill['forecast_low_php'])} hanggang {peso(bill['forecast_high_php'])})",
            (bill["forecast_php"], bill["forecast_low_php"], bill["forecast_high_php"]), ("Forecast", peso(bill["forecast_php"])))
+    lo, hi = bill["forecast_bracket_kwh"]
+    level = f"lampas {lo:.0f} kWh" if hi is None else f"{lo + 1 if lo else 0:.0f} hanggang {hi:.0f} kWh"
+    fs.add("bill.forecast_kwh", "bill", f"Forecast na kuha sa grid ngayong buwan: mga {kwh(bill['forecast_kwh'])}, "
+           f"kaya nasa {level} na antas ng Meralco, mga ₱{bill['forecast_rate_php_per_kwh']:.2f} kada kWh",
+           (bill["forecast_kwh"], bill["forecast_rate_php_per_kwh"]))
     days_left = bill["days_in_month"] - bill["days_elapsed"]
     fs.add("bill.days_left", "bill", f"Ika-{bill['days_elapsed']} araw na ng buwan; {days_left} araw pa ang natitira bago ito matapos",
            (bill["days_elapsed"], days_left))

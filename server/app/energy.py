@@ -1,4 +1,4 @@
-"""Energy math: live status, kWh series, bill + forecast, brownout runtime.
+"""Energy math: live status, kWh series, bill + forecast (tiered, seasonal), brownout runtime.
 
 Power samples (W) are integrated over time: each sample counts until the next one, capped at
 MAX_GAP_S so a gap in the data (device off) doesn't count as hours of usage.
@@ -8,7 +8,7 @@ import statistics
 import time
 from datetime import date, datetime, timedelta
 
-from . import config, db
+from . import config, db, tariff
 
 MAX_GAP_S = 15 * 60
 KEYS = ("pv_kwh", "load_kwh", "grid_import_kwh", "grid_export_kwh", "batt_charge_kwh", "batt_discharge_kwh")
@@ -192,48 +192,65 @@ def bill(device_id: str, settings: dict) -> dict:
     mtd_kwh = sum(t["grid_import_kwh"] for t in month_t)
     savings_month = sum(saved_kwh(t) for t in month_t) * rate
 
-    # Forecast: average daily cost from the last 28 finished days, split weekday / weekend.
-    hist = [(x, day_totals(device_id, x)["grid_import_kwh"] * rate) for x in (d - timedelta(days=i) for i in range(1, 29))]
-    hist = [(x, c) for x, c in hist if c > 0 or _has_data(device_id, x)]
-    wk = [c for x, c in hist if x.weekday() < 5]
-    we = [c for x, c in hist if x.weekday() >= 5]
-    allc = [c for _, c in hist]
-    avg_all = statistics.mean(allc) if allc else mtd_kwh * rate / max(1, d.day)
+    # Forecast in kWh first, then priced with Meralco's consumption levels (tariff.py).
+    # History = last 28 finished days, each divided by its season factor so a hot April and a cool
+    # March can be averaged together; weekday and weekend are averaged separately.
+    hist = [(x, day_totals(device_id, x)["grid_import_kwh"]) for x in (d - timedelta(days=i) for i in range(1, 29))]
+    hist = [(x, k / tariff.season_factor(x)) for x, k in hist if k > 0 or _has_data(device_id, x)]
+    wk = [k for x, k in hist if x.weekday() < 5]
+    we = [k for x, k in hist if x.weekday() >= 5]
+    allk = [k for _, k in hist]
+    avg_all = statistics.mean(allk) if allk else mtd_kwh / max(1, d.day) / tariff.season_factor(d)
     avg_wk = statistics.mean(wk) if wk else avg_all
     avg_we = statistics.mean(we) if we else avg_all
-    sd = statistics.pstdev(allc) if len(allc) > 1 else avg_all * 0.2
+    sd = statistics.pstdev(allk) if len(allk) > 1 else avg_all * 0.2
 
-    today_cost = month_t[-1]["grid_import_kwh"] * rate
-    expected_today = max(today_cost, avg_wk if d.weekday() < 5 else avg_we)
+    def typical(x: date) -> float:
+        return (avg_wk if x.weekday() < 5 else avg_we) * tariff.season_factor(x)
+
+    today_kwh = month_t[-1]["grid_import_kwh"]
     future = [first + timedelta(days=i) for i in range(d.day, n_days)]
-    forecast = (mtd_kwh * rate - today_cost) + expected_today + sum(avg_wk if x.weekday() < 5 else avg_we for x in future)
-    spread = max(sd * (len(future) + 1) ** 0.5, forecast * 0.05)
+    fc_kwh = (mtd_kwh - today_kwh) + max(today_kwh, typical(d)) + sum(typical(x) for x in future)
+    # Each remaining day (today included) is an independent draw, so the spread grows with √days.
+    spread_kwh = max(sd * tariff.season_factor(d) * (len(future) + 1) ** 0.5, fc_kwh * 0.05)
 
-    # Last month
+    forecast = tariff.cost(fc_kwh, rate)
+    eff_rate = forecast / fc_kwh if fc_kwh > 0 else rate  # ₱/kWh at the level this month is heading for
+    mtd_php = mtd_kwh * eff_rate
+    low = max(mtd_php, tariff.cost(max(mtd_kwh, fc_kwh - spread_kwh), rate))
+    high = tariff.cost(fc_kwh + spread_kwh, rate)
+
+    # Last month: its kWh are final, so price them exactly.
     last_end = first - timedelta(days=1)
     last_days = [last_end.replace(day=1) + timedelta(days=i) for i in range(last_end.day)]
-    last_month = sum(day_totals(device_id, x)["grid_import_kwh"] for x in last_days) * rate if _has_data(device_id, last_days[0], last_end) else None
+    last_month = (tariff.cost(sum(day_totals(device_id, x)["grid_import_kwh"] for x in last_days), rate)
+                  if _has_data(device_id, last_days[0], last_end) else None)
 
-    # Weekly costs: the last 4 weeks starting Monday, current week included.
+    # Weekly costs: the last 4 weeks starting Monday, current week included, at this month's ₱/kWh.
     monday = d - timedelta(days=d.weekday())
     weekly = []
     for w in range(3, -1, -1):
         ws = monday - timedelta(weeks=w)
         days = [ws + timedelta(days=i) for i in range(7) if ws + timedelta(days=i) <= d]
-        cost = sum(day_totals(device_id, x)["grid_import_kwh"] for x in days) * rate
+        cost = sum(day_totals(device_id, x)["grid_import_kwh"] for x in days) * eff_rate
         weekly.append({"week_start_ts": local_midnight(ws), "label": _label(ws, "md"), "php": round(cost, 2)})
 
+    lo_kwh, hi_kwh, _ = tariff.bracket(fc_kwh)
     return {
         "month": d.strftime("%Y-%m"), "days_elapsed": d.day, "days_in_month": n_days, "rate_php_per_kwh": rate,
-        "month_to_date_kwh": round(mtd_kwh, 2), "month_to_date_php": round(mtd_kwh * rate, 2),
+        "month_to_date_kwh": round(mtd_kwh, 2), "month_to_date_php": round(mtd_php, 2),
         "forecast_php": round(forecast, 2),
-        "forecast_low_php": round(max(mtd_kwh * rate, forecast - spread), 2),
-        "forecast_high_php": round(forecast + spread, 2),
+        "forecast_low_php": round(low, 2),
+        "forecast_high_php": round(high, 2),
         "last_month_php": round(last_month, 2) if last_month is not None else None,
         "vs_last_month_pct": round((forecast - last_month) / last_month * 100, 1) if last_month else None,
         "savings_today_php": round(saved_kwh(month_t[-1]) * rate, 2),
         "savings_month_php": round(savings_month, 2),
         "weekly_costs": weekly,
+        # Not in Contract C (FastAPI drops them from /api/bill); used by the AI facts.
+        "forecast_kwh": round(fc_kwh, 1),
+        "forecast_rate_php_per_kwh": round(eff_rate, 2),
+        "forecast_bracket_kwh": (lo_kwh, hi_kwh),
     }
 
 

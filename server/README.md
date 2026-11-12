@@ -75,8 +75,12 @@ and the model is pulled.
 ## How the numbers work
 
 - **kWh**: each 5 s power sample is counted until the next one (gaps over 15 min are not counted).
-- **Bill** = grid import kWh × rate. **Savings** = home use not taken from the grid × rate.
-- **Forecast** = month-to-date + weekday/weekend daily averages (last 28 days) × days left, ± 1 std dev.
+- **Bill** = grid import kWh priced at Meralco's consumption levels: the rate setting is the ₱/kWh up to
+  200 kWh, higher levels add a fixed ₱/kWh ([app/tariff.py](app/tariff.py)).
+  **Savings** = home use not taken from the grid × rate setting.
+- **Forecast** = month-to-date kWh + weekday/weekend daily averages (last 28 days, divided by each day's
+  season factor, then multiplied by the remaining days' factor) × days left, priced with the tariff.
+  Range = ± daily std dev × √days left. The season index and level adders are tables in `tariff.py`.
 - **Brownout runtime** = `batt_soc% × battery_kWh ÷ load_w`.
 - **AI**: the backend computes every number; the model only phrases cited facts in Taglish, and a guard
   rejects any reply with a number that isn't in the facts. If the LLM is off, slow or fails the guard twice,

@@ -81,8 +81,12 @@ plan's table, proposed for Aldrin's approval.
 }
 ```
 
-Bill = grid import kWh × rate (pure solar household, no net-metering credit). Forecast = month-to-date +
-weekday/weekend daily averages × days left, ± one standard deviation.
+Bill = grid import kWh priced with Meralco's residential consumption levels (pure solar household, no
+net-metering credit). `rate_php_per_kwh` is the user's setting, the ₱/kWh for up to 200 kWh. Higher levels
+add a fixed ₱/kWh on top (`server/app/tariff.py`). Forecast = month-to-date kWh + weekday/weekend daily
+averages (last 28 days, adjusted by a monthly season index) × days left, then priced. Range = ± one daily
+standard deviation × √days left. `month_to_date_php` and `weekly_costs` use the ₱/kWh of the level the
+forecast lands in. Savings stay at `rate_php_per_kwh`, matching `saved_today_php` in `/api/live`.
 
 ### `GET /api/brownout`
 

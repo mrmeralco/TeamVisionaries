@@ -1,7 +1,7 @@
 """SPEC (Andy): the money and energy math from the plan.
 
   kWh       = power integrated over time (each sample counts until the next, gaps > 15 min not counted)
-  bill      = grid import kWh x rate          (pure solar, no net-metering credit)
+  bill      = grid import kWh x rate (+ Meralco level adder, see test_tariff.py; pure solar, no net-metering)
   savings   = home use NOT taken from the grid x rate
   runtime_h = (batt_soc% x battery_kWh) / load
 Numbers here are exact so a wrong formula fails loudly.
