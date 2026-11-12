@@ -128,11 +128,13 @@ async def chat(device_id: str, settings: dict, message: str) -> dict:
 
 
 # ------------------------------------------------------------ daily summary --
-async def daily_summary(device_id: str, settings: dict, force: bool = False) -> dict:
+async def daily_summary(device_id: str, settings: dict, force: bool = False, upgrade: bool = False) -> dict:
+    """Cached per date. A cached fallback is served as-is (the app must never wait on a down LLM);
+    only the background task passes upgrade=True to retry the LLM and replace it."""
     d = energy.today() - timedelta(days=1)
     key = f"summary:{device_id}:{d.isoformat()}"
     cached = db.get_kv(key)
-    if cached and not force and (cached["source"] == "llm" or not config.LLM_ENABLED):
+    if cached and not force and (cached["source"] == "llm" or not upgrade or not config.LLM_ENABLED):
         return cached
 
     fs = gather(device_id, settings)

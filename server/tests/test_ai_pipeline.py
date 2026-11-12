@@ -71,3 +71,31 @@ def test_brownout_facts_always_included(monkeypatch):
         assert "MAY BROWNOUT NGAYON" in facts_text(calls)
     finally:
         db.execute("DELETE FROM outages WHERE end_ts IS NULL")
+
+
+def test_cached_fallback_summary_is_served_without_calling_the_llm(monkeypatch):
+    """LLM down: the app's GET must not wait on it again; only the background task retries."""
+    from app import config
+    monkeypatch.setattr(config, "LLM_ENABLED", True)
+    calls = []
+
+    async def down(*a, **k):
+        calls.append(1)
+        raise llm.LLMUnavailable("ollama down")
+
+    async def ok(*a, **k):
+        calls.append(1)
+        return {"answerable": True, "reply": "Maaraw kahapon.", "fact_ids": []}
+
+    monkeypatch.setattr(llm, "complete_json", down)
+    s = db.get_settings()
+    first = asyncio.run(service.daily_summary(s["device_id"], s, force=True))
+    assert first["source"] == "fallback"
+    n = len(calls)
+
+    again = asyncio.run(service.daily_summary(s["device_id"], s))          # what GET /api/summary/daily does
+    assert again == first and len(calls) == n                              # cached, no LLM call
+
+    monkeypatch.setattr(llm, "complete_json", ok)
+    upgraded = asyncio.run(service.daily_summary(s["device_id"], s, upgrade=True))  # background task
+    assert len(calls) > n and upgraded["source"] in ("llm", "fallback")

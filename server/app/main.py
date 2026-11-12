@@ -30,7 +30,7 @@ async def _background() -> None:
             ingest.check_stale()
             if n % 120 == 0:  # every 10 min
                 s = db.get_settings()
-                await ai.daily_summary(s["device_id"], s)
+                await ai.daily_summary(s["device_id"], s, upgrade=True)
         except Exception:
             log.exception("background task")
         n += 1
