@@ -46,15 +46,11 @@ class _AlertsScreenState extends ConsumerState<AlertsScreen> {
                 ? 'View your latest notifications and updates.'
                 : '${badgeText(unread)} unread · your latest notifications and updates.',
             trailing: unread > 0
-                ? TextButton(
-                    onPressed: _markAll,
-                    style: TextButton.styleFrom(minimumSize: const Size(kMinTap, kMinTap)),
-                    child: Text('Mark all read', style: ts(12, w: FontWeight.w700, color: C.orangeText)),
-                  )
+                ? TextButton(onPressed: _markAll, child: const Text('Mark all read'))
                 : null,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: S.x3),
         AsyncBody(
           value: alerts,
           onRetry: () => ref.invalidate(alertsProvider),
@@ -62,12 +58,21 @@ class _AlertsScreenState extends ConsumerState<AlertsScreen> {
             final all = listOfMaps(a['alerts']);
             if (all.isEmpty) {
               return Padding(
-                padding: const EdgeInsets.all(40),
-                child: Column(children: [
-                  const Icon(Icons.notifications_none_rounded, size: 36, color: C.orangeDeep),
-                  const SizedBox(height: 8),
-                  Text('Walang alerts. Maayos ang lahat!', style: ts(13, w: FontWeight.w600)),
-                ]),
+                padding: const EdgeInsets.all(S.gutter),
+                child: SCard(
+                  padding: const EdgeInsets.symmetric(horizontal: S.x4, vertical: S.x8),
+                  child: Column(children: [
+                    const Icon(Icons.notifications_none_rounded, size: 36, color: C.orangeDeep),
+                    const SizedBox(height: S.x2),
+                    Text('Walang alerts. Maayos ang lahat!', style: ts(13, w: FontWeight.w700), textAlign: TextAlign.center),
+                    const SizedBox(height: S.x1),
+                    Text(
+                      'Dito lalabas ang brownout, fault at low battery.',
+                      style: ts(12, color: C.muted),
+                      textAlign: TextAlign.center,
+                    ),
+                  ]),
+                ),
               );
             }
             final counts = <String, int>{};
@@ -89,7 +94,7 @@ class _AlertsScreenState extends ConsumerState<AlertsScreen> {
               if (counts.length > 1)
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  padding: const EdgeInsets.fromLTRB(S.gutter, 0, S.gutter, S.x2),
                   child: Row(children: [
                     _Filter('All', all.length, _severity == null, () => setState(() => _severity = null)),
                     for (final s in ['critical', 'warning', 'info'])
@@ -99,7 +104,7 @@ class _AlertsScreenState extends ConsumerState<AlertsScreen> {
                 ),
               if (todays.isNotEmpty) _Group('Today', todays, open),
               if (earlier.isNotEmpty) _Group('Earlier', earlier, open),
-              const SizedBox(height: 24),
+              const SizedBox(height: kFabClearance),
             ]);
           },
         ),
@@ -117,15 +122,14 @@ class _Filter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.only(right: S.x2),
         child: ChoiceChip(
           label: Text('$label  ${badgeText(count)}'),
           labelStyle: ts(12, w: FontWeight.w700, color: selected ? Colors.white : C.ink),
           selected: selected,
           showCheckmark: false,
           selectedColor: C.brandDark,
-          backgroundColor: Colors.white,
-          side: const BorderSide(color: C.tileBorder),
+          side: BorderSide(color: selected ? C.brandDark : C.orangeLine, width: 0.5),
           onSelected: (_) => onTap(),
         ),
       );
@@ -140,18 +144,13 @@ class _Group extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
+        padding: const EdgeInsets.fromLTRB(S.gutter, S.x2, S.gutter, S.x4),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Semantics(
-            header: true,
-            child: Text('$label  ·  ${alerts.length}', style: ts(13, w: FontWeight.w700, spacing: -0.2)),
-          ),
-          const SizedBox(height: 8),
+          SectionTitle('$label  ·  ${alerts.length}'),
+          const SizedBox(height: S.x2),
           Material(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            elevation: 1,
-            shadowColor: C.shadow,
+            shape: RoundedRectangleBorder(borderRadius: R.card, side: kCardLine),
             clipBehavior: Clip.antiAlias,
             child: Column(children: [
               for (var i = 0; i < alerts.length; i++) ...[
@@ -182,15 +181,15 @@ class _AlertTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 8, 4),
+        padding: const EdgeInsets.fromLTRB(S.x4, S.x4, S.x2, S.x1),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(color: color.withValues(alpha: read ? 0.1 : 0.16), borderRadius: BorderRadius.circular(6)),
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(color: color.withValues(alpha: read ? 0.1 : 0.16), borderRadius: R.control),
             child: Icon(icon, size: 18, color: color, semanticLabel: severityLabel(str(a['severity'], 'info'))),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: S.x3),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
@@ -208,15 +207,15 @@ class _AlertTile extends StatelessWidget {
                     ),
                   ),
               ]),
-              const SizedBox(height: 4),
-              Text(message, style: ts(12, height: 1.4, color: read ? C.muted : C.ink)),
+              const SizedBox(height: S.x1),
+              Text(message, style: ts(13, height: 1.4, color: read ? C.muted : C.ink)),
               // Wrap: at large text sizes the link moves under the time instead of overflowing.
               Wrap(
                 alignment: WrapAlignment.spaceBetween,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 spacing: 8,
                 children: [
-                  Text(ts0 == null ? '' : formatWhen(ts0), style: ts(10, color: C.muted)),
+                  Text(ts0 == null ? '' : formatWhen(ts0), style: ts(11, color: C.muted)),
                   brownoutLink
                       ? LinkButton('Brownout Advisor', size: 11, onTap: () => context.push(Routes.brownout))
                       : LinkButton('See explanation', size: 11, onTap: onTap),

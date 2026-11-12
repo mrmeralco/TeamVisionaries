@@ -32,14 +32,14 @@ class BrownoutScreen extends ConsumerWidget {
           children: [
             const BackHeader('Brownout Advisor', 'How long your battery lasts, and what to expect next.'),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+              padding: const EdgeInsets.fromLTRB(S.gutter, S.x4, S.gutter, S.x6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   AsyncBody(value: brownout, onRetry: () => ref.invalidate(brownoutProvider), data: (b) => _Body(b)),
-                  const SizedBox(height: 24),
-                  Semantics(header: true, child: Text('Next 48 hours', style: ts(15, w: FontWeight.w700, spacing: 0.14))),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: S.x6),
+                  const SectionTitle('Next 48 hours'),
+                  const SizedBox(height: S.x3),
                   // The outlook is extra: if it fails, say so quietly instead of a full error card.
                   switch (outlook) {
                     AsyncValue(:final value?, hasValue: true) => _Outlook(value),
@@ -71,9 +71,9 @@ class _Body extends StatelessWidget {
       children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(S.x4),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: R.card,
             gradient: active ? gradientDeep : gradientGreen,
           ),
           child: Column(
@@ -85,8 +85,8 @@ class _Body extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      active ? 'BROWNOUT IN PROGRESS' : 'GRID POWER IS ON',
-                      style: ts(12, w: FontWeight.w700, color: Colors.white, spacing: 0.3),
+                      active ? 'Brownout in progress' : 'Grid power is on',
+                      style: ts(13, w: FontWeight.w700, color: Colors.white),
                     ),
                   ),
                 ],
@@ -103,11 +103,13 @@ class _Body extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: S.x3),
         TwoCol(
+          gap: S.x2,
+          runGap: S.x2,
           children: [
             _Stat('Battery', b['batt_soc'] is num ? pctNum(b['batt_soc']) : '—', '%'),
-            _Stat('Home Usage', kwNum(b['load_w']), 'kW'),
+            _Stat('Home usage', kwNum(b['load_w']), 'kW'),
             _Stat(
               active ? 'Started' : 'Last brownout',
               start == null ? '—' : formatClock(start),
@@ -126,14 +128,17 @@ class _Body extends StatelessWidget {
                 : _DurationStat(reported),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: S.x3),
         SCard(
-          border: Border.all(color: C.orangeLine, width: 0.5),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Mira’s advice', style: ts(13, w: FontWeight.w700)),
-              const SizedBox(height: 8),
+              const Row(children: [
+                MiraAvatar(size: 32),
+                SizedBox(width: S.x2),
+                Expanded(child: CardTitle('Mira’s advice')),
+              ]),
+              const SizedBox(height: S.x2),
               Text(str(b['advice']), style: ts(13, height: 1.45)),
             ],
           ),
@@ -171,12 +176,12 @@ class _Stat extends StatelessWidget {
     unit: unit,
     note: note,
     child: SCard(
-      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(S.x4, S.x3, S.x3, S.x3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: ts(11, w: FontWeight.w600, color: C.label)),
-          const SizedBox(height: 8),
+          const SizedBox(height: S.x2),
           Reading(value, unit, size: 20),
           if (note != null) ...[
             const SizedBox(height: 2),
@@ -207,7 +212,7 @@ class _Outlook extends StatelessWidget {
     final reserveTs = intOrNull(battery['reserve_ts']);
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      TwoCol(children: [
+      TwoCol(gap: S.x2, runGap: S.x2, children: [
         _Stat('Solar tomorrow', tomorrow == null ? '—' : kwhNum(tomorrow), 'kWh',
             note: typical == null ? null : 'typical: ${kwhNum(typical)} kWh${cloudy ? ' · cloudy' : ''}'),
         _Stat('Solar today', kwhNum(o['solar_today_kwh']), 'kWh'),
@@ -216,12 +221,12 @@ class _Outlook extends StatelessWidget {
         _Stat('If a brownout hits', brownout == null ? '—' : (hours == null ? '48+' : hours.toStringAsFixed(1)), 'hrs',
             note: brownout == null ? 'no reading yet' : 'until ${_when(brownout['lasts_until_ts'])}'),
       ]),
-      const SizedBox(height: 12),
+      const SizedBox(height: S.x3),
       SCard(
-        border: Border.all(color: C.orangeLine, width: 0.5),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          svg('sparkles', width: 15, height: 15),
-          const SizedBox(width: 11),
+          // A forecast: Mira thinking ahead (still: she isn't working on anything here).
+          const MiraAvatar(mood: MiraMood.thinking, size: 32, animate: false),
+          const SizedBox(width: S.x3),
           Expanded(child: Text(str(o['advice']), style: ts(13, height: 1.45))),
         ]),
       ),

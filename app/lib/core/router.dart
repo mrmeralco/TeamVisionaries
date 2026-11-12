@@ -1,5 +1,5 @@
-// Routes (from the plan): bottom nav Home, Energy, Bill, Ask Mira, Alerts; Settings and the
-// Brownout Advisor open on top. Each tab keeps its own navigation stack.
+// Routes: bottom nav Home, Energy, Bill, Alerts. Ask Mira (from the floating button on every tab),
+// Settings and the Brownout Advisor open on top. Each tab keeps its own navigation stack.
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -34,9 +34,13 @@ GoRouter buildRouter() => GoRouter(
             _branch(Routes.home, const HomeScreen()),
             _branch(Routes.energy, const EnergyScreen()),
             _branch(Routes.bill, const BillScreen()),
-            _branch(Routes.ask, const AskScreen()),
             _branch(Routes.alerts, const AlertsScreen()),
           ],
+        ),
+        GoRoute(
+          path: Routes.ask,
+          parentNavigatorKey: _rootKey,
+          builder: (context, state) => const AskScreen(),
         ),
         GoRoute(
           path: Routes.settings,
