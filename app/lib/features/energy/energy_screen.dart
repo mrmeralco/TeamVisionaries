@@ -95,33 +95,36 @@ class _EnergyBody extends StatelessWidget {
     final t = (e['totals'] as Map).cast<String, dynamic>();
     final points = (e['points'] as List).cast<Map<String, dynamic>>();
     final hourly = e['bucket'] == 'hour';
+    // Figma 22:160 / 41:492 / 41:497 / 41:507 (Grid Used = what the household paid for).
     final cards = [
-      ('Solar Produced', kwhNum(t['pv_kwh']), 'kWh'),
-      ('Home Used', kwhNum(t['load_kwh']), 'kWh'),
-      ('Battery Used', kwhNum(t['batt_discharge_kwh']), 'kWh'),
-      ('Self-Sufficiency', pctNum(e['self_sufficiency_pct']), '%'),
+      ('Solar Produced', kwhNum(t['pv_kwh']), 'kWh', C.yellowCard),
+      ('Grid Used', kwhNum(t['grid_import_kwh']), 'kWh', C.yellowCard),
+      ('Battery Used', kwhNum(t['batt_discharge_kwh']), 'kWh', C.yellowCard),
+      ('Self-Sufficiency', pctNum(e['self_sufficiency_pct']), '%', C.peach),
     ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 35, 20, 24),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         TwoCol(gap: 9, runGap: 10, children: [
-          for (final (label, value, unit) in cards)
-            SCard(
-              padding: const EdgeInsets.fromLTRB(16, 14, 12, 12),
+          for (final (label, value, unit, color) in cards)
+            Container(
+              constraints: const BoxConstraints(minHeight: 78),
+              padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
+              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(15)),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text(label, style: ts(9, w: FontWeight.w600, spacing: 0.09, color: C.tileLabel)),
+                Text(label, style: ts(9, w: FontWeight.w500, color: const Color(0xB8292929))),
                 const SizedBox(height: 14),
-                Reading(value, unit, size: 20),
+                Reading(value, unit, size: 22, unitColor: const Color(0xA8292929), unitWeight: FontWeight.w700),
               ]),
             ),
         ]),
-        const SizedBox(height: 20),
+        const SizedBox(height: 30),
         SCard(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+          padding: const EdgeInsets.fromLTRB(16, 11, 13, 14),
+          border: Border.all(color: C.orangeLine, width: 0.5),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Solar Production', style: ts(12, w: FontWeight.w600, spacing: 0.12)),
-            const SizedBox(height: 4),
             LineChartView(
+              title: 'Solar Production',
               values: [for (final p in points) (p['pv_kwh'] as num).toDouble()],
               labels: [for (final p in points) hourly ? _hourLabel(p['label'] as String) : p['label'] as String],
             ),

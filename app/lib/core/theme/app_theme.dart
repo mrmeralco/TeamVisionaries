@@ -19,6 +19,13 @@ class C {
   static const green = Color(0xFF299D65);
   static const red = Color(0xFFD93B30);
   static const amber = Color(0xFFE59A00);
+  // Added in the later Figma revision (Home / Energy):
+  static const orangeLine = Color(0xFFFF7415); // 0.5 px card outlines
+  static const peachText = Color(0xFFFF9D42); // "Tap for Bill Details"
+  static const peach = Color(0xFFFFC59D); // Self-Sufficiency card
+  static const yellowCard = Color(0xD1FFC857); // rgba(255,200,87,.82) Energy stat cards
+  static const pill = Color(0x70FFBE81); // rgba(255,190,129,.44) chart value pill
+  static const navActive = Color(0x45F47721); // rgba(244,119,33,.27) active tab block
 }
 
 /// Semantic colours (kept from the scaffold so other code can keep using them).

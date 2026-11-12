@@ -26,7 +26,7 @@ class AppShell extends ConsumerWidget {
     });
 
     return Scaffold(
-      backgroundColor: shell.currentIndex == 0 ? Colors.white : C.cream,
+      backgroundColor: C.cream,
       body: shell,
       bottomNavigationBar: SinagNavBar(
         index: shell.currentIndex,

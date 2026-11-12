@@ -32,6 +32,8 @@ class MockApiService implements ApiService {
   @override
   Future<Map<String, dynamic>> getBrownout() => _json('brownout');
   @override
+  Future<Map<String, dynamic>> getOutlook() => _json('outlook');
+  @override
   Future<Map<String, dynamic>> getAlerts({bool unreadOnly = false}) async {
     final a = await _json('alerts');
     if (unreadOnly) a['alerts'] = (a['alerts'] as List).where((x) => x['read'] == false).toList();

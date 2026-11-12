@@ -30,6 +30,9 @@ class ApiService {
   Future<Map<String, dynamic>> getEnergy(String period) => _get('/api/energy?period=$period'); // day|week|month
   Future<Map<String, dynamic>> getBill() => _get('/api/bill');
   Future<Map<String, dynamic>> getBrownout() => _get('/api/brownout');
+
+  /// 48 h solar forecast, battery projection and brownout runtime with the sun counted.
+  Future<Map<String, dynamic>> getOutlook() => _get('/api/outlook');
   Future<Map<String, dynamic>> getAlerts({bool unreadOnly = false}) =>
       _get(unreadOnly ? '/api/alerts?unread_only=true' : '/api/alerts');
   Future<Map<String, dynamic>> markAlertRead(int id) => _send('POST', '/api/alerts/$id/read');

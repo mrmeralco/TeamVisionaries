@@ -89,6 +89,11 @@ void main() {
       expect(find.text('Brownout Advisor'), findsOneWidget);
       expect(find.text('~7.1 oras'), findsOneWidget);
       expect(find.text(example('brownout')['advice'] as String), findsOneWidget);
+      // /api/outlook section: tomorrow's forecast sun and the server's advice.
+      await t.scrollUntilVisible(find.text(example('outlook')['advice'] as String), 300,
+          scrollable: find.byType(Scrollable).last);
+      expect(find.text('Susunod na 48 oras'), findsOneWidget);
+      expect(find.text(kwhNum(example('outlook')['solar_tomorrow_kwh'])), findsOneWidget);
     });
 
     testWidgets('fault: banner goes to the Alerts tab', (t) async {
@@ -119,6 +124,25 @@ void main() {
     });
   });
 
+  testWidgets('Home (Figma rev 2): rate caption, bill card opens Bill, recap opens Ask with a question', (t) async {
+    final api = StateMock();
+    await pumpApp(t, api: api);
+    expect(find.text('At ₱13.00/kWh'), findsOneWidget); // live.rate_php_per_kwh
+    await t.tap(find.text('Tap for Bill Details'));
+    await t.pumpAndSettle();
+    expect(find.text('PREDICTED BILL THIS MONTH · NOVEMBER'), findsOneWidget);
+
+    await tab(t, 'Home');
+    // Scroll the recap clear of the bottom nav bar, then tap the link.
+    await t.drag(find.byType(Scrollable).first, const Offset(0, -400));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Ask Sinag about yesterday'));
+    await t.pumpAndSettle();
+    expect(find.text('Get answers about your solar energy.'), findsOneWidget); // on Ask Sinag now
+    expect(api.chats, 1);
+    expect(find.text(example('chat')['reply'] as String), findsOneWidget);
+  });
+
   testWidgets('Energy: totals and chart for day / week / month', (t) async {
     await pumpApp(t);
     await tab(t, 'Energy');
@@ -128,6 +152,8 @@ void main() {
       final e = example(file);
       expect(find.text(kwhNum((e['totals'] as Map)['pv_kwh'])), findsOneWidget, reason: label);
       expect(find.text(pctNum(e['self_sufficiency_pct'])), findsOneWidget, reason: label);
+      expect(find.text('Grid Used'), findsOneWidget);
+      expect(find.text(kwhNum((e['totals'] as Map)['grid_import_kwh'])), findsWidgets, reason: label);
       expect(find.text('Solar Production'), findsOneWidget);
     }
   });
