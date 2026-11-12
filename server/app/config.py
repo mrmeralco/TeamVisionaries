@@ -66,6 +66,14 @@ BATT_RESERVE_PCT = int(os.getenv("BATT_RESERVE_PCT", "20"))  # grid takes over b
 BATT_CUTOFF_PCT = int(os.getenv("BATT_CUTOFF_PCT", "5"))     # inverter shuts down here in a brownout
 BATT_MAX_KW = float(os.getenv("BATT_MAX_KW", "3.0"))
 
+# System check (/api/upgrade): the installed system and rough installed prices for the payback estimate.
+# Prices are ballpark PH 2026 figures; set them from an installer's quote for real advice.
+INVERTER_KW = float(os.getenv("INVERTER_KW", "5.0"))                          # hybrid inverter AC rating
+UPGRADE_DAYS = int(os.getenv("UPGRADE_DAYS", "30"))                           # history the check looks at
+UPGRADE_PV_PHP_PER_KWP = float(os.getenv("UPGRADE_PV_PHP_PER_KWP", "35000"))  # added panels, installed
+UPGRADE_BATTERY_PHP_PER_KWH = float(os.getenv("UPGRADE_BATTERY_PHP_PER_KWH", "20000"))  # LiFePO4 module, installed
+UPGRADE_INVERTER_PHP = float(os.getenv("UPGRADE_INVERTER_PHP", "70000"))      # bigger hybrid inverter, installed
+
 DEFAULT_SETTINGS = {
     "rate_php_per_kwh": float(os.getenv("DEFAULT_RATE", "15.06")),  # Meralco overall rate, Oct 2026
     "battery_kwh": float(os.getenv("DEFAULT_BATTERY_KWH", "10.0")),

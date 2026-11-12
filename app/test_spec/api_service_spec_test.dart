@@ -53,7 +53,7 @@ void main() {
     for (final (file, schema) in [
       ('live', 'live'), ('energy_day', 'energy'), ('energy_week', 'energy'), ('energy_month', 'energy'),
       ('bill', 'bill'), ('brownout', 'brownout'), ('alerts', 'alerts'), ('chat', 'chat'),
-      ('summary_daily', 'summary'), ('settings', 'settings'),
+      ('summary_daily', 'summary'), ('settings', 'settings'), ('outlook', 'outlook'), ('upgrade', 'upgrade'),
     ]) {
       test('$file.json is a valid $schema', () => expectContract(schema, example(file)));
     }

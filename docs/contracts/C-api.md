@@ -21,10 +21,11 @@ Conventions:
 | `GET /api/bill` | Month-to-date ₱, forecast ₱ + range, vs last month, savings, weekly costs | Bill, Home | [bill.json](examples/bill.json) |
 | `GET /api/brownout` | Status, start time, battery runtime estimate, advice | Brownout Advisor | [brownout.json](examples/brownout.json) |
 | `GET /api/outlook` | Solar forecast (weather), battery projection 48 h, brownout runtime with sun, advice | Brownout Advisor, Home | [outlook.json](examples/outlook.json) |
+| `GET /api/upgrade` | System check: does the solar/battery/inverter still fit the household's use? Recommendations + rough payback | Bill & Savings | [upgrade.json](examples/upgrade.json) |
 | `GET /api/alerts` | Alert list, unread count | Alerts | [alerts.json](examples/alerts.json) |
 | `POST /api/alerts/{id}/read` | Marks one alert read, returns it | Alerts | — |
 | `POST /api/alerts/read-all` | Marks all read, returns `{ "unread": 0 }` | Alerts | — |
-| `POST /api/chat` | `{message}` → `{reply, chips[], source}` Taglish answer | Ask Mira | [chat.json](examples/chat.json) |
+| `POST /api/chat` | `{message}` → `{reply, chips[], source, sources[]}` Taglish answer + the data behind it | Ask Mira | [chat.json](examples/chat.json) |
 | `GET /api/summary/daily` | AI-written recap of yesterday | Home | [summary_daily.json](examples/summary_daily.json) |
 | `GET /api/settings` / `PUT /api/settings` | Rate ₱/kWh, battery kWh, user name, device id | Settings | [settings.json](examples/settings.json) |
 | `GET /api/health` | `{ "ok": true, "mock": false, "llm": "qwen3.5:4b", "llm_provider": "ollama", "llm_reachable": true }` | Settings (connection test) | — |
@@ -136,6 +137,45 @@ average for that hour of the day (weekday/weekend, last 28 days). The battery is
 with the grid on it drains to `reserve_pct`, in a brownout to `cutoff_pct`. `hours[0]` is the current hour.
 
 
+### `GET /api/upgrade`
+
+System check from the home's own last 30 days (`UPGRADE_DAYS`). Cached 10 min.
+
+```jsonc
+{
+  "generated_ts": 1762912800,
+  "enough_data": true,                 // false until 7 days of readings (then verdict "unknown", usage null)
+  "verdict": "consider",               // ok = fits | consider = at least one hardware upgrade | unknown
+  "headline": "Pwedeng i-upgrade: dagdag na battery (+5 kWh), mga ₱1,581 na tipid kada buwan.",
+  "system": { "pv_kwp": 5.0, "battery_kwh": 10.0, "inverter_kw": 5.0 },
+  "usage": {                           // daily averages
+    "days": 30, "load_kwh_day": 16.7, "pv_kwh_day": 17.8, "grid_import_kwh_day": 3.9,
+    "day_import_kwh_day": 0.4,         // grid 6 AM-6 PM
+    "night_import_kwh_day": 3.5,       // grid 6 PM-6 AM
+    "export_kwh_day": 4.9,             // solar sent to the grid unused
+    "self_sufficiency_pct": 77, "battery_empty_days_pct": 100,   // days the battery hit its reserve
+    "peak_load_w": 1944, "p95_load_w": 1780, "load_trend_pct": 1  // last 7 days vs before; null < 2 weeks
+  },
+  "recommendations": [                 // best payback first; "usage" notes last
+    {
+      "id": "battery",                 // battery | solar | inverter | usage
+      "priority": 1, "title": "Dagdag na battery", "add": "+5 kWh",
+      "reason": "Halos 4.9 kWh na solar kada araw ang napupunta lang sa grid, pero 3.5 kWh ...",
+      "evidence": [ { "label": "Solar sent to grid", "value": "4.9 kWh/day" } ],
+      "savings_php_month": 1581,       // rough; null if it doesn't save money directly
+      "cost_php": 100000,              // rough installed price (UPGRADE_* in .env); null for usage notes
+      "payback_years": 5.3
+    }
+  ]
+}
+```
+
+Rules: **battery** when surplus solar is exported while the nights run on the grid and the battery runs out on
+30 %+ of days (size = energy it could shift, in 2.5 kWh modules). **solar** when the home still buys 1.5+ kWh a
+day while the sun is up, or the sun can't fill the battery (size from this roof's kWh per kWp). **inverter** when
+the 95th-percentile load reaches 85 % of `INVERTER_KW` or the peak exceeds it. **usage** when use rose 15 %+ in
+the last 7 days. Prices are rough PH figures from `.env`; the app labels them as estimates.
+
 ### `GET /api/alerts`
 
 `?unread_only=true` is optional.
@@ -162,12 +202,26 @@ Request `{ "message": "Bakit mataas ang bill ko?" }`
   "reply": "Mas mataas ang gamit mo mula 6 hanggang 10 PM ...",
   "chips": [ { "label": "Bill this month", "value": "₱536" } ],   // from the facts the AI cited
   "source": "llm",                  // llm | fallback (LLM down, too slow, or failed the fact check: rule-based answer)
-  "facts_used": ["bill.month_to_date_php", "usage.peak_hours"]     // optional: ids of the facts behind the answer
+  "facts_used": ["bill.month_to_date_php", "usage.peak_hours"],    // optional: ids of the facts behind the answer
+  "sources": [                      // optional: the user's data behind the answer, one per fact
+    {
+      "id": "bill.month_to_date_php",
+      "label": "Bill so far",       // short English name
+      "value": "₱536",              // headline value, or null (e.g. peak hours)
+      "detail": "Sa ngayon, ₱536 na ang nagastos mo sa kuryente ngayong buwan (35.6 kWh mula sa grid).",
+      "kind": "history",            // live | history | forecast | settings | advice
+      "period": "This month",
+      "screen": "bill",             // home | energy | bill | brownout | alerts | settings | null: where the app shows it
+      "as_of_ts": 1762912800        // measured (live) or computed (others); null for settings
+    }
+  ]
 }
 ```
 
 Every number in `reply` comes from the backend's data, never from the model (see `server/ai/README.md`).
-`facts_used` is an addition; the app can ignore it or show "Batay sa: ..." under the answer.
+`facts_used` and `sources` are additions. `sources` lists exactly the facts the answer used (rule-based
+answers too), built by the backend from the same data, so the app can show where the answer came from
+and link to the screen with that data. An out-of-scope refusal has no sources.
 
 ### `GET /api/summary/daily`
 

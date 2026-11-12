@@ -15,7 +15,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import timedelta
 
-from app import db, energy, outlook
+from app import db, energy, outlook, upgrade
 
 from .faults import explain_fault
 from .prompts import when
@@ -39,6 +39,7 @@ class Fact:
 @dataclass
 class FactSet:
     facts: list[Fact] = field(default_factory=list)
+    measured_ts: int | None = None   # when the live reading behind the now.* facts was taken
 
     def add(self, *a, **kw) -> None:
         f = Fact(*a, **kw)
@@ -99,6 +100,7 @@ def gather(device_id: str, settings: dict) -> FactSet:
     rate = settings["rate_php_per_kwh"]
     live = energy.live(device_id, settings)
     t = live["telemetry"]
+    fs.measured_ts = t["ts"] if t else None
 
     # ---- now
     fs.add("now.status", "now", f"Kalagayan ngayon: {live['status_line']}", say=live["status_line"])
@@ -258,6 +260,44 @@ def gather(device_id: str, settings: dict) -> FactSet:
                say=f"May {db.unread_count()} alert kang hindi pa nababasa. Pinakabago: {titles}.")
     else:
         fs.add("alerts.unread", "alerts", "Walang bagong alert.", say="Wala kang bagong alert.")
+
+    # ---- system check: does the setup still fit this household? (app/upgrade.py, cached)
+    try:
+        up = upgrade.recommend(device_id, settings)
+    except Exception:                       # the check is extra; never let it break chat
+        up = None
+    if up:
+        sysd = up["system"]
+        fs.add("upgrade.system", "upgrade", f"System mo ngayon: {sysd['pv_kwp']:g} kWp na solar, {sysd['battery_kwh']:g} kWh na battery, "
+               f"{sysd['inverter_kw']:g} kW na inverter",
+               say=f"Ang system mo ngayon: {sysd['pv_kwp']:g} kWp na solar, {sysd['battery_kwh']:g} kWh na battery at "
+                   f"{sysd['inverter_kw']:g} kW na inverter.")
+        days = (up["usage"] or {}).get("days")
+        fs.add("upgrade.verdict", "upgrade",
+               (f"System check (huling {days} araw): " if days else "System check: ") + up["headline"], say=up["headline"])
+        for r in up["recommendations"]:
+            money = ""
+            if r["savings_php_month"]:
+                money += f" Tantiyang tipid: {peso(r['savings_php_month'])} kada buwan."
+            if r["cost_php"]:
+                money += f" Tantiyang gastos: {peso(r['cost_php'])}."
+            if r["payback_years"]:
+                money += f" Balik-puhunan: mga {r['payback_years']:g} taon."
+            # values[0] = monthly savings, [1] = installed cost (0 = none): semantics.py checks "tipid" vs "gastos".
+            fs.add(f"upgrade.{r['id']}", "upgrade", f"Rekomendasyon: {r['title']} ({r['add']}). {r['reason']}{money}",
+                   (r["savings_php_month"] or 0, r["cost_php"] or 0, r["payback_years"] or 0),
+                   (r["title"], r["add"]),
+                   say=f"{r['title']} ({r['add']}): {r['reason']}{money}")
+
+        # What is NOT needed, so "Dapat ko bang dagdagan ang panels?" has a grounded answer too.
+        if up["enough_data"]:
+            names = {"battery": "dagdag na battery", "solar": "dagdag na solar panels", "inverter": "mas malaking inverter"}
+            recommended = {r["id"] for r in up["recommendations"]}
+            skip = [n for k, n in names.items() if k not in recommended]
+            if skip:
+                listed = ", ".join(skip[:-1]) + (" at " if len(skip) > 1 else "") + skip[-1]
+                fs.add("upgrade.not_needed", "upgrade", f"Hindi kailangan ngayon ayon sa system check: {listed}",
+                       say=f"Ayon sa system check, hindi pa kailangan ang {listed}.")
 
     fs.add("user.name", "now", f"Pangalan ng user: {settings['user_name']}")
     return fs

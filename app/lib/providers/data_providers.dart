@@ -23,6 +23,9 @@ final brownoutProvider = FutureProvider<Json>((ref) => ref.watch(apiServiceProvi
 /// GET /api/outlook (next 48 h: weather solar forecast, battery projection, brownout runtime with sun)
 final outlookProvider = FutureProvider<Json>((ref) => ref.watch(apiServiceProvider).getOutlook());
 
+/// GET /api/upgrade (system check: recommendations from the household's last 30 days)
+final upgradeProvider = FutureProvider<Json>((ref) => ref.watch(apiServiceProvider).getUpgrade());
+
 /// GET /api/summary/daily
 final dailySummaryProvider =
     FutureProvider<Json>((ref) => ref.watch(apiServiceProvider).getDailySummary());

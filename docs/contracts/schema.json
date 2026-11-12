@@ -159,6 +159,53 @@
         "outages_this_month": { "type": "integer", "minimum": 0 }
       }
     },
+    "upgrade": {
+      "description": "GET /api/upgrade: does the solar setup still fit this household's use (server/app/upgrade.py)",
+      "type": "object",
+      "required": ["generated_ts", "enough_data", "verdict", "headline", "system", "usage", "recommendations"],
+      "properties": {
+        "generated_ts": { "type": "integer" },
+        "enough_data": { "type": "boolean" },
+        "verdict": { "enum": ["ok", "consider", "unknown"] },
+        "headline": { "type": "string", "minLength": 1 },
+        "system": {
+          "type": "object",
+          "required": ["pv_kwp", "battery_kwh", "inverter_kw"],
+          "properties": { "pv_kwp": { "type": "number" }, "battery_kwh": { "type": "number" }, "inverter_kw": { "type": "number" } }
+        },
+        "usage": {
+          "type": ["object", "null"],
+          "required": ["days", "load_kwh_day", "pv_kwh_day", "grid_import_kwh_day", "day_import_kwh_day", "night_import_kwh_day",
+                       "export_kwh_day", "self_sufficiency_pct", "battery_empty_days_pct", "peak_load_w", "p95_load_w", "load_trend_pct"],
+          "properties": {
+            "days": { "type": "integer", "minimum": 0 },
+            "load_kwh_day": { "type": "number" }, "pv_kwh_day": { "type": "number" },
+            "grid_import_kwh_day": { "type": "number" }, "day_import_kwh_day": { "type": "number" },
+            "night_import_kwh_day": { "type": "number" }, "export_kwh_day": { "type": "number" },
+            "self_sufficiency_pct": { "type": "integer" }, "battery_empty_days_pct": { "type": "integer" },
+            "peak_load_w": { "type": "integer" }, "p95_load_w": { "type": "integer" },
+            "load_trend_pct": { "type": ["integer", "null"] }
+          }
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "priority", "title", "add", "reason", "evidence", "savings_php_month", "cost_php", "payback_years"],
+            "properties": {
+              "id": { "enum": ["battery", "solar", "inverter", "usage"] },
+              "priority": { "type": "integer", "minimum": 1 },
+              "title": { "type": "string" }, "add": { "type": "string" }, "reason": { "type": "string", "minLength": 1 },
+              "evidence": { "type": "array", "items": { "type": "object", "required": ["label", "value"],
+                            "properties": { "label": { "type": "string" }, "value": { "type": "string" } } } },
+              "savings_php_month": { "type": ["integer", "null"] },
+              "cost_php": { "type": ["integer", "null"] },
+              "payback_years": { "type": ["number", "null"] }
+            }
+          }
+        }
+      }
+    },
     "outlook": {
       "description": "GET /api/outlook: solar + battery outlook for the next 48 h",
       "type": "object",
@@ -250,7 +297,25 @@
           }
         },
         "source": { "enum": ["llm", "fallback"] },
-        "facts_used": { "type": "array", "items": { "type": "string" } }
+        "facts_used": { "type": "array", "items": { "type": "string" } },
+        "sources": {
+          "description": "The user's data behind the answer, one entry per fact (server/ai/sources.py)",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "label", "value", "detail", "kind", "period", "screen", "as_of_ts"],
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "value": { "type": ["string", "null"] },
+              "detail": { "type": "string" },
+              "kind": { "enum": ["live", "history", "forecast", "settings", "advice"] },
+              "period": { "type": "string" },
+              "screen": { "enum": ["home", "energy", "bill", "brownout", "alerts", "settings", null] },
+              "as_of_ts": { "type": ["integer", "null"] }
+            }
+          }
+        }
       }
     },
     "summary": {

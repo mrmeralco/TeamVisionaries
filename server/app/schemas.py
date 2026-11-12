@@ -149,6 +149,56 @@ class Outlook(BaseModel):
     hours: list[OutlookHour] = Field(min_length=48, max_length=48)
 
 
+# ------------------------------------------------------------- /api/upgrade --
+class UpgradeSystem(BaseModel):
+    pv_kwp: float = Field(description="Installed solar (PV_KWP)")
+    battery_kwh: float = Field(description="Battery size (settings)")
+    inverter_kw: float = Field(description="Inverter AC rating (INVERTER_KW)")
+
+
+class UpgradeUsage(BaseModel):
+    """Daily averages over the days checked (the home's own readings)."""
+    days: int
+    load_kwh_day: float
+    pv_kwh_day: float
+    grid_import_kwh_day: float
+    day_import_kwh_day: float = Field(description="Bought from the grid 6 AM-6 PM")
+    night_import_kwh_day: float = Field(description="Bought from the grid 6 PM-6 AM")
+    export_kwh_day: float = Field(description="Solar sent to the grid unused")
+    self_sufficiency_pct: int
+    battery_empty_days_pct: int = Field(description="Days the battery reached its reserve with the grid on")
+    peak_load_w: int
+    p95_load_w: int
+    load_trend_pct: int | None = Field(description="Last 7 days vs the weeks before; null without 2 weeks of data")
+
+
+class UpgradeEvidence(BaseModel):
+    label: str
+    value: str
+
+
+class UpgradeRec(BaseModel):
+    id: Literal["battery", "solar", "inverter", "usage"]
+    priority: int = Field(ge=1, description="1 = best payback first; usage notes come last")
+    title: str
+    add: str = Field(description='Size to add or move to, e.g. "+5 kWh", "+1.5 kWp", "8 kW"')
+    reason: str = Field(min_length=1, description="Taglish, built from the usage numbers")
+    evidence: list[UpgradeEvidence]
+    savings_php_month: int | None = Field(description="Rough; null when it doesn't save money directly")
+    cost_php: int | None = Field(description="Rough installed price from config; null for usage notes")
+    payback_years: float | None
+
+
+class Upgrade(BaseModel):
+    generated_ts: int
+    enough_data: bool = Field(description="false until 7 days of readings")
+    verdict: Literal["ok", "consider", "unknown"] = Field(description="consider = at least one hardware upgrade")
+    headline: str = Field(min_length=1)
+    system: UpgradeSystem
+    usage: UpgradeUsage | None
+    recommendations: list[UpgradeRec]
+
+
 # -------------------------------------------------------------- /api/alerts --
 class Alert(BaseModel):
     id: int
@@ -179,11 +229,25 @@ class Chip(BaseModel):
     value: str
 
 
+class ChatSource(BaseModel):
+    """One piece of the user's data behind an answer (see server/ai/sources.py)."""
+    id: str = Field(description="Fact id, same as in facts_used")
+    label: str = Field(description='Short name, e.g. "Bill forecast"')
+    value: str | None = Field(None, description='Headline value, e.g. "₱2,450"')
+    detail: str = Field(description="The fact as one Taglish sentence, with its full numbers")
+    kind: Literal["live", "history", "forecast", "settings", "advice"]
+    period: str = Field(description='What time it covers, e.g. "This month"')
+    screen: Literal["home", "energy", "bill", "brownout", "alerts", "settings"] | None = Field(
+        None, description="App screen that shows this data")
+    as_of_ts: int | None = Field(None, description="When it was measured (live) or computed; null for settings")
+
+
 class Chat(BaseModel):
     reply: str
     chips: list[Chip]
     source: Source = Field(description="fallback = LLM down, too slow, or failed the fact check")
     facts_used: list[str] = Field(default_factory=list, description="Ids of the facts behind the answer")
+    sources: list[ChatSource] = Field(default_factory=list, description="The data behind the answer, for the app to show")
 
 
 # ------------------------------------------------------- /api/summary/daily --

@@ -1,5 +1,6 @@
 // Bill & Savings (Figma "Bill"): GET /api/bill: forecast + range, vs last month, savings, weekly costs.
 // The tip comes from GET /api/outlook (weather-aware advice from the server) when it's available.
+// System check at the bottom: GET /api/upgrade (does the setup still fit this household's use?).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +9,7 @@ import '../../core/utils/format.dart';
 import '../../providers/data_providers.dart';
 import '../common/charts.dart';
 import '../common/ui.dart';
+import 'system_check.dart';
 
 String _php(Object? v) => formatPhp(numOr(v), whole: true);
 
@@ -21,20 +23,27 @@ class BillScreen extends ConsumerWidget {
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(outlookProvider);
+        ref.invalidate(upgradeProvider);
         await ref.refresh(billProvider.future).then((_) {}, onError: (_) {});
       },
       child: ListView(padding: EdgeInsets.zero, children: [
         const SafeArea(bottom: false, child: PageHeader('Bill & Savings', 'Track your bill and solar savings.')),
-        AsyncBody(value: bill, onRetry: () => ref.invalidate(billProvider), data: (b) => _BillBody(b, advice: advice)),
+        AsyncBody(
+          value: bill,
+          onRetry: () => ref.invalidate(billProvider),
+          // The system check is extra: if it fails or isn't ready, the bill still shows without it.
+          data: (b) => _BillBody(b, advice: advice, upgrade: ref.watch(upgradeProvider).value),
+        ),
       ]),
     );
   }
 }
 
 class _BillBody extends StatelessWidget {
-  const _BillBody(this.b, {required this.advice});
+  const _BillBody(this.b, {required this.advice, this.upgrade});
   final Map<String, dynamic> b;
   final String advice;
+  final Map<String, dynamic>? upgrade; // GET /api/upgrade; null = not loaded or failed
 
   @override
   Widget build(BuildContext context) {
@@ -113,6 +122,10 @@ class _BillBody extends StatelessWidget {
         ),
         const SizedBox(height: S.x3),
         _Tip(advice: advice),
+        if (upgrade != null) ...[
+          const SizedBox(height: S.x6),
+          SystemCheckCard(upgrade!),   // above kFabClearance, so the floating Mira button never covers it
+        ],
       ]),
     );
   }

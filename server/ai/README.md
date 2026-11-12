@@ -95,7 +95,8 @@ with **12 direct answers, 33 LLM answers, and zero unexpected fallbacks**. Media
 slowest 3.09 s, including backend fact gathering and excluding warmup. Direct forecast questions no
 longer depend on Qwen citations. These measurements are for the hybrid service, not 45 model calls.
 
-Keep **qwen3.5:4b**, 4,096-token context, 220 output tokens, thinking off. The earlier all-model
+**Demo model: qwen3.5:9b** (team decision, 2026-11-12: 4B's answers weren't good enough). Use
+4,096-token context, 220 output tokens, thinking off. 4B still works on 8 GB machines. The earlier all-model
 comparison scored 4B at 43/45 (two forecast fallbacks) and 9B at 42/45 (three slow answers; median
 5.19 s, maximum 12.53 s). Those historical scores predate direct lookups and are not a current
 same-version comparison. 9B has not been re-benchmarked for this update.
@@ -271,6 +272,7 @@ Don't loosen `guard.py` to make a test pass. If the guard rejects a reply, the r
 | `router.py` | a question isn't getting the right facts |
 | `prompts.py` | changing tone, Taglish style, recap format |
 | `style.py` | the model keeps a wording habit the prompt can't fix (word swaps only, never numbers) |
+| `sources.py` | a new fact needs a label, period or app screen in the answer's "Where this answer comes from" list (`tests/test_ai_sources.py` fails until it has one) |
 | `guard.py` | rarely; e.g. allowing a new number format |
 | `service.py` | changing the flow (retry count, fallback text, chips) |
 | `llm.py` | switching provider or Ollama options |

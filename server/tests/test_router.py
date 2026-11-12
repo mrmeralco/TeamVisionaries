@@ -18,6 +18,13 @@ from ai.router import topics_for
     ("May problema ba ang inverter ko?", {"fault", "now"}, {"bill"}),
     # Pitch-deck question: "pinakamataas" is a cost word, but "consumption" makes it a usage question.
     ("Kailan pinakamataas ang consumption namin?", {"usage"}, {"bill"}),
+    # System check: upgrade questions get the upgrade facts; look-alikes don't.
+    ("Kailangan ko ba ng dagdag na battery?", {"upgrade"}, set()),
+    ("Sapat pa ba ang system ko sa gamit namin?", {"upgrade"}, set()),
+    ("Should I upgrade my solar?", {"upgrade"}, set()),
+    ("Bakit mas malaki ang bill ko?", {"bill"}, {"upgrade"}),
+    ("Sapat ba ang battery mamaya?", {"battery"}, {"upgrade"}),
+    ("May problema ba ang inverter ko?", {"fault"}, {"upgrade"}),
     # Vague: broad overview.
     ("Kumusta?", {"today", "bill", "savings"}, set()),
 ])

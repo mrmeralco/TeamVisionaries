@@ -35,6 +35,9 @@ class ApiService {
 
   /// 48 h solar forecast, battery projection and brownout runtime with the sun counted.
   Future<Map<String, dynamic>> getOutlook() => _get('/api/outlook');
+
+  /// System check: does the solar/battery/inverter still fit this household's use? (last 30 days)
+  Future<Map<String, dynamic>> getUpgrade() => _get('/api/upgrade');
   Future<Map<String, dynamic>> getAlerts({bool unreadOnly = false}) =>
       _get(unreadOnly ? '/api/alerts?unread_only=true' : '/api/alerts');
   Future<Map<String, dynamic>> markAlertRead(int id) => _send('POST', '/api/alerts/$id/read');

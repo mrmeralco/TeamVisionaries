@@ -19,7 +19,7 @@ from datetime import timedelta
 
 from app import config, db, energy
 
-from . import answers, guard, llm, prompts, router, style
+from . import answers, guard, llm, prompts, router, sources, style
 from .facts import Fact, FactSet, gather
 
 log = logging.getLogger("solaris.ai")
@@ -60,7 +60,8 @@ def _log(entry: dict) -> None:
         log.warning("could not write AI log: %s", e)
 
 
-async def ask(question: str, given: list[Fact], fallback_text: str, task: bool = False) -> dict:
+async def ask(question: str, given: list[Fact], fallback_text: str, task: bool = False,
+              fallback_ids: list[str] | None = None) -> dict:
     """Runs steps 3-5 for any task. Returns {reply, fact_ids, source, answerable, ...}.
 
     task=True: `question` is the app's own instruction (e.g. the daily recap), not user text. It is sent
@@ -81,11 +82,12 @@ async def ask(question: str, given: list[Fact], fallback_text: str, task: bool =
         reply = style.polish(str(out.get("reply", "")), style.user_name(given))
         ids = [clean_id(i) for i in out.get("fact_ids") or []]
         answerable = bool(out.get("answerable", True))
-        if not answerable and task:
-            attempts.append({"raw": out, "guard": "task refused"})
-            log.warning("model refused task: %s", reply[:160])
+        must_answer = task or (router.is_upgrade(question) and any(f.id.startswith("upgrade.") for f in given))
+        if not answerable and must_answer:
+            attempts.append({"raw": out, "guard": "refused an answerable question"})
+            log.warning("model refused, but FACTS answer it: %s", reply[:160])
             messages += [{"role": "assistant", "content": json.dumps(out, ensure_ascii=False)},
-                         {"role": "user", "content": prompts.TASK_RETRY_NOTE}]
+                         {"role": "user", "content": prompts.TASK_RETRY_NOTE if task else prompts.ANSWER_RETRY_NOTE}]
             continue
         if not answerable:
             attempts.append({"raw": out, "guard": "out_of_scope"})
@@ -99,7 +101,7 @@ async def ask(question: str, given: list[Fact], fallback_text: str, task: bool =
         log.warning("guard rejected reply (%s): %s", "; ".join(g.problems), reply[:160])
         messages += [{"role": "assistant", "content": json.dumps(out, ensure_ascii=False)},
                      {"role": "user", "content": prompts.RETRY_NOTE.format(problems="; ".join(g.problems))}]
-    return {"reply": fallback_text, "fact_ids": [], "source": "fallback", "answerable": True,
+    return {"reply": fallback_text, "fact_ids": list(fallback_ids or []), "source": "fallback", "answerable": True,
             "attempts": attempts, "latency_s": round(time.monotonic() - t0, 2)}
 
 
@@ -115,24 +117,30 @@ FALLBACK_IDS = {
     "battery": ("now.battery_pct", "now.battery_w"),
     "usage": ("usage.peak_hours", "week.grid_kwh", "week.self_sufficiency_pct"),
     "alerts": ("alerts.unread",),
+    "upgrade": ("upgrade.verdict", "upgrade.battery", "upgrade.solar", "upgrade.inverter", "upgrade.usage"),
     "today": ("today.solar_kwh", "today.cost_php", "today.saved_php"),
     "now": ("now.solar_w", "now.load_w", "now.grid_w"),
 }
 # "now" is last: every question includes it, so it only answers when nothing more specific was asked.
-FALLBACK_ORDER = ("fault", "brownout", "bill", "savings", "yesterday", "outlook", "battery", "usage", "alerts", "today", "now")
+FALLBACK_ORDER = ("fault", "brownout", "upgrade", "bill", "savings", "yesterday", "outlook", "battery", "usage", "alerts", "today", "now")
 
 
-def fallback_reply(asked: set[str], active: set[str], fs: FactSet) -> str:
-    """Urgent items first (one line each), then the facts for what was actually asked."""
+def fallback_reply(asked: set[str], active: set[str], fs: FactSet) -> tuple[str, list[str]]:
+    """Urgent items first (one line each), then the facts for what was actually asked.
+    Returns the reply and the ids of the facts it used (the answer's sources)."""
     by = fs.by_id()
-    lines = [by[f"{t}.active"].spoken.split(". ")[0] for t in ("fault", "brownout") if t in active and t not in asked]
+    urgent = [f"{t}.active" for t in ("fault", "brownout") if t in active and t not in asked]
+    lines = [by[i].spoken.split(". ")[0] for i in urgent]
+    ids = list(urgent)
     for topic in FALLBACK_ORDER:
         if topic in asked:
-            lines += [by[i].spoken for i in FALLBACK_IDS[topic] if i in by]
+            used = [i for i in FALLBACK_IDS[topic] if i in by]
+            lines += [by[i].spoken for i in used]
+            ids += used
             break
     if not lines:
-        lines = [by["now.status"].spoken]
-    return answers.join_spoken(lines)
+        lines, ids = [by["now.status"].spoken], ["now.status"]
+    return answers.join_spoken(lines), ids
 
 
 async def chat(device_id: str, settings: dict, message: str) -> dict:
@@ -143,27 +151,32 @@ async def chat(device_id: str, settings: dict, message: str) -> dict:
     topics = asked | active
     given = router.select_facts(message, fs.select(topics)) + [f for f in fs.facts if f.id == "user.name"]
     given = list({f.id: f for f in given}.values())
-    fallback = fallback_reply(asked, active, fs)
+    fallback, fallback_ids = fallback_reply(asked, active, fs)
     intent = router.bill_intent(message)
     if intent in {"current", "forecast", "last_month", "comparison", "both"}:
         targets = {"current": ["bill.month_to_date_php"], "forecast": ["bill.forecast_php"],
                    "last_month": ["bill.last_month_php"], "comparison": ["bill.last_month_php", "bill.forecast_php", "bill.vs_last_month_pct"],
                    "both": ["bill.month_to_date_php", "bill.forecast_php"]}[intent]
-        urgent = [fs.by_id()[f"{t}.active"].spoken for t in ("fault", "brownout") if t in active]
-        fallback = answers.join_spoken(urgent + [fs.by_id()[target].spoken for target in targets if target in fs.by_id()])
-    if "now" in asked and any(w in message.lower() for w in ("solar", "battery", "baterya", "grid", "ngayon", "now")):
+        fallback_ids = [f"{t}.active" for t in ("fault", "brownout") if t in active]
+        fallback_ids += [target for target in targets if target in fs.by_id()]
+        fallback = answers.join_spoken([fs.by_id()[i].spoken for i in fallback_ids])
+    if "now" in asked and not router.is_upgrade(message) and any(
+            w in message.lower() for w in ("solar", "battery", "baterya", "grid", "ngayon", "now")):
         offline = fs.by_id().get("now.online")
         if offline and offline.text.startswith("OFFLINE"):
             fallback += " " + offline.spoken
+            fallback_ids.append("now.online")
     r = answers.direct_answer(message, given)
     if r is None:
-        r = await ask(message, given, fallback)
+        r = await ask(message, given, fallback, fallback_ids=fallback_ids)
     else:
         r["latency_s"] = round(time.monotonic() - started, 3)
     _log({"ts": int(time.time()), "task": "chat", "question": message, "topics": sorted(topics),
           "facts": [f.id for f in given], "strategy": r.get("strategy", "model"),
           **{k: r[k] for k in ("reply", "source", "fact_ids", "attempts", "latency_s")}})
-    return {"reply": r["reply"], "chips": _chips(r["fact_ids"], FactSet(given)), "source": r["source"], "facts_used": r["fact_ids"]}
+    # The fallback may use facts the router didn't put in the prompt, so look them up in the full set.
+    return {"reply": r["reply"], "chips": _chips(r["fact_ids"], fs), "source": r["source"], "facts_used": r["fact_ids"],
+            "sources": sources.build(r["fact_ids"], fs.by_id(), fs.measured_ts, int(time.time()))}
 
 
 # ------------------------------------------------------------ daily summary --

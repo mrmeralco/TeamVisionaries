@@ -18,6 +18,9 @@ KEYWORDS: dict[str, tuple[str, ...]] = {
     "brownout": ("brownout", "blackout", "walang kuryente", "nawalan", "outage", "power interruption"),
     "fault": ("fault", "error", "sira", "problema", "init", "mainit", "temperature", "overheat", "code"),
     "alerts": ("alert", "abiso", "notification", "babala"),
+    # Specific phrases only: "mas malaki ang bill" or "sapat ba ang battery mamaya" are not upgrade questions.
+    "upgrade": ("upgrade", "dagdag", "dagdagan", "palakihin", "mas malaking battery", "mas malaking inverter",
+                "mas maraming panel", "system", "sukat ng", "bigger", "add more", "more panels", "more battery"),
     "outlook": ("bukas", "tomorrow", "makalawa", "mamaya", "panahon", "weather", "ulap", "maulap", "ulan", "umuulan",
                 "bagyo", "sisikat", "sikat", "mauubos", "maubos", "mapupuno", "mapuno", "aabot"),
     "now": ("ngayon", "now", "solar", "araw", "panel", "grid", "live"),
@@ -57,7 +60,16 @@ def bill_intent(message: str) -> str | None:
     return None
 
 
+def is_upgrade(message: str) -> bool:
+    """"Kailangan ko ba ng dagdag na battery?": answered from the system check (app/upgrade.py), not live readings."""
+    return _hits(message.lower(), KEYWORDS["upgrade"])
+
+
 def select_facts(message, facts):
+    if is_upgrade(message):
+        # Only the system check (+ an active brownout/fault, which always comes first). Live readings and the
+        # 48 h outlook made the small model talk about "offline ngayon" instead of the upgrade.
+        return [f for f in facts if f.topic == "upgrade" or f.id in {"brownout.active", "fault.active"}]
     intent = bill_intent(message)
     if intent in {"comparison", "last_month"}:
         keep = {"bill.last_month_php", "bill.forecast_php", "bill.vs_last_month_pct"} if intent == "comparison" else {"bill.last_month_php"}

@@ -11,6 +11,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solaris/core/utils/format.dart';
+import 'package:solaris/features/ask/answer_sources.dart';
 import 'package:solaris/features/common/charts.dart';
 import 'package:solaris/features/ask/ask_screen.dart' show isBadNews;
 import 'package:solaris/features/common/ui.dart';
@@ -75,6 +76,24 @@ class BadNewsChat extends StateMock {
   }
 }
 
+/// GET /api/upgrade returns [result], or fails when it's null.
+class UpgradeMock extends StateMock {
+  UpgradeMock(this.result);
+  final Map<String, dynamic>? result;
+  @override
+  Future<Map<String, dynamic>> getUpgrade() async =>
+      result ?? (throw TimeoutException('no system check'));
+}
+
+/// An out-of-scope refusal: no facts, so no sources (and an older server that never sends them).
+class NoSourcesChat extends StateMock {
+  @override
+  Future<Map<String, dynamic>> chat(String message) async {
+    chats++;
+    return {'reply': 'Pasensya na, hindi ko pa alam iyan.', 'chips': <Object>[], 'source': 'llm'};
+  }
+}
+
 /// Chat that fails until [fail] is cleared (for "Try again").
 class FailingChat extends StateMock {
   bool fail = true;
@@ -133,6 +152,9 @@ Future<ProviderContainer> pumpApp(WidgetTester t,
   await t.pumpAndSettle();
   return ProviderScope.containerOf(t.element(find.byType(SolarisApp)));
 }
+
+/// A tall phone, so a whole Ask Mira conversation (answer + its sources) fits without scrolling.
+const tallPhone = Size(393, 1600);
 
 Future<void> tab(WidgetTester t, String label) async {
   await t.tap(find.text(label).last);
@@ -363,6 +385,41 @@ void main() {
     expect(find.text('Yesterday'), findsNothing);
   });
 
+  testWidgets('Bill: system check shows each recommendation with the household numbers behind it', (t) async {
+    await pumpApp(t, size: const Size(393, 2600));
+    await tab(t, 'Bill');
+    final u = example('upgrade');
+    final rec = (u['recommendations'] as List).first as Map<String, dynamic>;
+    expect(find.text('System check'), findsOneWidget);
+    expect(find.text('Upgrade worth considering'), findsOneWidget);
+    expect(find.text(u['headline'] as String), findsOneWidget);
+    expect(find.text('Your system: 5 kWp solar · 10 kWh battery · 5 kW inverter'), findsOneWidget);
+    expect(find.text(rec['title'] as String), findsOneWidget);
+    expect(find.text(rec['add'] as String), findsOneWidget);
+    expect(find.text(rec['reason'] as String), findsOneWidget);
+    for (final e in (rec['evidence'] as List).cast<Map<String, dynamic>>()) {
+      expect(find.textContaining('${e['label']}  ${e['value']}', findRichText: true), findsOneWidget);
+    }
+    expect(find.text('~₱1,581/month saved  ·  ~₱100,000 installed  ·  pays back in ~5.3 yrs'), findsOneWidget);
+    expect(find.textContaining('rough estimates'), findsOneWidget);
+  });
+
+  testWidgets('Bill: a system that fits says so', (t) async {
+    await pumpApp(t, api: UpgradeMock({...example('upgrade'), 'verdict': 'ok', 'recommendations': <Object>[],
+        'headline': 'Sakto ang system mo para sa gamit mo.'}), size: const Size(393, 2600));
+    await tab(t, 'Bill');
+    expect(find.text('Fits your use'), findsOneWidget);
+    expect(find.text('Sakto ang system mo para sa gamit mo.'), findsOneWidget);
+    expect(find.textContaining('rough estimates'), findsNothing); // no prices without a recommendation
+  });
+
+  testWidgets('Bill: a failed system check just hides the card', (t) async {
+    await pumpApp(t, api: UpgradeMock(null), size: const Size(393, 2600));
+    await tab(t, 'Bill');
+    expect(find.text('Predicted bill for November'), findsOneWidget); // the bill still shows
+    expect(find.text('System check'), findsNothing);
+  });
+
   testWidgets('Bill: forecast, range, trend, savings, weekly costs', (t) async {
     await pumpApp(t);
     await tab(t, 'Bill');
@@ -485,7 +542,7 @@ void main() {
 
   testWidgets('Ask Mira: sends the question, shows reply + chips', (t) async {
     final api = StateMock();
-    await pumpApp(t, api: api);
+    await pumpApp(t, api: api, size: tallPhone);
     await openMira(t);
     await t.enterText(find.byType(TextField), 'Bakit mataas ang bill ko?');
     await t.tap(find.text('Send'));
@@ -499,6 +556,61 @@ void main() {
     await t.tap(find.byTooltip('New conversation'));
     await t.pumpAndSettle();
     expect(find.text(example('chat')['reply'] as String), findsNothing);
+  });
+
+  testWidgets('Ask Mira: shows the data behind the answer, and each source opens its screen', (t) async {
+    final api = StateMock();
+    await pumpApp(t, api: api, size: tallPhone);
+    await openMira(t);
+    await t.enterText(find.byType(TextField), 'Bakit mataas ang bill ko?');
+    await t.tap(find.text('Send'));
+    await t.pumpAndSettle();
+
+    final sources = (example('chat')['sources'] as List).cast<Map<String, dynamic>>();
+    expect(find.text('Where this answer comes from · ${sources.length}'), findsOneWidget);
+    for (final s in sources) {
+      expect(find.text(s['label'] as String), findsOneWidget);
+      expect(find.text(s['detail'] as String), findsOneWidget); // the exact data sentence, ₱ intact
+    }
+    expect(find.text('Bill forecast'), findsOneWidget);
+    expect(find.textContaining('Forecast  ·  End of this month'), findsOneWidget); // where it comes from + period
+    expect(find.textContaining('Your history  ·  Last 7 days'), findsOneWidget);
+
+    // Collapse and expand.
+    final header = find.text('Where this answer comes from · ${sources.length}');
+    await t.tap(header);
+    await t.pumpAndSettle();
+    expect(find.text('Bill forecast'), findsNothing);
+    await t.tap(header);
+    await t.pumpAndSettle();
+
+    // A source opens the screen with that data.
+    await t.tap(find.text('Bill forecast'));
+    await t.pumpAndSettle();
+    expect(find.text('Bill & Savings'), findsOneWidget);
+  });
+
+  testWidgets('Ask Mira sources: a live reading says when; an old one says how old', (t) async {
+    final now = DateTime.utc(2026, 11, 12, 8); // 4:00 PM in Manila
+    final at = now.millisecondsSinceEpoch ~/ 1000;
+    Map<String, dynamic> live(int ts) => {'id': 'now.solar_w', 'label': 'Solar now', 'value': '676 W',
+        'detail': '676 W ang kuha ng solar panels mo ngayon.', 'kind': 'live', 'period': 'Right now',
+        'screen': 'home', 'as_of_ts': ts};
+    await t.pumpWidget(MaterialApp(home: Scaffold(body: AnswerSources([live(at - 30)], now: now))));
+    expect(find.text('Live reading  ·  Right now  ·  ${formatClock(at - 30)}'), findsOneWidget);
+    await t.pumpWidget(MaterialApp(home: Scaffold(body: AnswerSources([live(at - 7200)], now: now))));
+    expect(find.text('Live reading  ·  Last reading 2 hr ago'), findsOneWidget);
+    expect(find.textContaining('Right now'), findsNothing);
+  });
+
+  testWidgets('Ask Mira: an answer without sources shows no source list', (t) async {
+    final api = NoSourcesChat();
+    await pumpApp(t, api: api);
+    await openMira(t);
+    await t.enterText(find.byType(TextField), 'Sino ang presidente?');
+    await t.tap(find.text('Send'));
+    await t.pumpAndSettle();
+    expect(find.textContaining('Where this answer comes from'), findsNothing);
   });
 
   testWidgets('Ask Mira: a failed answer offers Try again, which asks the same question', (t) async {

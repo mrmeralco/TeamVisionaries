@@ -12,7 +12,7 @@ import re
 from dataclasses import dataclass, field
 
 from .facts import Fact
-from .router import bill_intent
+from .router import bill_intent, is_upgrade
 from . import semantics
 
 MAX_WORDS = 110
@@ -104,6 +104,9 @@ def check(reply: str, fact_ids: list[str], answerable: bool, given: list[Fact], 
         problems.append(f"numbers not in FACTS: {unknown}")
 
     problems.extend(bill_problems(reply, fact_ids, given, question))
+    if is_upgrade(question) and any(f.id.startswith("upgrade.") for f in given) and not any(
+            i.startswith("upgrade.") for i in fact_ids):
+        problems.append("upgrade question: answer from the system check facts (upgrade.*) and cite them")
     problems.extend(semantics.problems(reply, fact_ids, given, numbers_in, _matches))
     urgent = {"brownout" if f.id.startswith("brownout") else "fault" for f in given
               if f.id in {"brownout.active", "fault.active"} and f.text.startswith("MAY ")}
@@ -121,7 +124,7 @@ def check(reply: str, fact_ids: list[str], answerable: bool, given: list[Fact], 
         if re.search(rf"\b(?:walang|no)\s+(?:active\s+)?{keyword}\b", reply.lower()):
             problems.append(f"denies active {keyword}")
     m = question.lower()
-    live_question = any(w in m for w in ("solar", "battery", "baterya", "grid")) and not any(
+    live_question = not is_upgrade(question) and any(w in m for w in ("solar", "battery", "baterya", "grid")) and not any(
         w in m for w in ("kahapon", "yesterday", "oras", "peak", "week", "linggo", "natipid", "savings"))
     offline = any(f.id == "now.online" and f.text.startswith("OFFLINE") for f in given)
     if live_question and offline and not any(w in reply.lower() for w in ("offline", "luma", "huling data")):

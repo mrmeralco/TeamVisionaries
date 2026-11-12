@@ -1,12 +1,14 @@
 // Ask Mira (Figma "Ask Mira"): POST /api/chat. Answer + chips; spinner while the local LLM thinks (~10 s).
 // Suggestions after every answer, "Try again" on a failed answer, selectable text, new conversation.
 // Opens on top of the tabs from the floating Mira button (and "Ask Mira about …" links); back returns.
+// Under each answer: the data it came from (AnswerSources), each linking to its screen.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../providers/chat_providers.dart';
 import '../common/ui.dart';
+import 'answer_sources.dart';
 
 /// Is this answer bad news for the household (a brownout, a fault, a low battery, a higher bill, the
 /// device offline, a cloudy day ahead)? Then Mira tells it with her sad face instead of talking
@@ -283,6 +285,11 @@ class _Bubble extends StatelessWidget {
             ]),
           ),
         ),
+        if (m.sources.isNotEmpty)
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.86),
+            child: AnswerSources(m.sources),
+          ),
         if (m.source == 'fallback')
           Padding(
             padding: const EdgeInsets.only(top: 4),

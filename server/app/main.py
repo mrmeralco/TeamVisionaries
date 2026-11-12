@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ai import llm, prompts
 from ai import service as ai
 
-from . import config, db, energy, hub, ingest, mock, outlook, weather
+from . import config, db, energy, hub, ingest, mock, outlook, upgrade, weather
 from . import schemas as S  # Contract C response shapes
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -110,6 +110,14 @@ def get_outlook():
     if config.MOCK:
         return mock.load("outlook")
     return outlook.outlook(_dev(), _settings())
+
+
+@app.get("/api/upgrade", response_model=S.Upgrade)
+def get_upgrade():
+    """System check: does the solar setup still fit this household's use? (app/upgrade.py)"""
+    if config.MOCK:
+        return mock.load("upgrade")
+    return upgrade.recommend(_dev(), _settings())
 
 
 @app.get("/api/alerts", response_model=S.AlertList)

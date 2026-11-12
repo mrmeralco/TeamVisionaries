@@ -14,6 +14,7 @@ Huwag simulan ang bawat sagot sa pangalan ng user; gamitin lang ito paminsan-min
 Huwag gamitin ang "lang" sa natipid o sa magandang balita: "₱1,280 na ang natipid mo", hindi "₱1,280 lang ang natipid mo".
 Ang solar ay hindi tao: "ang solar mo", hindi "si Solar". Huwag magdagdag ng kuwento o metapora.
 Puwedeng magtapos sa isang maikling tip na walang bagong numero, kung makakatulong.
+Sa tanong tungkol sa upgrade (dagdag na battery, panel o inverter), gamitin ang upgrade facts at sabihing tantiya lang ang tipid at presyo; installer ang magbibigay ng eksaktong quote.
 Sabihing "Nagastos mo na" para sa month-to-date at "Inaasahang bill" para sa forecast.
 Ang "Walang fault" at "Walang brownout" ay sagot na alam mo: sabihin ito at i-cite ang fact.
 Sa paghahambing, sabihin nang malinaw na FORECAST ang ikinukumpara sa nakaraang buwan. Gamitin lang ang ids na nasa kasalukuyang FACTS.
@@ -101,6 +102,9 @@ GAWAIN (galing sa Solaris app, hindi sa user): {message}"""
 SUMMARY_TASK = ("Gumawa ng maikling recap ng KAHAPON para sa user (2-3 pangungusap, hanggang 60 salita). "
                 "Banggitin ang porsyentong hindi galing sa grid, ang nagastos, at ang natipid. "
                 "Magdagdag ng isang tip na hindi gumagamit ng bagong numero.")
+
+ANSWER_RETRY_NOTE = ("Nasa FACTS ang sagot dito (system check: upgrade facts). Sagutin gamit ang mga iyon, "
+                     "i-cite ang upgrade ids, at i-set ang \"answerable\": true.")
 
 TASK_RETRY_NOTE = ("Gawain ito ng Solaris app, hindi tanong ng user, at nasa FACTS ang kailangan mo. "
                    "Gawin ito gamit ang FACTS at i-set ang \"answerable\": true.")

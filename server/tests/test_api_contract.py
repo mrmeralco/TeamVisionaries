@@ -18,6 +18,7 @@ ENDPOINTS = [
     ("bill", "/api/bill"),
     ("brownout", "/api/brownout"),
     ("outlook", "/api/outlook"),
+    ("upgrade", "/api/upgrade"),
     ("alerts", "/api/alerts"),
     ("summary", "/api/summary/daily"),
     ("settings", "/api/settings"),
@@ -41,7 +42,7 @@ def test_mock_mode_endpoint_matches_contract(mock_client, schema, path):
 
 EXAMPLES = {
     "live.json": "live", "energy_day.json": "energy", "energy_week.json": "energy", "energy_month.json": "energy",
-    "bill.json": "bill", "brownout.json": "brownout", "outlook.json": "outlook", "alerts.json": "alerts", "chat.json": "chat",
+    "bill.json": "bill", "brownout.json": "brownout", "outlook.json": "outlook", "upgrade.json": "upgrade", "alerts.json": "alerts", "chat.json": "chat",
     "summary_daily.json": "summary", "settings.json": "settings",
 }
 
