@@ -73,6 +73,7 @@ cat <<EOF
   ------------------------------------------------------------
   Website       http://${IP}:${PORT}/
   Android app   http://${IP}:${PORT}/apk
+  Web app       http://${IP}:${PORT}/app/
   In the app    Settings > server address:  ${IP}:${PORT}
   API docs      http://${IP}:${PORT}/docs
   MQTT broker   ${IP}:1883   (firmware: MQTT_MDNS_HOST "${NAME}", MQTT_HOST "${IP}")

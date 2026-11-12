@@ -1,0 +1,59 @@
+{
+  "unread": 4,
+  "alerts": [
+    {
+      "id": 14,
+      "ts": 1794446366,
+      "type": "high_temp",
+      "severity": "warning",
+      "title": "Mainit ang inverter",
+      "message": "66°C ang inverter. Siguraduhing may hangin sa paligid nito.",
+      "read": false
+    },
+    {
+      "id": 13,
+      "ts": 1794446366,
+      "type": "low_battery",
+      "severity": "warning",
+      "title": "Mababa na ang battery",
+      "message": "18% na lang ang battery. Bawasan muna ang malalaking appliances.",
+      "read": false
+    },
+    {
+      "id": 12,
+      "ts": 1794446366,
+      "type": "fault",
+      "severity": "critical",
+      "title": "Fault 21: Sobrang init ng inverter",
+      "message": "Nag-overheat ang inverter. Bawasan muna ang load, at siguraduhing may hangin at hindi naaarawan ang inverter. Kung hindi bumaba ang init, tumawag sa installer.",
+      "read": false
+    },
+    {
+      "id": 11,
+      "ts": 1794446366,
+      "type": "brownout",
+      "severity": "critical",
+      "title": "Brownout",
+      "message": "Nawalan ng kuryente mula sa grid. Battery at solar na ang gamit ng bahay mo.",
+      "read": false
+    },
+    {
+      "id": 10,
+      "ts": 1793554800,
+      "type": "grid_restored",
+      "severity": "info",
+      "title": "Bumalik na ang kuryente",
+      "message": "Bumalik na ang grid pagkatapos ng 30 minuto. Magcha-charge ulit ang battery.",
+      "read": true
+    },
+    {
+      "id": 9,
+      "ts": 1793553000,
+      "type": "brownout",
+      "severity": "critical",
+      "title": "Brownout",
+      "message": "Nawalan ng kuryente mula sa grid. Battery at solar na ang gamit ng bahay mo.",
+      "read": true
+    }
+  ]
+}

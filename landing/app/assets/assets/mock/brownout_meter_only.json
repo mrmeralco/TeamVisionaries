@@ -1,0 +1,10 @@
+{
+  "active": false,
+  "start_ts": 1793516700,
+  "duration_min": 60,
+  "batt_soc": null,
+  "load_w": null,
+  "runtime_h": null,
+  "advice": "Walang brownout ngayon. Kapag nawalan ng kuryente, makikita mo rito kung kailan ito nagsimula at natapos.",
+  "outages_this_month": 1
+}

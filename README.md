@@ -55,7 +55,7 @@ API docs at `http://<laptop-ip>:8000/docs`.
 
 **Demo / production (Andy's laptop):** `server\host\start-production.bat` (macOS: `bash server/host/start-production.sh`)
 starts the broker, Ollama and the server, and serves the [landing page](landing/) and the Android app on the same port:
-`http://<laptop-ip>:8000/` and `http://<laptop-ip>:8000/apk`. See [server/host/README.md](server/host/README.md).
-New APK: `bash scripts/build-apk.sh`, then commit `landing/downloads/`. Real mode, firmware and app setup: see each folder's README.
+`http://<laptop-ip>:8000/`, the APK at `/apk` and the web app at `/app/`. See [server/host/README.md](server/host/README.md).
+New APK: `bash scripts/build-apk.sh`; new web app: `bash scripts/build-web.sh`; then commit `landing/`. Real mode, firmware and app setup: see each folder's README.
 
 Server laptop IP + hotspot password go on a sticky note.

@@ -24,6 +24,7 @@ at `http://<ip>:8000/apk`, so phones on the hotspot open one address for everyth
 ```
   Website       http://192.168.43.100:8000/
   Android app   http://192.168.43.100:8000/apk
+  Web app       http://192.168.43.100:8000/app/
   In the app    Settings > server address:  192.168.43.100:8000
 ```
 
@@ -32,7 +33,7 @@ at `http://<ip>:8000/apk`, so phones on the hotspot open one address for everyth
 Options: `start-production.bat -Update` pulls the repo first (new APK, new code) and reinstalls Python packages;
 `-NoAI` skips Ollama. macOS: `--update`, `--no-ai`. Ctrl+C or closing the window stops everything it started.
 
-New APK: someone with Flutter runs `bash scripts/build-apk.sh` and pushes; Andy runs `start-production.bat -Update`.
+New APK / web app: someone with Flutter runs `bash scripts/build-apk.sh` / `bash scripts/build-web.sh` and pushes; Andy runs `start-production.bat -Update`.
 
 ## Windows (Andy's laptop, the demo host)
 

@@ -13,6 +13,19 @@ folder at `/` (after every `/api` and `/ws` route) and redirects `/apk` to `down
 laptop it is `http://<laptop-ip>:8000/`, and the page works with no internet: DM Sans is served from
 `assets/fonts/` (the app's own copy, SIL OFL), nothing loads from another site.
 
+## The web app (`app/`)
+
+`landing/app/` is the Flutter app built for the web, served at `http://<laptop-ip>:8000/app/` (the hero's
+"Open the web app", the second button in **Get the app**, and the footer). Built with
+`--dart-define=SOLARIS_SAME_ORIGIN=true`, so it talks to the server that served it, on any port, with no Settings
+step; CanvasKit is bundled (`--no-web-resources-cdn`), so it works offline too. Rebuild with:
+
+```bash
+bash scripts/build-web.sh
+```
+
+The script keeps only the CanvasKit files a JS build loads (18 MB instead of 42 MB).
+
 ## The APK (`downloads/`)
 
 `downloads/solaris.apk` is the release build of `app/`, committed so the host laptop only has to pull and serve it.
@@ -39,7 +52,7 @@ follows the visitor's choice (the sun/moon button, remembered) or else opens in 
 | `#app` | Ask Mira: the real conversation ("Bakit mataas ang bill ko?") in front of the real Home screen |
 | `#bill` | The bill forecast in the app's deep orange, beside the real Bill & Savings screen |
 | `#forecast` | The app screen by screen: real Energy, Brownout Advisor and Alerts screens |
-| `#download` | Get the app: three install steps, the server address to type, Download for Android |
+| `#download` | Get the app: three install steps, the server address to type, Download for Android, Open the web app |
 | `#questions` | Six questions in two columns |
 | `#setup` | Inverter, Solaris device, app, alerts, Mira (diagram) |
 | Footer | Download the APK; Team Visionaries, who built what, GitHub and the app |

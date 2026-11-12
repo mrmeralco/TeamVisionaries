@@ -1,0 +1,13 @@
+{
+  "date": "2026-11-11",
+  "summary": "Kahapon, 16.4 kWh ang nagamit ng bahay mo at ₱247 ang nagastos mo sa kuryente. Tip: patayin ang aircon at mga appliance na hindi ginagamit, at hugutin ang mga naka-standby.",
+  "totals": {
+    "pv_kwh": 0.0,
+    "load_kwh": 16.37,
+    "grid_import_kwh": 16.37,
+    "cost_php": 246.6,
+    "savings_php": 0.0,
+    "self_sufficiency_pct": 0.0
+  },
+  "source": "fallback"
+}

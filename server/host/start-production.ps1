@@ -95,6 +95,7 @@ Write-Host "  Solaris is running (production)" -ForegroundColor Green
 Write-Host "  ------------------------------------------------------------"
 Write-Host "  Website       http://${ip}:$Port/"
 Write-Host "  Android app   http://${ip}:$Port/apk"
+Write-Host "  Web app       http://${ip}:$Port/app/"
 Write-Host "  In the app    Settings > server address:  ${ip}:$Port"
 Write-Host "  API docs      http://${ip}:$Port/docs"
 Write-Host "  MQTT broker   ${ip}:1883   (firmware: MQTT_MDNS_HOST `"$env:COMPUTERNAME`", MQTT_HOST `"$ip`")"
