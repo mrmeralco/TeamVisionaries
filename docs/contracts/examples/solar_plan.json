@@ -1,0 +1,37 @@
+{
+  "generated_ts": 1762912800,
+  "setup": "solar",
+  "has_solar": true,
+  "days": 0,
+  "usage": null,
+  "options": [],
+  "yield_kwh_per_kwp_day": 3.6,
+  "sponsors": [
+    {
+      "id": "slot_installer",
+      "kind": "installer",
+      "name": "Solar installer",
+      "tagline": "Ad space for an accredited solar installer near you.",
+      "url": null,
+      "placeholder": true
+    },
+    {
+      "id": "slot_panels",
+      "kind": "panel_brand",
+      "name": "Solar panel brand",
+      "tagline": "Ad space for a panel or inverter brand.",
+      "url": null,
+      "placeholder": true
+    },
+    {
+      "id": "slot_financing",
+      "kind": "financing",
+      "name": "Solar financing",
+      "tagline": "Ad space for a solar loan or installment partner.",
+      "url": null,
+      "placeholder": true
+    }
+  ],
+  "disclaimer": "Tantiya lang ito mula sa gamit mo at karaniwang araw sa Pilipinas. Ipasukat sa installer ang bubong, lilim at wiring bago bumili. Ang mga ad ay hiwalay sa rekomendasyon.",
+  "headline": "May solar ka na. Tingnan ang System check para malaman kung kailangan pang dagdagan."
+}

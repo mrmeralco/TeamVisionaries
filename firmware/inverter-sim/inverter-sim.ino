@@ -1,5 +1,5 @@
 // =============================================================================
-//  Sinag — Simulator (ESP32 #2). Three personalities, one box:
+//  Solaris — Simulator (ESP32 #2). Three personalities, one box:
 //
 //    INVERTER mode  Hybrid solar inverter, Modbus RTU slave ID 1, Contract A map
 //    METER mode     Customer submeter (Eastron SDM120-style), Modbus slave ID 2,
@@ -21,6 +21,11 @@
 //
 //  The knob uses "pick-up": after switching, the new value stays put until you
 //  turn the knob a little — so switching never makes a value jump.
+//
+//  AUTO mode (default): SUN follows the time of day with passing clouds and LOAD
+//  follows a household day with appliance bursts, so readings move on their own.
+//  LCD row 1 shows 'A' instead of '>'. Turn the knob firmly on SUN/LOAD (or move
+//  a web slider) for manual; web "Auto" button or serial "auto on" to go back.
 // =============================================================================
 #include <WiFi.h>
 #include <WebServer.h>
@@ -29,10 +34,11 @@
 #include <Preferences.h>
 #include <LiquidCrystal_I2C.h>
 #include <stdarg.h>
+#include <time.h>
 #include "config.h"
 #include "web_page.h"
 
-#define FW_VERSION      "0.3.0"
+#define FW_VERSION      "0.3.1"
 #define NUM_REGS        8          // inverter map: 0..7
 #define METER_NUM_REGS  0x15A      // meter map: up to total kWh at 0x0156
 
@@ -63,7 +69,7 @@ struct SimState {
   bool  brownout = false;
   bool  fault    = false;      // inverter: fault 21
   bool  sag      = false;      // meter: low voltage
-  int   speed    = DEFAULT_SPEED;
+  int   speed    = AUTO_DEFAULT ? AUTO_SPEED : DEFAULT_SPEED;
   float soc      = 78.0f;
   float temp     = 34.0f;
   float voltSet  = METER_V_NOMINAL;
@@ -97,12 +103,17 @@ static const char *const INV_UNITS[NUM_REGS]  = { "W", "W", "W", "%", "W", "", "
 
 Knob     knob        = KNOB_SUN;
 bool     knobLocked  = true;     // waiting for the knob to move before it takes over
-float    knobRef     = 0;        // pot position when it got locked
+float    knobRef     = -1;       // pot position when it got locked (-1 = boot, not locked yet)
 float    potEma      = -1;       // smoothed pot, 0..100
 int      potPct      = 0;
 int      lastAppliedPot = -1;    // knob only writes when it moves (so SOC can still drift)
 
 Preferences prefs;
+
+// Wi-Fi state (up here: the LCD and the web page read apMode)
+bool     apMode = false;         // fallback AP is on (possibly with the hotspot still being retried)
+bool     mdnsUp = false;
+uint32_t wifiStartMs = 0;        // last attempt to join the hotspot
 
 static bool isMeter() { return S.mode != MODE_INVERTER; }   // both meter modes share physics, knobs, LCD
 static bool isAnsi()  { return S.mode == MODE_METER_ANSI; }
@@ -294,7 +305,7 @@ static size_t c12Table(uint16_t id, uint8_t *t) {
       memcpy(t, "ACL ", 4);                    // MANUFACTURER
       memcpy(t + 4, "I210+c  ", 8);            // ED_MODEL
       t[12] = 1; t[13] = 0; t[14] = 2; t[15] = 0;   // HW ver/rev, FW ver/rev
-      memcpy(t + 16, "SINAG-SIM-000001", 16);  // MFG_SERIAL_NUMBER
+      memcpy(t + 16, "SOLARIS-SIM-000001", 16);  // MFG_SERIAL_NUMBER
       return 32;
     }
     case 23: {  // ST-23 CURRENT_REG_DATA: demand resets + summations in Wh
@@ -510,7 +521,8 @@ static void meterTick(float dtReal) {
   putFloat(0x0156, (float)(S.impKwh + S.expKwh));
 }
 
-static void simTick(float dtReal) { if (isMeter()) meterTick(dtReal); else inverterTick(dtReal); }
+static void autoTick(float dt);
+static void simTick(float dtReal) { autoTick(dtReal); if (isMeter()) meterTick(dtReal); else inverterTick(dtReal); }
 
 // Persist the meter reading so it keeps counting across reboots (once a minute).
 static void saveMeterReading(bool force) {
@@ -519,6 +531,97 @@ static void saveMeterReading(bool force) {
   prefs.putDouble("imp", S.impKwh);
   prefs.putDouble("exp", S.expKwh);
   savedImp = S.impKwh; savedExp = S.expKwh;
+}
+
+// --------------------------------------------------------------- auto sim --
+// AUTO drives sunPct / loadPct; the physics above turns them into watts as usual.
+bool autoSim = AUTO_DEFAULT;
+
+static bool haveNtp() { return time(nullptr) > 1700000000; }
+static float localHour() {
+  if (haveNtp()) {
+    time_t t = time(nullptr);
+    struct tm lt;
+    localtime_r(&t, &lt);
+    return lt.tm_hour + lt.tm_min / 60.0f + lt.tm_sec / 3600.0f;
+  }
+  return fmodf(AUTO_OFFLINE_START_H + millis() / 3600000.0f, 24.0f);
+}
+
+// 0..1: dark before 06:00 and after 18:00, peak at noon
+static float clearSky(float h) {
+  if (h <= 6.0f || h >= 18.0f) return 0.0f;
+  return powf(sinf((h - 6.0f) * PI / 12.0f), 1.3f);
+}
+
+// Typical home use (load %) for each hour; morning and evening peaks.
+static const uint8_t LOAD_BY_HOUR[24] = { 12, 10, 10, 10, 10, 14, 28, 34, 26, 20, 20, 22,
+                                          26, 24, 22, 22, 24, 32, 46, 52, 50, 44, 30, 18 };
+static float baseLoad(float h) {
+  int a = (int)h % 24, b = (a + 1) % 24;
+  float f = h - floorf(h);
+  return LOAD_BY_HOUR[a] + f * (LOAD_BY_HOUR[b] - LOAD_BY_HOUR[a]);
+}
+
+// Appliance bursts on top of the base load (1 % load ~ 38 W). Short, so the demo stays lively.
+struct Burst { const char *name; int addPct; int minS, maxS; };
+static const Burst BURSTS[] = {
+  { "kettle", 45, 60, 150 },  { "rice cooker", 18, 120, 300 }, { "aircon", 28, 180, 600 },
+  { "iron", 30, 120, 300 },   { "washing machine", 12, 180, 420 }, { "microwave", 30, 45, 120 },
+};
+static const int NUM_BURSTS = sizeof BURSTS / sizeof BURSTS[0];
+
+float    cloud = 1.0f, cloudTarget = 1.0f;          // 1 = clear sky
+uint32_t nextCloudMs = 0;
+int      burstIdx = -1;
+uint32_t burstUntil = 0, nextBurstMs = 0;
+float    loadJitter = 0;
+
+static void autoTick(float dt) {
+  if (!autoSim) return;
+  uint32_t now = millis();
+  float h = localHour();
+
+  // Clouds: clear for 40-180 s, then one passes for 15-90 s and dims the sun to 30-75 %.
+  if (now >= nextCloudMs) {
+    bool clear = cloudTarget >= 1.0f;
+    cloudTarget = clear ? random(30, 76) / 100.0f : 1.0f;
+    nextCloudMs = now + (clear ? random(15, 91) : random(40, 181)) * 1000UL;
+  }
+  cloud += (cloudTarget - cloud) * min(1.0f, 0.4f * dt);            // fades over a few seconds
+  float shimmer = 1.0f + random(-20, 21) / 1000.0f;                 // +-2 %
+  S.sunPct = constrain((int)lroundf(AUTO_SUN_PEAK * clearSky(h) * cloud * shimmer), 0, 100);
+
+  // Appliances: one at a time, with quiet gaps in between.
+  if (burstIdx >= 0 && now >= burstUntil) {
+    Serial.printf("[auto] %s off\n", BURSTS[burstIdx].name);
+    burstIdx = -1;
+    nextBurstMs = now + random(AUTO_BURST_GAP_MIN_S, AUTO_BURST_GAP_MAX_S + 1) * 1000UL;
+  }
+  if (!nextBurstMs) nextBurstMs = now + random(10, 40) * 1000UL;
+  if (burstIdx < 0 && now >= nextBurstMs) {
+    burstIdx = random(0, NUM_BURSTS);
+    const Burst &b = BURSTS[burstIdx];
+    uint32_t secs = random(b.minS, b.maxS + 1);
+    burstUntil = now + secs * 1000UL;
+    Serial.printf("[auto] %s on (+%d%% load) for %lu s\n", b.name, b.addPct, (unsigned long)secs);
+  }
+
+  loadJitter = constrain(loadJitter + random(-10, 11) / 10.0f * dt, -4.0f, 4.0f);   // slow wander
+  float load = baseLoad(h) + loadJitter + (burstIdx >= 0 ? BURSTS[burstIdx].addPct : 0);
+  S.loadPct = constrain((int)lroundf(load), 0, 100);
+}
+
+static void flash(const char *a, const char *b, uint32_t ms = 1500);
+static void lockKnob();
+static bool knobDrivesAuto();
+static void setAuto(bool on, const char *why) {
+  if (on == autoSim) return;
+  autoSim = on;
+  if (on) { cloud = cloudTarget = 1.0f; nextCloudMs = 0; burstIdx = -1; nextBurstMs = 0; }
+  if (on && knobDrivesAuto()) lockKnob();             // the knob must not fight AUTO right away
+  flash(on ? "AUTO ON" : "AUTO OFF", on ? "sun+load auto" : why, 1500);
+  Serial.printf("[auto] %s (%s)\n", on ? "on" : "off", why);
 }
 
 // ------------------------------------------------------------ knob/button --
@@ -534,6 +637,7 @@ static void applyKnob(int pct) {
 }
 
 static void lockKnob() { knobLocked = true; knobRef = potEma; lastAppliedPot = -1; }
+static bool knobDrivesAuto() { return knob == KNOB_SUN || knob == KNOB_LOAD; }
 
 static void readPot() {
   int raw = analogRead(POT_PIN);
@@ -541,14 +645,20 @@ static void readPot() {
   potEma = potEma < 0 ? pct : potEma + 0.25f * (pct - potEma);
   if (fabsf(potEma - potPct) >= 0.7f) potPct = (int)lroundf(potEma);   // hysteresis
 
-  if (knobLocked && fabsf(potEma - knobRef) >= 4.0f) knobLocked = false;
+  if (knobRef < 0) return;                       // boot: setup() locks the knob where it is first
+  // In AUTO the knob must move further (no takeover from ADC noise) and then switches to manual.
+  bool guarded = autoSim && knobDrivesAuto();
+  if (knobLocked && fabsf(potEma - knobRef) >= (guarded ? (float)AUTO_KNOB_TAKEOVER_PCT : 4.0f)) {
+    knobLocked = false;
+    if (guarded) setAuto(false, "knob took over");
+  }
   if (!knobLocked && potPct != lastAppliedPot) { lastAppliedPot = potPct; applyKnob(potPct); }
 }
 
 // LCD overlay message (shown for a moment after an event)
 char     msg0[21] = "", msg1[21] = "";
 uint32_t msgUntil = 0;
-static void flash(const char *a, const char *b, uint32_t ms = 1500) {
+static void flash(const char *a, const char *b, uint32_t ms) {
   strlcpy(msg0, a, sizeof msg0); strlcpy(msg1, b, sizeof msg1);
   msgUntil = millis() + ms;
 }
@@ -617,7 +727,7 @@ static bool modbusLinked() { return mb.lastReqMs && millis() - mb.lastReqMs < 70
 
 // Row 1: what the knob controls. '>' = knob in control, '=' = turn it to take over.
 static void knobLine(char *out, size_t n) {
-  char c = knobLocked ? '=' : '>';
+  char c = autoSim && knobDrivesAuto() ? 'A' : knobLocked ? '=' : '>';   // 'A' = AUTO drives this value
   switch (knob) {
     case KNOB_SUN:   snprintf(out, n, "%cSUN %3d%% %5dW", c, S.sunPct, S.pvW); break;
     case KNOB_LOAD:  snprintf(out, n, "%cLOAD%3d%% %5dW", c, S.loadPct, S.loadW); break;
@@ -646,7 +756,7 @@ static void pageText(Page pg, char *out, size_t n) {
       else                     snprintf(out, n, "%s LOST %4lus", isAnsi() ? "C12" : "MB", (unsigned long)((millis() - mb.lastReqMs) / 1000));
       break;
     case PG_IP: {
-      bool ap = WiFi.getMode() == WIFI_AP;
+      bool ap = apMode;
       IPAddress ip = ap ? WiFi.softAPIP() : WiFi.localIP();
       if (!ap && WiFi.status() != WL_CONNECTED) snprintf(out, n, "WiFi connecting");
       else snprintf(out, n, "%s%s", ap ? "AP " : "", ip.toString().c_str());   // IP alone can be 15 chars
@@ -725,7 +835,7 @@ static void sendState() {
   jcat("\"meter\":{\"v\":%.1f,\"i\":%.2f,\"p\":%.0f,\"va\":%.0f,\"var\":%.0f,\"pf\":%.2f,\"hz\":%.2f,\"imp\":%.2f,\"exp\":%.2f,\"load_w\":%d,\"pv_w\":%d},",
        S.mV, S.mI, S.mP, S.mVA, S.mVAR, S.mPF, S.mHz, S.impKwh, S.expKwh, S.loadW, S.pvW);
 
-  // register table of the active map, exactly as the Sinag device reads it
+  // register table of the active map, exactly as the Solaris device reads it
   jcat("\"table\":[");
   if (isAnsi()) {
     uint8_t t[64];
@@ -754,9 +864,12 @@ static void sendState() {
   jcat("],");
 
   jcat("\"ctl\":{\"sun\":%d,\"load\":%d,\"brownout\":%s,\"fault\":%s,\"sag\":%s,\"speed\":%d,\"volt\":%.1f,"
-       "\"knob\":\"%s\",\"knob_locked\":%s,\"pot\":%d,\"soc\":%.2f,\"knobs\":[",
+       "\"knob\":\"%s\",\"knob_locked\":%s,\"pot\":%d,\"soc\":%.2f,"
+       "\"auto\":%s,\"auto_clock\":\"%02d:%02d\",\"auto_ntp\":%s,\"auto_burst\":\"%s\",\"knobs\":[",
        S.sunPct, S.loadPct, S.brownout ? "true" : "false", S.fault ? "true" : "false", S.sag ? "true" : "false",
-       S.speed, S.voltSet, KNOB_IDS[knob], knobLocked ? "true" : "false", potPct, S.soc);
+       S.speed, S.voltSet, KNOB_IDS[knob], knobLocked ? "true" : "false", potPct, S.soc,
+       autoSim ? "true" : "false", (int)localHour(), (int)(fmodf(localHour(), 1.0f) * 60), haveNtp() ? "true" : "false",
+       autoSim && burstIdx >= 0 ? BURSTS[burstIdx].name : "");
   for (int i = 0; i < KNOBS_PER_MODE; i++) jcat("%s\"%s\"", i ? "," : "", KNOB_IDS[modeKnobs()[i]]);
   jcat("]},");
 
@@ -768,7 +881,7 @@ static void sendState() {
        mb.lastReqMs ? "false" : "true", mb.lastRx, mb.lastTx, activeSlaveId(), MB_BAUD,
        RS485_DE_PIN >= 0 ? "true" : "false", isAnsi() ? "ansi-c12.18" : "modbus-rtu");
 
-  bool ap = WiFi.getMode() == WIFI_AP;
+  bool ap = apMode;
   jcat("\"sys\":{\"fw\":\"%s\",\"uptime_s\":%lu,\"rssi\":%d,\"ip\":\"%s\",\"ap\":%s}}",
        FW_VERSION, (unsigned long)(millis() / 1000), ap ? 0 : (int)WiFi.RSSI(),
        (ap ? WiFi.softAPIP() : WiFi.localIP()).toString().c_str(), ap ? "true" : "false");
@@ -784,6 +897,8 @@ static void handleControl() {
   if (web.hasArg("knob"))
     for (uint8_t k = 0; k < KNOB_COUNT; k++)
       if (web.arg("knob") == KNOB_IDS[k] && knobIndex((Knob)k) >= 0) setKnob((Knob)k);
+  if (web.hasArg("auto"))  setAuto(web.arg("auto") == "1", "web");
+  if ((web.hasArg("sun") || web.hasArg("load")) && autoSim) setAuto(false, "web slider");
   if (web.hasArg("sun"))   { S.sunPct  = constrain(web.arg("sun").toInt(), 0, 100);  if (knob == KNOB_SUN)  lockKnob(); }
   if (web.hasArg("load"))  { S.loadPct = constrain(web.arg("load").toInt(), 0, 100); if (knob == KNOB_LOAD) lockKnob(); }
   if (web.hasArg("volt"))  { S.voltSet = constrain(web.arg("volt").toFloat(), (float)METER_V_MIN, (float)METER_V_MAX); if (knob == KNOB_VOLT) lockKnob(); }
@@ -794,27 +909,42 @@ static void handleControl() {
   if (web.hasArg("soc"))   { S.soc   = constrain(web.arg("soc").toFloat(), 0.0f, 100.0f); if (knob == KNOB_SOC)   lockKnob(); }
   if (web.hasArg("imp"))   { S.impKwh = max(0.0, web.arg("imp").toDouble()); saveMeterReading(true); }
   if (web.hasArg("exp"))   { S.expKwh = max(0.0, web.arg("exp").toDouble()); saveMeterReading(true); }
-  simTick(0);                                    // reflect the change in the registers right away
+  if (isMeter()) meterTick(0); else inverterTick(0);   // reflect the change now (no AUTO step, so sliders stick)
   sendState();
 }
 
 // ------------------------------------------------------------------ wifi ---
-bool     apMode = false;
-bool     mdnsUp = false;
-uint32_t wifiStartMs = 0;
+static bool staConfigured() { return strlen(WIFI_SSID) && strcmp(WIFI_SSID, "YOUR_HOTSPOT_SSID") != 0; }
 
+// Fallback AP. With a hotspot configured it runs as AP+STA, so the hotspot is
+// still retried (e.g. the phone hotspot was switched on after the simulator).
 static void startAp() {
-  WiFi.disconnect(true);
-  WiFi.mode(WIFI_AP);
+  WiFi.mode(staConfigured() ? WIFI_AP_STA : WIFI_AP);
   WiFi.softAP(AP_SSID, AP_PASS);
   apMode = true;
-  Serial.printf("[wifi] AP mode: join \"%s\" / \"%s\" -> http://%s\n", AP_SSID, AP_PASS, WiFi.softAPIP().toString().c_str());
+  wifiStartMs = millis();
+  Serial.printf("[wifi] AP mode: join \"%s\" / \"%s\" -> http://%s%s\n", AP_SSID, AP_PASS, WiFi.softAPIP().toString().c_str(),
+                staConfigured() ? "  (still looking for the hotspot)" : "");
   flash("AP " AP_SSID, WiFi.softAPIP().toString().c_str(), 6000);
 }
 
 static void wifiLoop() {
+  uint32_t now = millis();
+  if (apMode && WiFi.status() == WL_CONNECTED) {        // hotspot showed up: close the fallback AP
+    Serial.println("[wifi] hotspot found, closing the fallback AP");
+    WiFi.softAPdisconnect(true);
+    WiFi.mode(WIFI_STA);
+    apMode = false;
+    if (mdnsUp) { MDNS.end(); mdnsUp = false; }         // re-announced on the hotspot below
+  }
   if (apMode) {
     if (!mdnsUp) { mdnsUp = MDNS.begin(MDNS_NAME); if (mdnsUp) MDNS.addService("http", "tcp", 80); }
+    if (staConfigured() && now - wifiStartMs > WIFI_RETRY_MS) {
+      wifiStartMs = now;
+      Serial.printf("[wifi] retrying hotspot \"%s\"...\n", WIFI_SSID);
+      WiFi.disconnect();                                // station only; the AP stays up
+      WiFi.begin(WIFI_SSID, WIFI_PASS);
+    }
     return;
   }
   if (WiFi.status() == WL_CONNECTED) {
@@ -822,6 +952,7 @@ static void wifiLoop() {
       mdnsUp = MDNS.begin(MDNS_NAME);
       if (mdnsUp) MDNS.addService("http", "tcp", 80);
       Serial.printf("[wifi] connected, open http://%s  (or http://%s.local)\n", WiFi.localIP().toString().c_str(), MDNS_NAME);
+      configTzTime(AUTO_TZ, "pool.ntp.org", "time.google.com");   // real time of day for the AUTO sun curve
       flash("Web dashboard:", WiFi.localIP().toString().c_str(), 6000);
     }
   } else if (!mdnsUp && millis() - wifiStartMs > 15000) {
@@ -834,9 +965,9 @@ static void wifiLoop() {
 void setup() {
   Serial.begin(115200);
   delay(200);
-  Serial.println("\n=== Sinag simulator " FW_VERSION " ===");
+  Serial.println("\n=== Solaris simulator " FW_VERSION " ===");
 
-  prefs.begin("sinag-sim", false);
+  prefs.begin("solaris-sim", false);
   uint8_t savedMode = prefs.getUChar("mode", MODE_INVERTER);
   S.mode   = savedMode < NUM_MODES ? (Mode)savedMode : MODE_INVERTER;
   S.impKwh = prefs.getDouble("imp", METER_START_KWH);
@@ -862,13 +993,13 @@ void setup() {
   } else {
     Serial.println("[lcd] not found on I2C — check SDA/SCL/power (running without it)");
   }
-  flash(isAnsi() ? "Sinag C12 Meter" : isMeter() ? "Sinag Meter Sim" : "Sinag Inverter", "Simulator " FW_VERSION, 2000);
+  flash(isAnsi() ? "Solaris C12 Meter" : isMeter() ? "Solaris Meter Sim" : "Solaris Inverter", "Simulator " FW_VERSION, 2000);
 
   for (int i = 0; i < 8; i++) readPot();
   lockKnob();                                   // don't let the knob jump the defaults at boot
   simTick(0);
 
-  if (strcmp(WIFI_SSID, "YOUR_HOTSPOT_SSID") == 0 || strlen(WIFI_SSID) == 0) {
+  if (!staConfigured()) {
     startAp();
   } else {
     WiFi.mode(WIFI_STA);
@@ -887,7 +1018,7 @@ void setup() {
 }
 
 // ------------------------------------------------------------------ loop ---
-// USB serial command: "mode inverter" | "mode meter" | "mode meralco"
+// USB serial command: "mode inverter" | "mode meter" | "mode meralco" | "auto on" | "auto off"
 static void serialCmd() {
   static String line;
   while (Serial.available()) {
@@ -897,6 +1028,8 @@ static void serialCmd() {
     if (line.startsWith("mode "))
       for (uint8_t m = 0; m < NUM_MODES; m++)
         if (line.substring(5) == MODE_IDS[m]) setMode((Mode)m);
+    if (line == "auto on")  setAuto(true, "serial");
+    if (line == "auto off") setAuto(false, "serial");
     line = "";
   }
 }
@@ -926,8 +1059,8 @@ void loop() {
                     S.mV, S.mI, S.mP, S.mPF, S.mHz, S.impKwh, S.expKwh, S.brownout ? "BROWNOUT " : "",
                     S.sag ? "LOW-V " : "", (unsigned long)mb.requests, (unsigned long)mb.crcErrors);
     else
-      Serial.printf("[inverter] sun %d%% load %d%% | pv %d load %d grid %+d batt %+d soc %.1f%% temp %.1fC %s%s| mb req %lu crcErr %lu\n",
-                    S.sunPct, S.loadPct, S.pvW, S.loadW, S.gridW, S.battW, S.soc, S.temp,
+      Serial.printf("[inverter] %ssun %d%% load %d%% | pv %d load %d grid %+d batt %+d soc %.1f%% temp %.1fC %s%s| mb req %lu crcErr %lu\n",
+                    autoSim ? "AUTO " : "", S.sunPct, S.loadPct, S.pvW, S.loadW, S.gridW, S.battW, S.soc, S.temp,
                     S.brownout ? "BROWNOUT " : "", S.fault ? "FAULT " : "",
                     (unsigned long)mb.requests, (unsigned long)mb.crcErrors);
   }

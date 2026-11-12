@@ -1,7 +1,7 @@
 """SPEC (Andy): the money and energy math from the plan.
 
   kWh       = power integrated over time (each sample counts until the next, gaps > 15 min not counted)
-  bill      = grid import kWh x rate          (pure solar, no net-metering credit)
+  bill      = grid import kWh x rate (+ Meralco level adder, see test_tariff.py; pure solar, no net-metering)
   savings   = home use NOT taken from the grid x rate
   runtime_h = (batt_soc% x battery_kWh) / load
 Numbers here are exact so a wrong formula fails loudly.
@@ -73,7 +73,9 @@ def test_bill_is_grid_import_times_rate(device):
     put_hour(device, t0, load_w=2000, grid_w=2000)
     b = energy.bill(device, {"rate_php_per_kwh": 12.0, "battery_kwh": 10})
     assert b["month_to_date_kwh"] == pytest.approx(2.0, abs=0.01)
-    assert b["month_to_date_php"] == pytest.approx(24.0, abs=0.1)
+    # ₱/kWh of the level the month is heading for (up to 200 kWh here): the rate minus the fixed charges' share
+    assert b["forecast_rate_php_per_kwh"] == pytest.approx(12.0 - (16.38 + 5.00) * 1.12 / 200, abs=0.01)
+    assert b["month_to_date_php"] == pytest.approx(2.0 * b["forecast_rate_php_per_kwh"], abs=0.1)
 
 
 def test_forecast_range_is_ordered_and_not_below_month_to_date(client):

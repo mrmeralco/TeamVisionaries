@@ -20,10 +20,30 @@ EXAMPLES = {
     "energy_month": S.Energy,
     "bill": S.Bill,
     "brownout": S.Brownout,
+    "outlook": S.Outlook,
+    "upgrade": S.Upgrade,
+    "tips": S.Tips,
+    "household": S.Household,
+    "solar_plan": S.SolarPlan,
+    "solar_plan_meter_only": S.SolarPlan,
+    "bill_projection": S.Projection,
     "alerts": S.AlertList,
     "chat": S.Chat,
     "summary_daily": S.DailySummary,
     "settings": S.Settings,
+    "meter": S.MeterInfo,
+    # Smart meter mode: mock mode serves these when the demo setup is meter_only / solar_and_meter.
+    "live_meter_only": S.Live,
+    "energy_day_meter_only": S.Energy,
+    "energy_week_meter_only": S.Energy,
+    "energy_month_meter_only": S.Energy,
+    "bill_meter_only": S.Bill,
+    "bill_projection_meter_only": S.Projection,
+    "brownout_meter_only": S.Brownout,
+    "summary_daily_meter_only": S.DailySummary,
+    "live_solar_and_meter": S.Live,
+    "bill_solar_and_meter": S.Bill,
+    "meter_solar_and_meter": S.MeterInfo,
 }
 
 GETS = {
@@ -33,10 +53,17 @@ GETS = {
     "/api/energy?period=month": S.Energy,
     "/api/bill": S.Bill,
     "/api/brownout": S.Brownout,
+    "/api/outlook": S.Outlook,
+    "/api/upgrade": S.Upgrade,
+    "/api/tips": S.Tips,
+    "/api/household": S.Household,
+    "/api/solar-plan": S.SolarPlan,
+    "/api/bill/projection": S.Projection,
     "/api/alerts": S.AlertList,
     "/api/summary/daily": S.DailySummary,
     "/api/settings": S.Settings,
     "/api/health": S.Health,
+    "/api/meter": S.MeterInfo,
 }
 
 
@@ -146,7 +173,7 @@ def test_real_settings_put_returns_full_object(client):
 
 
 def test_real_alerts_read(client):
-    a = db.insert_alert("sinag-001", 1794446366, "high_temp", "warning", "Test", "Test alert")
+    a = db.insert_alert("solaris-001", 1794446366, "high_temp", "warning", "Test", "Test alert")
     r = client.post(f"/api/alerts/{a['id']}/read")
     assert r.status_code == 200
     assert_exact(S.Alert, r.json())

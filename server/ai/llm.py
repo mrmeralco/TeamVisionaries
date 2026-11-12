@@ -15,11 +15,18 @@ import httpx
 
 from app import config
 
-log = logging.getLogger("sinag.llm")
+log = logging.getLogger("solaris.llm")
 
 
 class LLMUnavailable(Exception):
     pass
+
+
+def _ollama_options(max_tokens: int) -> dict:
+    options = {"temperature": 0, "seed": 7, "num_predict": max_tokens, "num_ctx": 4096}
+    if config.LLM_GPU_LAYERS >= 0:
+        options["num_gpu"] = config.LLM_GPU_LAYERS
+    return options
 
 
 async def complete_json(system: str, messages: list[dict], schema: dict, max_tokens: int = 220) -> dict:
@@ -33,7 +40,7 @@ async def complete_json(system: str, messages: list[dict], schema: dict, max_tok
                 r = await client.post(f"{config.OLLAMA_URL}/api/chat", json={
                     "model": config.LLM_MODEL, "messages": msgs, "stream": False, "think": False,
                     "format": schema, "keep_alive": config.LLM_KEEP_ALIVE,
-                    "options": {"temperature": 0, "seed": 7, "num_predict": max_tokens, "num_ctx": 4096},
+                    "options": _ollama_options(max_tokens),
                 })
                 r.raise_for_status()
                 text = r.json()["message"]["content"]
@@ -41,7 +48,7 @@ async def complete_json(system: str, messages: list[dict], schema: dict, max_tok
                 r = await client.post(f"{config.LLM_BASE_URL.rstrip('/')}/chat/completions",
                                       headers={"Authorization": f"Bearer {config.LLM_API_KEY}"}, json={
                     "model": config.LLM_MODEL, "messages": msgs, "temperature": 0, "max_tokens": max_tokens,
-                    "response_format": {"type": "json_schema", "json_schema": {"name": "sinag_reply", "schema": schema, "strict": True}},
+                    "response_format": {"type": "json_schema", "json_schema": {"name": "solaris_reply", "schema": schema, "strict": True}},
                 })
                 r.raise_for_status()
                 text = r.json()["choices"][0]["message"]["content"]
@@ -73,15 +80,18 @@ async def ping() -> bool:
         return False
 
 
-async def warmup() -> None:
-    """Load the model into memory at startup so the first real question isn't the slow one."""
+async def warmup(system: str = "") -> None:
+    """Load the model into memory at startup so the first real question isn't the slow one.
+    Passing the system prompt also fills Ollama's prompt cache with it: every chat starts with the same
+    system prompt (examples included), so only the facts and question are processed per request."""
     if not config.LLM_ENABLED or config.LLM_PROVIDER != "ollama":
         return
     try:
         async with httpx.AsyncClient(timeout=120) as client:
-            await client.post(f"{config.OLLAMA_URL}/api/generate",
-                              json={"model": config.LLM_MODEL, "prompt": "", "keep_alive": config.LLM_KEEP_ALIVE,
-                                    "options": {"num_ctx": 4096}})
+            await client.post(f"{config.OLLAMA_URL}/api/chat", json={
+                "model": config.LLM_MODEL, "stream": False, "think": False, "keep_alive": config.LLM_KEEP_ALIVE,
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": "FACTS:"}],
+                "options": _ollama_options(1)})
         log.info("LLM %s loaded", config.LLM_MODEL)
     except httpx.HTTPError as e:
         log.warning("LLM warmup failed: %s", e)

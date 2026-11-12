@@ -1,9 +1,9 @@
-# Contract B: MQTT topics and payloads (Sinag device → backend)
+# Contract B: MQTT topics and payloads (Solaris device → backend)
 
 Broker: Mosquitto on the server laptop, port **1883**, no auth on the hotspot.
-`device_id` defaults to `sinag-001` (set in `firmware/sinag-device/config.h`).
+`device_id` defaults to `solaris-001` (set in `firmware/solaris-device/config.h`).
 
-## `sinag/{device_id}/telemetry`: every 5 s, QoS 0, not retained
+## `solaris/{device_id}/telemetry`: every 5 s, QoS 0, not retained
 
 From the inverter (Contract A).
 
@@ -26,7 +26,7 @@ From the inverter (Contract A).
 | `inv_temp_c` | int | °C |
 | `fault_code` | int | 0 = OK |
 
-## `sinag/{device_id}/meter`: every 5 s, QoS 0, not retained
+## `solaris/{device_id}/meter`: every 5 s, QoS 0, not retained
 
 From a smart meter (Contract A2) or a utility meter (Contract A3), when one answers.
 
@@ -41,7 +41,7 @@ From a smart meter (Contract A2) or a utility meter (Contract A3), when one answ
 
 `meter_type` is `"sdm120"` or `"ansi-c12"`. `power_w`: + import, − export. `grid_on` = voltage > 100 V.
 
-## `sinag/{device_id}/status`: retained, also the MQTT last will
+## `solaris/{device_id}/status`: retained, also the MQTT last will
 
 ```json
 { "online": true, "rssi": -55, "fw": "0.3.0" }
@@ -53,5 +53,5 @@ so the broker flips it when the device drops off.
 ## Debug
 
 ```bash
-mosquitto_sub -h localhost -t "sinag/#" -v
+mosquitto_sub -h localhost -t "solaris/#" -v
 ```

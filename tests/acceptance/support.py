@@ -4,12 +4,12 @@ import time
 
 import pytest
 
-API = os.getenv("SINAG_API", "http://localhost:8000").rstrip("/")
+API = os.getenv("SOLARIS_API", "http://localhost:8000").rstrip("/")
 MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
-DEVICE_ID = os.getenv("SINAG_DEVICE_ID", "sinag-001")
-SOURCE = os.getenv("SINAG_SOURCE", "fake")
-HUMAN_WAIT_S = float(os.getenv("SINAG_WAIT_S", "60"))
+DEVICE_ID = os.getenv("SOLARIS_DEVICE_ID", "solaris-001")
+SOURCE = os.getenv("SOLARIS_SOURCE", "fake")
+HUMAN_WAIT_S = float(os.getenv("SOLARIS_WAIT_S", "60"))
 
 
 def wait_for(fn, timeout: float, every: float = 0.5, what: str = "condition"):

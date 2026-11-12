@@ -5,6 +5,23 @@ from ai import llm, service
 from app import db
 
 
+def test_cached_recap_is_repriced_after_a_rate_update(device, monkeypatch):
+    from datetime import timedelta
+    from app import config, energy
+    monkeypatch.setattr(config, "LLM_ENABLED", False)
+    settings = db.get_settings() | {"device_id": device, "rate_php_per_kwh": 10.0}
+    ts = energy.local_midnight(energy.today() - timedelta(days=1)) + 12 * 3600
+    sample = {"pv_w": 0, "load_w": 1000, "grid_w": 1000, "batt_soc": 50,
+              "batt_w": 0, "grid_on": True, "inv_temp_c": 40, "fault_code": 0}
+    for offset in (0, 600):
+        db.insert_telemetry(device, sample | {"ts": ts + offset})
+    before = asyncio.run(service.daily_summary(device, settings, force=True))
+    after = asyncio.run(service.daily_summary(device, settings | {"rate_php_per_kwh": 20.0}))
+    assert before["totals"]["cost_php"] > 0
+    assert abs(after["totals"]["cost_php"] - 2 * before["totals"]["cost_php"]) <= 0.01
+    assert "_rate_php_per_kwh" not in after
+
+
 def run(replies, question="Bakit mataas ang bill ko?", monkeypatch=None):
     """replies: list of dicts (model output) or Exception, consumed one per LLM call."""
     calls = []
@@ -49,7 +66,7 @@ def test_repeated_hallucination_falls_back(monkeypatch):
     bad = {"answerable": True, "reply": "Aabot ng ₱9,999 ang bill mo.", "fact_ids": ["bill.forecast_php"]}
     out, _ = run([bad, dict(bad)], monkeypatch=monkeypatch)
     assert out["source"] == "fallback" and "9,999" not in out["reply"]
-    assert "Bill ngayong buwan" in out["reply"]                    # rule-based answer from the same facts
+    assert "nagastos mo sa kuryente ngayong buwan" in out["reply"]  # rule-based answer from the same facts
 
 
 def test_out_of_scope(monkeypatch):
@@ -117,7 +134,7 @@ def test_made_up_id_in_brackets_is_still_rejected(monkeypatch):
 
 
 def test_numbers_written_in_a_fact_sentence_are_allowed():
-    # e.g. "Offline ang Sinag device. Huling data 32 minuto na ang nakaraan." had no values, so quoting 32 failed.
+    # e.g. "Offline ang Solaris device. Huling data 32 minuto na ang nakaraan." had no values, so quoting 32 failed.
     fs = service.FactSet()
     fs.add("now.status", "now", "Kalagayan ngayon: Huling data 32 minuto na ang nakaraan.")
     fs.add("bill.forecast_php", "bill", "Forecast: mga ₱2,070", (2069.64,))
@@ -128,4 +145,4 @@ def test_numbers_written_in_a_fact_sentence_are_allowed():
 
 def test_solar_question_falls_back_to_live_numbers_not_the_bill(monkeypatch):
     out, _ = run([llm.LLMUnavailable("down")], "Kumusta ang solar ko?", monkeypatch)
-    assert out["source"] == "fallback" and "Bill ngayong buwan" not in out["reply"]
+    assert out["source"] == "fallback" and "ngayong buwan" not in out["reply"]

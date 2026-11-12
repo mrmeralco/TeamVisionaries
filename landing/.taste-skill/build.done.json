@@ -1,0 +1,11 @@
+{
+ "page": "index.html",
+ "url": null,
+ "root": null,
+ "kind": "software",
+ "category": "solar home energy monitor and app",
+ "primary": "Book a demo",
+ "rounds": 3,
+ "start": "2026-11-12T09:49:26.770Z",
+ "by": "gate.mjs --start"
+}

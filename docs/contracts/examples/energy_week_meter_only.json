@@ -1,0 +1,87 @@
+{
+  "period": "week",
+  "bucket": "day",
+  "start_ts": 1793894400,
+  "end_ts": 1794499200,
+  "points": [
+    {
+      "pv_kwh": 0.0,
+      "load_kwh": 16.201,
+      "grid_import_kwh": 16.201,
+      "grid_export_kwh": 0.0,
+      "batt_charge_kwh": 0.0,
+      "batt_discharge_kwh": 0.0,
+      "ts": 1793894400,
+      "label": "Fri"
+    },
+    {
+      "pv_kwh": 0.0,
+      "load_kwh": 21.968,
+      "grid_import_kwh": 21.968,
+      "grid_export_kwh": 0.0,
+      "batt_charge_kwh": 0.0,
+      "batt_discharge_kwh": 0.0,
+      "ts": 1793980800,
+      "label": "Sat"
+    },
+    {
+      "pv_kwh": 0.0,
+      "load_kwh": 21.879,
+      "grid_import_kwh": 21.879,
+      "grid_export_kwh": 0.0,
+      "batt_charge_kwh": 0.0,
+      "batt_discharge_kwh": 0.0,
+      "ts": 1794067200,
+      "label": "Sun"
+    },
+    {
+      "pv_kwh": 0.0,
+      "load_kwh": 16.339,
+      "grid_import_kwh": 16.339,
+      "grid_export_kwh": 0.0,
+      "batt_charge_kwh": 0.0,
+      "batt_discharge_kwh": 0.0,
+      "ts": 1794153600,
+      "label": "Mon"
+    },
+    {
+      "pv_kwh": 0.0,
+      "load_kwh": 16.397,
+      "grid_import_kwh": 16.397,
+      "grid_export_kwh": 0.0,
+      "batt_charge_kwh": 0.0,
+      "batt_discharge_kwh": 0.0,
+      "ts": 1794240000,
+      "label": "Tue"
+    },
+    {
+      "pv_kwh": 0.0,
+      "load_kwh": 16.373,
+      "grid_import_kwh": 16.373,
+      "grid_export_kwh": 0.0,
+      "batt_charge_kwh": 0.0,
+      "batt_discharge_kwh": 0.0,
+      "ts": 1794326400,
+      "label": "Wed"
+    },
+    {
+      "pv_kwh": 0.0,
+      "load_kwh": 12.775,
+      "grid_import_kwh": 12.775,
+      "grid_export_kwh": 0.0,
+      "batt_charge_kwh": 0.0,
+      "batt_discharge_kwh": 0.0,
+      "ts": 1794412800,
+      "label": "Thu"
+    }
+  ],
+  "totals": {
+    "pv_kwh": 0.0,
+    "load_kwh": 121.932,
+    "grid_import_kwh": 121.932,
+    "grid_export_kwh": 0.0,
+    "batt_charge_kwh": 0.0,
+    "batt_discharge_kwh": 0.0
+  },
+  "self_sufficiency_pct": 0.0
+}

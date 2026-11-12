@@ -5,7 +5,7 @@ backend tests (`docs/contracts/schema.json` + `examples/`), so when they pass, t
 
 ## Use them
 
-After `flutter create --org ph.sinag --project-name sinag .` in `app/`:
+After `flutter create --org ph.solaris --project-name solaris .` in `app/`:
 
 ```bash
 flutter pub add http web_socket_channel
@@ -19,7 +19,7 @@ mkdir -p test/spec && cp test_spec/*.dart test/spec/
 flutter test test/spec
 ```
 
-They import `package:sinag/services/api_service.dart` and `package:sinag/services/mock_api_service.dart`.
+They import `package:solaris/services/api_service.dart` and `package:solaris/services/mock_api_service.dart`.
 If you don't have those yet, start from the reference (it passes all 30 tests):
 
 ```bash

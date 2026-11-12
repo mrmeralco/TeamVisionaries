@@ -1,0 +1,10 @@
+{
+  "active": true,
+  "start_ts": 1794444566,
+  "duration_min": 30,
+  "batt_soc": 64,
+  "load_w": 900,
+  "runtime_h": 7.1,
+  "advice": "May brownout. Sa 900 W na gamit, aabot pa ng mga 7.1 oras ang battery mo (64%). Ilaw, electric fan, ref at charger lang muna para tumagal.",
+  "outages_this_month": 2
+}

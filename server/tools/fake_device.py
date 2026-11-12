@@ -1,4 +1,4 @@
-"""Fake Sinag device: publishes Contract B telemetry every 5 s, so the backend works with no hardware.
+"""Fake Solaris device: publishes Contract B telemetry every 5 s, so the backend works with no hardware.
 
     python tools/fake_device.py                    # broker on localhost
     python tools/fake_device.py --host 192.168.43.100 --speed 60
@@ -18,14 +18,14 @@ import paho.mqtt.client as mqtt
 ap = argparse.ArgumentParser()
 ap.add_argument("--host", default="localhost")
 ap.add_argument("--port", type=int, default=1883)
-ap.add_argument("--device", default="sinag-001")
+ap.add_argument("--device", default="solaris-001")
 ap.add_argument("--interval", type=float, default=5.0)
 ap.add_argument("--speed", type=float, default=1.0, help="simulated seconds per real second (battery moves faster)")
 ap.add_argument("--battery-kwh", type=float, default=10.0)
 args = ap.parse_args()
 
 s = {"brownout": False, "fault": False, "sun": 1.0, "load": 1.0, "soc": 70.0, "temp": 40.0}
-base = f"sinag/{args.device}"
+base = f"solaris/{args.device}"
 
 c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"{args.device}-fake")
 c.will_set(f"{base}/status", json.dumps({"online": False}), qos=1, retain=True)

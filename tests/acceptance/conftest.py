@@ -1,10 +1,10 @@
 """Acceptance tests run against the RUNNING system: server + MQTT broker (+ real hardware if you have it).
 
-    SINAG_SOURCE=fake  (default)  the test plays the Sinag device: it publishes Contract B readings itself
-    SINAG_SOURCE=real             the real device + simulator are on; the test tells YOU what to press
+    SOLARIS_SOURCE=fake  (default)  the test plays the Solaris device: it publishes Contract B readings itself
+    SOLARIS_SOURCE=real             the real device + simulator are on; the test tells YOU what to press
 
-Env: SINAG_API (http://localhost:8000), MQTT_HOST (localhost), MQTT_PORT (1883), SINAG_DEVICE_ID (sinag-001),
-     SINAG_SERIAL (USB-RS485 port, hardware tests only), SINAG_WAIT_S (60, how long to wait for a human).
+Env: SOLARIS_API (http://localhost:8000), MQTT_HOST (localhost), MQTT_PORT (1883), SOLARIS_DEVICE_ID (solaris-001),
+     SOLARIS_SERIAL (USB-RS485 port, hardware tests only), SOLARIS_WAIT_S (60, how long to wait for a human).
 
 Fake mode writes test readings into the server's DB. Run it against a dev DB, then reseed.
 """
@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # sinag_contract.py
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # solaris_contract.py
 
 from support import API, DEVICE_ID, MQTT_HOST, MQTT_PORT, SOURCE  # noqa: E402
 
@@ -27,15 +27,15 @@ def pytest_configure(config):
     for m in ("h10: checkpoint hour 8-10, device -> MQTT -> backend -> DB",
               "h14: checkpoint hour 10-14, backend -> app (REST + WebSocket)",
               "demo: hour-18 demo flows (brownout, fault, chat, offline)",
-              "hardware: needs the simulator on a USB-RS485 dongle (SINAG_SERIAL)",
-              "real_only: only meaningful with SINAG_SOURCE=real"):
+              "hardware: needs the simulator on a USB-RS485 dongle (SOLARIS_SERIAL)",
+              "real_only: only meaningful with SOLARIS_SOURCE=real"):
         config.addinivalue_line("markers", m)
 
 
 def pytest_collection_modifyitems(config, items):
     for item in items:
         if "real_only" in item.keywords and SOURCE != "real":
-            item.add_marker(pytest.mark.skip(reason="needs the real Sinag device (SINAG_SOURCE=real)"))
+            item.add_marker(pytest.mark.skip(reason="needs the real Solaris device (SOLARIS_SOURCE=real)"))
 
 
 @pytest.fixture(scope="session")
@@ -47,7 +47,7 @@ def api():
     except httpx.HTTPError as e:
         pytest.skip(f"server not reachable at {API} ({e}). Start it: cd server && uvicorn app.main:app --host 0.0.0.0")
     if c.get("/api/health").json().get("mock"):
-        pytest.skip("server is in SINAG_MOCK=1 mode; acceptance tests need real mode")
+        pytest.skip("server is in SOLARIS_MOCK=1 mode; acceptance tests need real mode")
     yield c
     c.close()
 
@@ -55,7 +55,7 @@ def api():
 @pytest.fixture(scope="session")
 def mqtt_client():
     import paho.mqtt.client as mqtt
-    c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"sinag-acceptance-{os.getpid()}")
+    c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"solaris-acceptance-{os.getpid()}")
     try:
         c.connect(MQTT_HOST, MQTT_PORT, keepalive=30)
     except OSError as e:
@@ -131,7 +131,7 @@ class Operator:
             s["grid_w"] = s["load_w"] - s["pv_w"] - s["batt_w"]
         else:
             s["grid_w"] = 0
-        self.mqtt.publish(f"sinag/{DEVICE_ID}/telemetry", json.dumps({"ts": int(time.time()), **s}))
+        self.mqtt.publish(f"solaris/{DEVICE_ID}/telemetry", json.dumps({"ts": int(time.time()), **s}))
 
     def act(self, human_instruction: str, **fake_changes) -> None:
         if self.fake:
@@ -145,6 +145,6 @@ def operator(request):
     mq = request.getfixturevalue("mqtt_client") if SOURCE != "real" else None
     op = Operator(request, mq)
     if op.fake:
-        op.mqtt.publish(f"sinag/{DEVICE_ID}/status", json.dumps({"online": True, "rssi": -50, "fw": "acceptance"}), qos=1, retain=True)
+        op.mqtt.publish(f"solaris/{DEVICE_ID}/status", json.dumps({"online": True, "rssi": -50, "fw": "acceptance"}), qos=1, retain=True)
         op.publish()
     return op

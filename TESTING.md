@@ -49,10 +49,10 @@ flutter test test/spec
 
 They hit the real server over HTTP/WebSocket and the real MQTT broker. Two modes:
 
-| `SINAG_SOURCE` | Who makes things happen |
+| `SOLARIS_SOURCE` | Who makes things happen |
 |---|---|
-| `fake` (default) | The test plays the Sinag device: it publishes readings, brownouts and faults on MQTT itself. Use it before the hardware is ready. **It writes test readings into the server's DB**, so don't run it on the demo DB; reseed after. |
-| `real` | The real device and simulator are running. The test prints `>>> OPERATOR: Hold the button 1-3 s ...` and waits up to `SINAG_WAIT_S` (60 s) for it to happen. |
+| `fake` (default) | The test plays the Solaris device: it publishes readings, brownouts and faults on MQTT itself. Use it before the hardware is ready. **It writes test readings into the server's DB**, so don't run it on the demo DB; reseed after. |
+| `real` | The real device and simulator are running. The test prints `>>> OPERATOR: Hold the button 1-3 s ...` and waits up to `SOLARIS_WAIT_S` (60 s) for it to happen. |
 
 Start the system (server laptop): broker, server, then (fake mode) nothing else, (real mode) the boards.
 
@@ -75,14 +75,14 @@ python -m pytest tests/acceptance -m h14 -v
 ```
 
 ```bash
-SINAG_SOURCE=real python -m pytest tests/acceptance -m demo -v
+SOLARIS_SOURCE=real python -m pytest tests/acceptance -m demo -v
 ```
 
 ```bash
-SINAG_SERIAL=/dev/cu.usbserial-XXXX python -m pytest tests/acceptance -m hardware -v
+SOLARIS_SERIAL=/dev/cu.usbserial-XXXX python -m pytest tests/acceptance -m hardware -v
 ```
 
-Pointing at another laptop: `SINAG_API=http://192.168.43.100:8000 MQTT_HOST=192.168.43.100`.
+Pointing at another laptop: `SOLARIS_API=http://192.168.43.100:8000 MQTT_HOST=192.168.43.100`.
 Hardware tests also need `pip install pymodbus pyserial`.
 
 Tests marked **real_only** (device publish interval, NTP time, retained status, energy balance)
@@ -94,11 +94,11 @@ skip in fake mode: they check Adrian's firmware, which a fake can't.
 |---|---|---|
 | 0–2 | Contracts written | `server/tests/test_api_contract.py::test_example_files_match_contract` passes; app team has `docs/contracts/examples/` |
 | 2–8 | Each piece works alone | `server/tests` all green · `flutter test test/spec` green · hardware tests green |
-| 8–10 | **Integration 1** | `-m h10` green with `SINAG_SOURCE=real` (knob turn appears in DB) |
-| 10–14 | **Integration 2** | `-m h14` green with `SINAG_SOURCE=real` **and** the phone updates when the knob turns |
+| 8–10 | **Integration 1** | `-m h10` green with `SOLARIS_SOURCE=real` (knob turn appears in DB) |
+| 10–14 | **Integration 2** | `-m h14` green with `SOLARIS_SOURCE=real` **and** the phone updates when the knob turns |
 | 14–18 | MVP features | `-m demo` green in fake mode · `tools/eval_ai.py` all PASS |
 | 18 | **Feature freeze** | No new features. Only make failing tests pass |
-| 18–22 | Demo runs end-to-end | `SINAG_SOURCE=real -m demo` green **5 times in a row**, plus the by-eye checklist below |
+| 18–22 | Demo runs end-to-end | `SOLARIS_SOURCE=real -m demo` green **5 times in a row**, plus the by-eye checklist below |
 
 ## Flutter screens by eye
 
@@ -113,8 +113,8 @@ simulator box.
 - [ ] **Fault**: critical alert with the Taglish explanation; Home shows the fault
 - [ ] **Energy**: day / week / month charts switch, labels readable, no overflow
 - [ ] **Bill**: month-to-date, forecast with range, vs last month, weekly bars
-- [ ] **Ask Sinag**: answer + chips appear; spinner while waiting (up to ~10 s); off-topic question gets the polite refusal
+- [ ] **Ask Mira**: answer + chips appear; spinner while waiting (up to ~10 s); off-topic question gets the polite refusal
 - [ ] **Alerts**: list, tap marks read, badge count goes down; "mark all read"
-- [ ] **Settings**: change server IP → reconnects; "Test connection" uses `/api/health`; rate change updates the Bill tab
+- [ ] **Settings**: change server IP → reconnects; "Test connection" uses `/api/health`; Meralco rate is read-only; Refresh rate shows its month/source and updates the Bill tab
 - [ ] **Server restarts** mid-demo → app reconnects the WebSocket on its own
 - [ ] ₱ sign and Taglish text render correctly everywhere

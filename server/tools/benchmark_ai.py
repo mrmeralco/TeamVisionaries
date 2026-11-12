@@ -30,9 +30,9 @@ def main():
     reports = SERVER / "logs" / "benchmark"
     reports.mkdir(parents=True, exist_ok=True)
     summaries = []
-    with tempfile.TemporaryDirectory(prefix="sinag-benchmark-") as tmp:
-        env = dict(os.environ, SINAG_DB=str(Path(tmp) / "history.db"), MQTT_ENABLED="0",
-                   LLM_ENABLED="1", LLM_PROVIDER="ollama", SINAG_MOCK="0", PYTHONUTF8="1",
+    with tempfile.TemporaryDirectory(prefix="solaris-benchmark-") as tmp:
+        env = dict(os.environ, SOLARIS_DB=str(Path(tmp) / "history.db"), MQTT_ENABLED="0",
+                   LLM_ENABLED="1", LLM_PROVIDER="ollama", SOLARIS_MOCK="0", PYTHONUTF8="1", MERALCO_RATE_ENABLED="0",
                    AI_LOG=str(reports / "ai.jsonl"))
         subprocess.run([sys.executable, "tools/seed_history.py"], cwd=SERVER, env=env, check=True)
         for model in args.models:

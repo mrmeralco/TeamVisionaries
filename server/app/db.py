@@ -107,6 +107,23 @@ def insert_meter(device_id: str, ts: int, data: dict) -> None:
             (device_id, ts, data.get("meter_type"), json.dumps(data)))
 
 
+def latest_meter(device_id: str) -> dict | None:
+    """The newest Contract B meter payload, with the stored ts."""
+    r = one("SELECT ts, data FROM meter WHERE device_id=? ORDER BY ts DESC LIMIT 1", (device_id,))
+    return {**json.loads(r["data"]), "ts": r["ts"]} if r else None
+
+
+def meter_between(device_id: str, start_ts: int, end_ts: int, *fields: str) -> list[dict]:
+    """Meter rows in [start, end), ts + the requested payload fields (SQLite JSON1, no parsing in Python)."""
+    cols = "".join(f", json_extract(data, '$.{f}') AS {f}" for f in fields)
+    return query(f"SELECT ts{cols} FROM meter WHERE device_id=? AND ts>=? AND ts<? ORDER BY ts",
+                 (device_id, start_ts, end_ts))
+
+
+def has_meter(device_id: str) -> bool:
+    return one("SELECT 1 AS x FROM meter WHERE device_id=? LIMIT 1", (device_id,)) is not None
+
+
 # ------------------------------------------------------------------ status --
 def set_status(device_id: str, online: bool, rssi: int | None = None, fw: str | None = None) -> None:
     execute(
@@ -161,7 +178,13 @@ def last_outage(device_id: str) -> dict | None:
 # ---------------------------------------------------------------- settings --
 def get_settings() -> dict[str, Any]:
     stored = {r["key"]: json.loads(r["value"]) for r in query("SELECT key, value FROM settings")}
-    return {k: stored.get(k, v) for k, v in config.DEFAULT_SETTINGS.items()}
+    settings = {k: stored.get(k, v) for k, v in config.DEFAULT_SETTINGS.items()}
+    # Legacy manually entered rates are not verified publications. Until the first
+    # successful fetch, calculations use the documented estimate and Settings says so.
+    record = stored.get("meralco_rate")
+    if config.MERALCO_RATE_ENABLED and not (isinstance(record, dict) and record.get("fetched_at")):
+        settings["rate_php_per_kwh"] = config.DEFAULT_SETTINGS["rate_php_per_kwh"]
+    return settings
 
 
 def put_settings(changes: dict[str, Any]) -> dict[str, Any]:

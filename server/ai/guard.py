@@ -12,10 +12,16 @@ import re
 from dataclasses import dataclass, field
 
 from .facts import Fact
-from .router import bill_intent
+from .router import bill_intent, is_projection, is_solar_plan, is_upgrade, months_ahead
+
+# A projection answer must say it's an estimate.
+HEDGE = re.compile(r"tantiya|projection|hindi (?:pa )?sigurado|hindi gaanong maaasahan|maaaring magbago|"
+                   r"puwedeng magbago|estimate|rough|not (?:be )?certain|approximate", re.I)
 from . import semantics
 
 MAX_WORDS = 110
+# A meter-only home has none of these; the reply may name them only when the user did.
+NO_SOLAR_WORDS = re.compile(r"\b(?:solar|battery|baterya|panels?|inverter|araw ang nagpapagana)\b", re.I)
 # Small counting words are fine ("isang tip", "2 bagay"). Anything else must come from FACTS.
 FREE_NUMBERS = {0.0, 1.0, 2.0, 3.0}
 
@@ -71,9 +77,37 @@ def bill_problems(reply: str, fact_ids: list[str], given: list[Fact], question: 
     comparison = by.get("bill.vs_last_month_pct")
     if comparison:
         lower = "mas mababa" in comparison.text
-        opposite = r"mas mataas|higher|greater" if lower else r"mas mababa|lower|less than"
-        if re.search(opposite, reply.lower()):
+        opposite = (r"mas mataas|higher|greater|tumaas|tumataas|tataas" if lower
+                    else r"mas mababa|lower|less than|bumaba|bumababa|bababa")
+        # "Hindi mas mataas" / "not higher" agrees with a lower forecast; only an un-negated claim contradicts.
+        if re.search(rf"(?<!hindi )(?<!not )(?:{opposite})", reply.lower()):
             problems.append(f"comparison direction contradicts FACTS: {comparison.text}")
+        # "Mas mataas ba...?" + lower forecast -> the answer is "Hindi", never "Oo, mas mababa".
+        asked = r"mas mataas|higher" if lower else r"mas mababa|lower"
+        if re.search(asked, question.lower()) and re.match(r"\s*(?:oo|yes)\b", reply.lower()):
+            problems.append(f"answers yes but FACTS say no: {comparison.text}")
+    return problems
+
+
+def projection_problems(reply: str, fact_ids: list[str], given: list[Fact], question: str) -> list[str]:
+    """Bill in a later month: cite that month's projection and say it's an estimate; past the limit, say
+    it can't be done (projection.limits) and quote no amount as if it were that month's bill."""
+    if not is_projection(question) or not any(f.id == "projection.limits" for f in given):
+        return []
+    k = months_ahead(question)
+    have = {f.id for f in given}
+    problems = []
+    if k is not None and f"projection.m{k}" not in have:          # beyond what's projected
+        if "projection.limits" not in fact_ids:
+            problems.append("beyond the projection limit: explain with projection.limits that it can't be projected")
+    else:
+        wanted = f"projection.m{k}" if k else None
+        if wanted and wanted not in fact_ids:
+            problems.append(f"answer must cite {wanted}, the projection for the month asked")
+        if not wanted and not any(i.startswith("projection.m") for i in fact_ids):
+            problems.append("answer must cite the projection facts (projection.m*)")
+        if not HEDGE.search(reply):
+            problems.append("say the projection is only an estimate (tantiya lang, hindi sigurado)")
     return problems
 
 
@@ -98,7 +132,18 @@ def check(reply: str, fact_ids: list[str], answerable: bool, given: list[Fact], 
         problems.append(f"numbers not in FACTS: {unknown}")
 
     problems.extend(bill_problems(reply, fact_ids, given, question))
+    problems.extend(projection_problems(reply, fact_ids, given, question))
+    if is_upgrade(question) and any(f.id.startswith("upgrade.") for f in given) and not any(
+            i.startswith("upgrade.") for i in fact_ids):
+        problems.append("upgrade question: answer from the system check facts (upgrade.*) and cite them")
+    rec = next((f for f in given if f.id == "solar_plan.recommended"), None)
+    if rec and is_solar_plan(question) and not (re.search(r"\d\s*kWp", reply) and re.search(r"₱\s*\d", reply)):
+        problems.append("solar plan question: give the suggested size (kWp) and the ₱ savings or cost from solar_plan.recommended")
     problems.extend(semantics.problems(reply, fact_ids, given, numbers_in, _matches))
+    plan = any(f.id.startswith("solar_plan.") for f in given)   # asked about getting solar: it may say "solar"
+    if any(f.id == "setup.meter_only" for f in given) and not plan and not NO_SOLAR_WORDS.search(question) \
+            and NO_SOLAR_WORDS.search(reply):
+        problems.append("this home has no solar or battery (setup.meter_only): don't mention solar, battery, panels or inverter")
     urgent = {"brownout" if f.id.startswith("brownout") else "fault" for f in given
               if f.id in {"brownout.active", "fault.active"} and f.text.startswith("MAY ")}
     remaining = set(urgent)
@@ -115,7 +160,7 @@ def check(reply: str, fact_ids: list[str], answerable: bool, given: list[Fact], 
         if re.search(rf"\b(?:walang|no)\s+(?:active\s+)?{keyword}\b", reply.lower()):
             problems.append(f"denies active {keyword}")
     m = question.lower()
-    live_question = any(w in m for w in ("solar", "battery", "baterya", "grid")) and not any(
+    live_question = not is_upgrade(question) and not is_projection(question) and not is_solar_plan(question) and any(w in m for w in ("solar", "battery", "baterya", "grid")) and not any(
         w in m for w in ("kahapon", "yesterday", "oras", "peak", "week", "linggo", "natipid", "savings"))
     offline = any(f.id == "now.online" and f.text.startswith("OFFLINE") for f in given)
     if live_question and offline and not any(w in reply.lower() for w in ("offline", "luma", "huling data")):

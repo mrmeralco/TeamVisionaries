@@ -16,6 +16,20 @@ from ai.router import topics_for
     ("Bakit mataas ang bill ko?", {"bill", "usage"}, {"savings", "today"}),
     ("Magkano ang forecast ng bill ko?", {"bill"}, set()),
     ("May problema ba ang inverter ko?", {"fault", "now"}, {"bill"}),
+    # Pitch-deck question: "pinakamataas" is a cost word, but "consumption" makes it a usage question.
+    ("Kailan pinakamataas ang consumption namin?", {"usage"}, {"bill"}),
+    # System check: upgrade questions get the upgrade facts; look-alikes don't.
+    ("Kailangan ko ba ng dagdag na battery?", {"upgrade"}, set()),
+    ("Sapat pa ba ang system ko sa gamit namin?", {"upgrade"}, set()),
+    ("Should I upgrade my solar?", {"upgrade"}, set()),
+    ("Bakit mas malaki ang bill ko?", {"bill"}, {"upgrade"}),
+    ("Sapat ba ang battery mamaya?", {"battery"}, {"upgrade"}),
+    ("May problema ba ang inverter ko?", {"fault"}, {"upgrade"}),
+    # Household profile: who's home and the routine; a sudden rise is a usage question (new appliance?).
+    ("May tao ba sa bahay ngayon?", {"household"}, {"bill"}),
+    ("Anong oras kami karaniwang umaalis?", {"household"}, {"bill"}),
+    ("Bakit biglang tumaas ang gamit namin?", {"usage"}, set()),
+    ("Kumusta ang solar ko?", {"now"}, {"household"}),
     # Vague: broad overview.
     ("Kumusta?", {"today", "bill", "savings"}, set()),
 ])

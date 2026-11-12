@@ -1,5 +1,5 @@
-name: sinag
-description: "Sinag: pure-solar home energy assistant"
+name: solaris
+description: "Solaris: pure-solar home energy assistant"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -67,6 +67,11 @@ flutter:
 
   assets:
     - assets/mock/ # copies of docs/contracts/examples, used by MockApiService
+    - assets/images/ # Figma exports (Solaris_HTML/assets)
+  fonts:
+    - family: DMSans # variable font (opsz, wght), SIL OFL: assets/fonts/OFL.txt
+      fonts:
+        - asset: assets/fonts/DMSans.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

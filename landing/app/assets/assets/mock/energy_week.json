@@ -1,0 +1,87 @@
+{
+  "period": "week",
+  "bucket": "day",
+  "start_ts": 1793894400,
+  "end_ts": 1794499200,
+  "points": [
+    {
+      "ts": 1793894400,
+      "label": "Fri",
+      "pv_kwh": 14.424,
+      "load_kwh": 15.274,
+      "grid_import_kwh": 3.181,
+      "grid_export_kwh": 2.303,
+      "batt_charge_kwh": 8.1,
+      "batt_discharge_kwh": 8.07
+    },
+    {
+      "ts": 1793980800,
+      "label": "Sat",
+      "pv_kwh": 7.966,
+      "load_kwh": 20.711,
+      "grid_import_kwh": 12.808,
+      "grid_export_kwh": 0.0,
+      "batt_charge_kwh": 1.017,
+      "batt_discharge_kwh": 0.954
+    },
+    {
+      "ts": 1794067200,
+      "label": "Sun",
+      "pv_kwh": 19.874,
+      "load_kwh": 20.818,
+      "grid_import_kwh": 2.981,
+      "grid_export_kwh": 1.918,
+      "batt_charge_kwh": 8.203,
+      "batt_discharge_kwh": 8.083
+    },
+    {
+      "ts": 1794153600,
+      "label": "Mon",
+      "pv_kwh": 8.085,
+      "load_kwh": 15.112,
+      "grid_import_kwh": 7.08,
+      "grid_export_kwh": 0.0,
+      "batt_charge_kwh": 4.776,
+      "batt_discharge_kwh": 4.724
+    },
+    {
+      "ts": 1794240000,
+      "label": "Tue",
+      "pv_kwh": 14.933,
+      "load_kwh": 15.071,
+      "grid_import_kwh": 2.305,
+      "grid_export_kwh": 2.106,
+      "batt_charge_kwh": 8.236,
+      "batt_discharge_kwh": 8.174
+    },
+    {
+      "ts": 1794326400,
+      "label": "Wed",
+      "pv_kwh": 9.455,
+      "load_kwh": 15.085,
+      "grid_import_kwh": 5.668,
+      "grid_export_kwh": 0.0,
+      "batt_charge_kwh": 5.319,
+      "batt_discharge_kwh": 5.28
+    },
+    {
+      "ts": 1794412800,
+      "label": "Thu",
+      "pv_kwh": 2.205,
+      "load_kwh": 3.982,
+      "grid_import_kwh": 2.15,
+      "grid_export_kwh": 0.0,
+      "batt_charge_kwh": 0.373,
+      "batt_discharge_kwh": 0.0
+    }
+  ],
+  "totals": {
+    "pv_kwh": 76.942,
+    "load_kwh": 106.053,
+    "grid_import_kwh": 36.173,
+    "grid_export_kwh": 6.327,
+    "batt_charge_kwh": 36.024,
+    "batt_discharge_kwh": 35.285
+  },
+  "self_sufficiency_pct": 65.9
+}

@@ -1,14 +1,26 @@
 #pragma once
-// ===================== Sinag inverter simulator — config =====================
+// Private per-network values (Wi-Fi password, broker IP) go in secrets.h next to this file.
+// It is gitignored; anything it #defines wins over the defaults below.
+#if __has_include("secrets.h")
+#include "secrets.h"
+#endif
+
+// ===================== Solaris inverter simulator — config =====================
 // ESP32 #2. Edit these, then upload.
 
 // ---- Wi-Fi (the team hotspot). If it can't connect in 15 s, the simulator
-//      starts its own AP "Sinag-Sim" (password below) at http://192.168.4.1
+//      starts its own AP "Solaris-Sim" (password below) at http://192.168.4.1 and
+//      keeps looking for the hotspot every WIFI_RETRY_MS. Once it joins, the AP closes.
+#ifndef WIFI_SSID
 #define WIFI_SSID       "YOUR_HOTSPOT_SSID"
+#endif
+#ifndef WIFI_PASS
 #define WIFI_PASS       "YOUR_HOTSPOT_PASSWORD"
-#define AP_SSID         "Sinag-Sim"
-#define AP_PASS         "sinag1234"        // min 8 chars
-#define MDNS_NAME       "sinag-sim"        // -> http://sinag-sim.local
+#endif
+#define WIFI_RETRY_MS   30000              // hotspot retry while in AP mode (AP clients blip briefly)
+#define AP_SSID         "Solaris-Sim"
+#define AP_PASS         "solaris1234"        // min 8 chars
+#define MDNS_NAME       "solaris-sim"        // -> http://solaris-sim.local
 
 // ---- Modbus link (Contract A). UART2.
 //      Today (no RS485 modules): wire ESP32-to-ESP32 directly, TX->RX crossed.
@@ -20,7 +32,7 @@
 #define RS485_DE_PIN    -1                 // -1 = direct UART (no transceiver)
 
 // ---- MERALCO mode (ANSI C12.18). A real meter's password belongs to the utility.
-#define C12_PASSWORD     "SINAG-DEMO"       // up to 20 chars; must match sinag-device/config.h
+#define C12_PASSWORD     "SOLARIS-DEMO"       // up to 20 chars; must match solaris-device/config.h
 #define C12_MAX_BAD_PW   3                  // wrong passwords in a row before lockout
 #define C12_LOCKOUT_S    60                 // logons refused (BSY) for this long
 
@@ -48,6 +60,20 @@
 #define BATT_MIN_SOC    5                  // % floor during a brownout
 #define FAULT_CODE      21                 // overheating
 #define DEFAULT_SPEED   60                 // sim time multiplier (60 = 1 s -> 1 min)
+
+// ---- AUTO mode: the simulator drives SUN and LOAD itself (no knob needed)
+//      sun  = clear-sky curve for the local time of day x passing clouds
+//      load = household day pattern + appliance bursts (kettle, aircon, iron ...)
+//      Turn the knob (on SUN/LOAD) or move a web slider -> manual. Web button or
+//      serial "auto on" -> back to AUTO.
+#define AUTO_DEFAULT          1            // 1 = start in AUTO after every boot
+#define AUTO_SPEED            1            // sim speed at boot in AUTO (1 = real time, so battery % matches the app's kWh)
+#define AUTO_TZ               "PHT-8"      // POSIX TZ for the sun curve (Asia/Manila = UTC+8)
+#define AUTO_OFFLINE_START_H  10.0f        // no internet time yet: pretend the box booted at 10:00
+#define AUTO_SUN_PEAK         88           // sun % at clear-sky noon
+#define AUTO_BURST_GAP_MIN_S  30           // quiet time between appliance bursts
+#define AUTO_BURST_GAP_MAX_S  120
+#define AUTO_KNOB_TAKEOVER_PCT 12          // turn the knob this far to switch to manual; 101 = knob never stops AUTO
 
 // ---- Smart meter mode (Eastron SDM120-style single-phase kWh meter)
 //      Hold the button > 6 s to switch INVERTER <-> METER (remembered after reboot).

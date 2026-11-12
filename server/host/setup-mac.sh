@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-time setup of the Sinag host on macOS: Mosquitto broker, Python env, .env, demo history, AI model.
+# One-time setup of the Solaris host on macOS: Mosquitto broker, Python env, .env, demo history, AI model.
 #   bash server/host/setup-mac.sh            # everything
 #   bash server/host/setup-mac.sh --skip-ai  # no Ollama model download (3.3 GB)
 set -euo pipefail
@@ -23,7 +23,7 @@ echo "== server/.env"
 [[ -f .env ]] || cp .env.example .env
 
 echo "== Demo history (45 days)"
-[[ -f sinag.db ]] || .venv/bin/python tools/seed_history.py
+[[ -f solaris.db ]] || .venv/bin/python tools/seed_history.py
 
 if [[ $SKIP_AI == 0 ]]; then
   echo "== AI model (Ollama)"

@@ -31,8 +31,14 @@ class LiveState {
   String? get state => live?['state'] as String?;
   Map<String, dynamic>? get device => live?['device'] as Map<String, dynamic>?;
 
-  /// Null on a brand-new DB: show the friendly empty state, not an error.
+  /// Null on a brand-new DB: show the friendly empty state, not an error. Always null for a meter-only home.
   Map<String, dynamic>? get telemetry => live?['telemetry'] as Map<String, dynamic>?;
+
+  /// Latest smart/utility meter reading (Contract B meter); null for a solar-only home.
+  Map<String, dynamic>? get meter => live?['meter'] as Map<String, dynamic>?;
+
+  /// When the newest reading was taken: inverter telemetry, or the meter in a meter-only home.
+  int? get readingTs => ((telemetry ?? meter)?['ts'] as num?)?.toInt();
 
   bool get isConnected => link == LinkStatus.connected;
 
@@ -77,7 +83,14 @@ class LiveNotifier extends Notifier<LiveState> {
       case 'status':
         final live = state.live;
         if (live != null) {
-          state = state.copyWith(link: state.link, live: {...live, 'device': data}, updatedAt: DateTime.now());
+          state = state.copyWith(link: state.link, live: {
+            ...live,
+            'device': data,
+            if (data['online'] == false) ...{
+              'state': 'offline',
+              'status_line': 'Offline ang Solaris device. Huling reading ang ipinapakita.',
+            },
+          }, updatedAt: DateTime.now());
         }
       case 'alert':
         state = state.copyWith(link: state.link, lastAlert: data);

@@ -37,6 +37,7 @@ class ApiService {
       _send('POST', '/api/chat', body: {'message': message}, timeout: _chatTimeout);
   Future<Map<String, dynamic>> getDailySummary() => _get('/api/summary/daily');
   Future<Map<String, dynamic>> getSettings() => _get('/api/settings');
+  Future<Map<String, dynamic>> refreshMeralcoRate() => _send('POST', '/api/settings/rate/refresh');
   Future<Map<String, dynamic>> updateSettings(Map<String, dynamic> changes) =>
       _send('PUT', '/api/settings', body: changes);
   Future<Map<String, dynamic>> health() => _get('/api/health');

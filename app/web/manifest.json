@@ -1,11 +1,11 @@
 {
-    "name": "Sinag",
-    "short_name": "Sinag",
+    "name": "Solaris",
+    "short_name": "Solaris",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "Sinag: pure-solar home energy assistant",
+    "description": "Solaris: pure-solar home energy assistant",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

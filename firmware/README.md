@@ -1,9 +1,11 @@
-# Sinag firmware
+# Solaris firmware
 
 | Folder | Board | What it does |
 |---|---|---|
 | `inverter-sim/` | ESP32 #2 | Simulator with two modes. **Inverter** = hybrid solar inverter, slave 1 (Contract A). **Smart meter** = SDM120-style kWh meter, slave 2 (Contract A2). LCD, 1 knob, 1 button, live web dashboard |
-| `sinag-device/` | ESP32 #1 | The connector. Modbus RTU **master** that polls the inverter and the meter every 5 s and publishes each one that answers over MQTT (Contract B) |
+| `solaris-device/` | ESP32 #1 | The connector. Modbus RTU **master** that polls the inverter and the meter every 5 s and publishes each one that answers over MQTT (Contract B) |
+
+Interactive wiring diagram (real inverter over RS485, MAX3485, optional SDM120 meter): open [`docs/hardware/solaris-wiring.html`](../docs/hardware/solaris-wiring.html) in a browser.
 
 ## Wiring (no RS485 modules yet: direct UART)
 
@@ -11,7 +13,7 @@ Modbus RTU is just bytes on a serial line. Until the MAX3485 modules arrive, wir
 the two ESP32s straight to each other: **TX goes to the other board's RX, and the grounds are shared.**
 
 ```
- ESP32 #2  inverter-sim               ESP32 #1  sinag-device
+ ESP32 #2  inverter-sim               ESP32 #1  solaris-device
  ──────────────────────               ──────────────────────
  GPIO25 (TX)   ─────────────────────► GPIO26 (RX)
  GPIO26 (RX)   ◄───────────────────── GPIO25 (TX)
@@ -81,6 +83,24 @@ What each knob target sets: **SUN** = 0–5000 W solar · **LOAD** = 150–4000 
 While you hold the button, the LCD shows what releasing it will do. You don't
 need the web page for anything. Everything can be done and read from the panel.
 
+**AUTO mode (on at every boot).** The simulator drives SUN and LOAD by itself, so
+readings move without anyone touching the knob:
+
+- **Sun** follows the time of day in Manila: dark before 6:00 and after 18:00, peak
+  (`AUTO_SUN_PEAK`, 88 %) at noon. Every 40–180 s a cloud passes for 15–90 s and dims it to 30–75 %.
+  The time comes from the internet once the simulator is on the hotspot. Until then it pretends it booted at 10:00.
+- **Load** follows a household day (morning and evening peaks), plus one appliance at a
+  time: kettle, rice cooker, aircon, iron, washing machine or microwave, for 1–10 min with
+  30–120 s gaps. The serial log prints `[auto] kettle on (+45% load) for 90 s`.
+- Sim speed starts at **1×** in AUTO, so battery % changes at the same rate as the kWh in the app.
+
+Row 1 of the LCD shows `A` instead of `>` while AUTO drives the value (`ASUN 62% 3100W`).
+**Turn the knob firmly** (12 %, `AUTO_KNOB_TAKEOVER_PCT`) on SUN or LOAD, or move a web
+slider, to switch to manual. The **Auto** button on the web page or `auto on` on the USB
+serial monitor switches back. Brownout and fault stay manual, so you trigger them on cue.
+If the knob is missing or noisy, set `AUTO_KNOB_TAKEOVER_PCT` to `101` so it can never stop AUTO.
+To start in manual, set `AUTO_DEFAULT` to `0` in `config.h`.
+
 **Knob pick-up:** after you switch targets, the new value stays where it was
 until you turn the knob a little. This keeps a value from jumping when you switch. The LCD
 shows `=` while it waits and `>` once the knob is in control.
@@ -103,7 +123,7 @@ pages as well.
 
 The battery charges from surplus solar and covers deficits. A 20 % reserve is kept
 while the grid is on, and it drains to 5 % during a brownout. Simulated time runs
-**60×** by default so you can see the SoC move. Change it with the knob (SPEED) or on the web page.
+**60×** in manual mode so you can see the SoC move (AUTO boots at 1×). Change it with the knob (SPEED) or on the web page.
 
 ### Smart meter mode
 
@@ -132,25 +152,29 @@ An alert (`!! BROWNOUT !!` / `!LOW VOLTAGE!`) shows every other slot, as in inve
 
 ### Web dashboard
 
-On boot the LCD shows the IP address. Open `http://<that IP>/` or `http://sinag-sim.local/`.
+On boot the LCD shows the IP address. Open `http://<that IP>/` or `http://solaris-sim.local/`.
 If the hotspot isn't reachable within 15 s, the simulator makes its own Wi-Fi network
-**Sinag-Sim** (password `sinag1234`) at `http://192.168.4.1`.
+**Solaris-Sim** (password `solaris1234`) at `http://192.168.4.1`. It keeps looking for the hotspot
+every 30 s (`WIFI_RETRY_MS`; phones on Solaris-Sim may blip for a moment then) and closes
+Solaris-Sim once it joins, so switching the hotspot on late needs no reboot.
 
 The page has a mode switch at the top (Hybrid inverter / Smart meter). It shows
 live values for the current mode, and the active register map is shown decoded and
-raw, exactly as the Sinag device reads it. Modbus link stats include the last
-request/response bytes. Controls mirror the panel: sun/load/voltage sliders, knob
+raw, exactly as the Solaris device reads it. Modbus link stats include the last
+request/response bytes. Controls mirror the panel: Auto on/off, sun/load/voltage sliders, knob
 target, brownout, fault or low voltage, sim speed, and set SoC or set meter
-reading. JSON is at `/api/state`. Controls are at `POST /api/control` (`mode`,
+reading. JSON is at `/api/state`. Controls are at `POST /api/control` (`mode`, `auto`,
 `sun`, `load`, `volt`, `knob`, `brownout`, `fault`, `sag`, `speed`, `soc`, `imp`, `exp`).
 
-## Using the Sinag device
+## Using the Solaris device
 
-1. In `sinag-device/config.h`, set `WIFI_SSID`, `WIFI_PASS`, `MQTT_HOST` (the server laptop IP) and `DEVICE_ID`.
+1. In `solaris-device/config.h`, set `WIFI_SSID`, `WIFI_PASS`, `DEVICE_ID`, and the server laptop:
+   `MQTT_MDNS_HOST` (its computer name, found as `<name>.local` whatever IP the hotspot gives it)
+   and `MQTT_HOST` (its IP, used if the name doesn't answer). The host start script prints both.
 2. Upload it and open Serial Monitor at 115200. Each poll prints the JSON it published:
    ```
-   [pub] OK  sinag/sinag-001/telemetry {"ts":1731300000,"pv_w":3000,...}    ← inverter mode
-   [pub] OK  sinag/sinag-001/meter {"ts":1731300000,"voltage_v":230.1,...}   ← meter mode
+   [pub] OK  solaris/solaris-001/telemetry {"ts":1731300000,"pv_w":3000,...}    ← inverter mode
+   [pub] OK  solaris/solaris-001/meter {"ts":1731300000,"voltage_v":230.1,...}   ← meter mode
    ```
    The device polls both slave 1 (inverter) and slave 2 (meter). It publishes whichever
    one answers, so you never reflash it when you switch the simulator's mode. A
@@ -160,7 +184,7 @@ reading. JSON is at `/api/state`. Controls are at `POST /api/control` (`mode`,
    `INVERTER_ENABLED` or `METER_ENABLED` to 0 in `config.h`.
 3. On the laptop:
    ```bash
-   mosquitto_sub -h localhost -t "sinag/#" -v
+   mosquitto_sub -h localhost -t "solaris/#" -v
    ```
 
 The device polls Modbus even without Wi-Fi, so you can test the ESP32↔ESP32 link
@@ -169,7 +193,14 @@ with just the serial monitor. Read errors print a hint (for example `timeout (no
 Status LED (GPIO2): fast blink = no Wi-Fi · slow blink = no MQTT broker ·
 double blink = no device answering · solid = all good (flicks off on each publish).
 
-Real hardware: add a profile in `sinag-device/profiles.h` and point `PROFILE`
+Self-protection:
+- **Watchdog:** if `loop()` hangs for `WDT_TIMEOUT_S` (30 s), the board reboots itself. Each boot
+  prints `[boot] reset reason: ...`; `WATCHDOG: the loop hung` means it recovered from a hang.
+- **Meter password:** if the utility meter (MERALCO mode) refuses the logon or password, C12 polling
+  stops until reboot (`[c12] ... STOPPED`), so the device never retries its way into a meter lockout.
+  Fix `C12_PASSWORD` in both `config.h` files and reflash.
+
+Real hardware: add a profile in `solaris-device/profiles.h` and point `PROFILE`
 (inverter) or `METER_PROFILE` (meter) in `config.h` at it. For an inverter, give the
 register, scale and sign of each field. For a meter, give the float32 start register
 of each field and its word order. A real Eastron SDM120 works with the built-in
@@ -189,11 +220,12 @@ arduino-cli compile --fqbn esp32:esp32:esp32 -u -p /dev/cu.usbserial-XXXX invert
 ```
 
 ```bash
-arduino-cli compile --fqbn esp32:esp32:esp32 -u -p /dev/cu.usbserial-YYYY sinag-device
+arduino-cli compile --fqbn esp32:esp32:esp32 -u -p /dev/cu.usbserial-YYYY solaris-device
 ```
 
-If a board boot-loops with `csum err` / `TG0WDT_SYS_RESET` in the serial log
-(common on cheap CH340 boards), its flash can't run at 80 MHz. Build with
+If a board boot-loops with `csum err` / `TG0WDT_SYS_RESET` (or endless `mmu set` /
+`load:0xd7ffffff` lines) in the serial log (common on cheap CH340 boards), its flash can't run at 80 MHz.
+Our simulator board (`/dev/cu.wchusbserial*`) needs this since the AUTO update. Build with
 `--fqbn "esp32:esp32:esp32:FlashFreq=40,FlashMode=dio"` instead. In the Arduino IDE,
 set Tools → Flash Frequency to 40MHz and Flash Mode to DIO.
 

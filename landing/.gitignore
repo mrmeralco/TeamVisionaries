@@ -1,0 +1,6 @@
+# taste-skill checker output: Chrome profiles, crops, screenshots and run logs
+.taste-skill/chrome-*
+.taste-skill/consistency/
+.taste-skill/gate/
+.taste-skill/cons*.txt
+shots/

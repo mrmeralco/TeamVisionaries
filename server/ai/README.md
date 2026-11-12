@@ -1,6 +1,6 @@
-# Sinag AI: implementation guide
+# Solaris AI: implementation guide
 
-**Owner: Andy.** This folder is the "Ask Sinag" chat (`POST /api/chat`) and the daily recap
+**Owner: Andy.** This folder is the "Ask Mira" chat (`POST /api/chat`) and the daily recap
 (`GET /api/summary/daily`). It runs **Qwen 3.5 locally on Ollama**, so it works with no internet.
 
 The hybrid pipeline already works end to end. Your job is to get Qwen 3.5 running on the server laptop, tune it,
@@ -18,6 +18,24 @@ mix-ups; they do not prove every qualitative statement or multi-number compariso
 
 Power facts display W below 1,000 W and one-decimal kW above it. Displayed numbers are grounded in
 facts. API response shapes and fact identifiers are unchanged.
+
+**Tone update (2026-11-12, later):** Mira should sound like a person, not a list of labels.
+- `prompts.SYSTEM` now has style rules plus five worked examples (`prompts.EXAMPLES`). A 4B model copies
+  examples far better than it follows rules. Each example must pass the guard (`tests/test_ai_prompts.py`).
+- Facts have an optional `say` sentence ("Nasa 70% ang battery mo ngayon.") that direct and fallback
+  answers use instead of the model-facing label text ("Battery: 70%"). Tests check it adds no numbers.
+  `answers.join_spoken` drops repeated openers ("Kahapon, ... Kahapon, ...").
+- `style.polish` removes habits the model keeps despite the prompt: a leading "Juan,", "lang" after an
+  amount, "si Solar", "Hindi may". It only removes or swaps words, and it runs before the guard.
+- Bug fix: the daily recap was sent as user text inside `<tanong>`, so the model sometimes refused it and
+  "Pasensya na..." was cached as the day's recap. App tasks now use `TASK_USER`, a refusal retries and then
+  falls back, and a cached refusal is regenerated.
+- The guard now accepts negated comparisons ("Hindi mas mataas") and rejects "Oo" to "mas mataas ba?" when
+  the forecast is lower.
+- `llm.warmup(prompts.SYSTEM)` fills Ollama's prompt cache with the longer system prompt, so the first
+  question is not slow.
+On a MacBook with real `qwen3.5:4b`, `eval_ai.py` went from 12/15 (two label-text fallbacks, one wrong
+fault answer) to 15/15 with zero fallbacks. Not yet re-benchmarked on the RTX 4050 laptop.
 
 ### Validate on Andy's laptop (PowerShell, from `server`)
 
@@ -77,7 +95,8 @@ with **12 direct answers, 33 LLM answers, and zero unexpected fallbacks**. Media
 slowest 3.09 s, including backend fact gathering and excluding warmup. Direct forecast questions no
 longer depend on Qwen citations. These measurements are for the hybrid service, not 45 model calls.
 
-Keep **qwen3.5:4b**, 4,096-token context, 220 output tokens, thinking off. The earlier all-model
+**Demo model: qwen3.5:9b** (team decision, 2026-11-12: 4B's answers weren't good enough). Use
+4,096-token context, 220 output tokens, thinking off. 4B still works on 8 GB machines. The earlier all-model
 comparison scored 4B at 43/45 (two forecast fallbacks) and 9B at 42/45 (three slow answers; median
 5.19 s, maximum 12.53 s). Those historical scores predate direct lookups and are not a current
 same-version comparison. 9B has not been re-benchmarked for this update.
@@ -201,7 +220,7 @@ failure; check the logged `strategy` and `attempts` to distinguish them. Open `l
 
 ---
 
-## 4. How to add something Sinag can answer
+## 4. How to add something Mira can answer
 
 Example: "Magkano ang pinakamataas na solar ko this week?"
 
@@ -249,9 +268,12 @@ Don't loosen `guard.py` to make a test pass. If the guard rejects a reply, the r
 
 | File | You'll edit it when ... |
 |---|---|
-| `facts.py` | adding or rewording what Sinag knows |
+| `facts.py` | adding or rewording what Solaris knows |
 | `router.py` | a question isn't getting the right facts |
 | `prompts.py` | changing tone, Taglish style, recap format |
+| `style.py` | the model keeps a wording habit the prompt can't fix (word swaps only, never numbers) |
+| `../app/projection.py` | bill for the next months: only this month is a forecast; up to 3 months are projections (Mira must say they're estimates); beyond 3 Mira explains why not (`projection.limits`, guard `projection_problems`) |
+| `sources.py` | a new fact needs a label, period or app screen in the answer's "Where this answer comes from" list (`tests/test_ai_sources.py` fails until it has one) |
 | `guard.py` | rarely; e.g. allowing a new number format |
 | `service.py` | changing the flow (retry count, fallback text, chips) |
 | `llm.py` | switching provider or Ollama options |

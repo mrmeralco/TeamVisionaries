@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sinag/core/config/server_config.dart';
-import 'package:sinag/services/api_service.dart';
-import 'package:sinag/services/live_connection.dart';
+import 'package:solaris/core/config/server_config.dart';
+import 'package:solaris/services/api_service.dart';
+import 'package:solaris/services/live_connection.dart';
 
 /// liveMessages() fails on the first attempt, then delivers one message and drops.
 class FlakyApi extends ApiService {
@@ -55,6 +55,6 @@ void main() {
 
   test('ApiService builds ws:// and wss:// URIs', () {
     expect(ApiService(baseUrl: 'http://10.0.2.2:8000').liveSocketUri().toString(), 'ws://10.0.2.2:8000/ws/live');
-    expect(ApiService(baseUrl: 'https://sinag.test').liveSocketUri().toString(), 'wss://sinag.test/ws/live');
+    expect(ApiService(baseUrl: 'https://solaris.test').liveSocketUri().toString(), 'wss://solaris.test/ws/live');
   });
 }
