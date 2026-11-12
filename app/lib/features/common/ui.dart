@@ -2,6 +2,7 @@
 // for pushed screens, cards, readings, a two-column grid, AsyncValue loading/error states, data freshness
 // and the bottom navigation bar.
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -176,9 +177,131 @@ class BackHeader extends StatelessWidget {
   );
 }
 
-/// The one card recipe: white, [R.lg] corners, a 0.5 px orange hairline, no shadow.
+/// The hairline for card-shaped things that are not glass (pills, the Mira button).
 BorderSide get kCardLine => BorderSide(color: C.orangeLine, width: 0.5);
 
+/// How much a glass card blurs the page behind it.
+const kGlassBlur = 18.0;
+
+/// Behind every page: the cream with three soft, fixed glow blobs ([C.glow]) for glass cards to
+/// frost. Content scrolls over the glow, so each card shows a slightly different blur. It also
+/// groups the cards' blurs ([BackdropGroup]) so the page is read once, not once per card.
+class GlassBackdrop extends StatelessWidget {
+  const GlassBackdrop({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => BackdropGroup(
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: _Glow(C.glow)))),
+        child,
+      ],
+    ),
+  );
+}
+
+class _Glow extends CustomPainter {
+  _Glow(this.colors);
+  final List<Color> colors;
+
+  // (centre x, centre y, radius) as fractions of the width / height / width.
+  static const _spots = [(0.92, 0.06, 0.85), (0.02, 0.46, 0.75), (0.95, 0.88, 0.8)];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var i = 0; i < _spots.length; i++) {
+      final (x, y, r) = _spots[i];
+      final c = Offset(size.width * x, size.height * y);
+      final radius = size.width * r;
+      canvas.drawCircle(
+        c,
+        radius,
+        Paint()
+          ..shader = RadialGradient(colors: [colors[i], colors[i].withValues(alpha: 0)])
+              .createShader(Rect.fromCircle(center: c, radius: radius)),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_Glow old) => old.colors != colors;
+}
+
+/// The glass surface under every card: it blurs what is behind it, lays a translucent fill on
+/// top (white fading from .72 to .52 by default, or [color] for a tinted card), and draws a
+/// rim that is bright at the top-left and fades to a faint orange, like light on a pane. A
+/// [border] replaces the rim (status cards outline themselves in their own colour).
+class Glass extends StatelessWidget {
+  const Glass({super.key, required this.child, this.color, this.border, this.radius});
+  final Widget child;
+  final Color? color;
+  final BoxBorder? border;
+  final BorderRadius? radius; // default [R.card]
+
+  @override
+  Widget build(BuildContext context) {
+    final r = radius ?? R.card;
+    return ClipRRect(
+      borderRadius: r,
+      child: BackdropFilter.grouped(
+        filter: ui.ImageFilter.blur(sigmaX: kGlassBlur, sigmaY: kGlassBlur),
+        child: CustomPaint(
+          foregroundPainter: border == null ? _GlassRim(r, C.glassEdge, C.glassEdgeFar) : null,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: color,
+              gradient: color != null
+                  ? null
+                  : LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [C.glassTop, C.glassBottom],
+                    ),
+              borderRadius: r,
+            ),
+            position: DecorationPosition.background,
+            child: DecoratedBox(
+              decoration: BoxDecoration(border: border, borderRadius: r),
+              position: DecorationPosition.foreground,
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassRim extends CustomPainter {
+  _GlassRim(this.radius, this.lit, this.far);
+  final BorderRadius radius;
+  final Color lit, far;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const w = 1.0;
+    final rect = (Offset.zero & size).deflate(w / 2);
+    canvas.drawRRect(
+      radius.toRRect(rect),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = w
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [lit, lit.withValues(alpha: lit.a * 0.35), far],
+          stops: const [0, 0.45, 1],
+        ).createShader(rect),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_GlassRim old) => old.radius != radius || old.lit != lit || old.far != far;
+}
+
+/// The one card recipe: frosted [Glass], [R.lg] corners, a lit rim, no shadow.
 class SCard extends StatelessWidget {
   const SCard({
     super.key,
@@ -189,19 +312,17 @@ class SCard extends StatelessWidget {
   });
   final Widget child;
   final EdgeInsets padding;
-  final Color? color; // default [C.card]
-  final BoxBorder? border;
+  final Color? color; // a tint; default clear glass
+  final BoxBorder? border; // default the lit rim
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: padding,
-    decoration: BoxDecoration(
-      color: color ?? C.card,
-      borderRadius: R.card,
-      border: border ?? Border.fromBorderSide(kCardLine),
+  Widget build(BuildContext context) => Glass(
+    color: color,
+    border: border,
+    child: Padding(
+      padding: padding,
+      child: SizedBox(width: double.infinity, child: child),
     ),
-    child: child,
   );
 }
 
@@ -220,8 +341,8 @@ class PressCard extends StatefulWidget {
   });
   final Widget child;
   final VoidCallback? onTap;
-  final Color? color; // default [C.card]
-  final BorderSide? side; // default [kCardLine]
+  final Color? color; // a tint; default clear glass
+  final BorderSide? side; // default the lit rim
   final EdgeInsets padding;
   final double minHeight;
 
@@ -237,18 +358,21 @@ class _PressCardState extends State<PressCard> {
     scale: _down && !reduceMotion(context) ? 0.98 : 1,
     duration: _down ? M.press : M.release,
     curve: M.ease,
-    child: Material(
-      color: widget.color ?? C.card,
-      shape: RoundedRectangleBorder(borderRadius: R.card, side: widget.side ?? kCardLine),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: widget.onTap,
-        onHighlightChanged: (v) => setState(() => _down = v),
-        child: Container(
-          width: double.infinity,
-          constraints: BoxConstraints(minHeight: widget.minHeight),
-          padding: widget.padding,
-          child: widget.child,
+    child: Glass(
+      color: widget.color,
+      border: widget.side == null ? null : Border.fromBorderSide(widget.side!),
+      // Transparent Material above the fill, so the ripple shows on the glass.
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: widget.onTap,
+          onHighlightChanged: (v) => setState(() => _down = v),
+          child: Container(
+            width: double.infinity,
+            constraints: BoxConstraints(minHeight: widget.minHeight),
+            padding: widget.padding,
+            child: widget.child,
+          ),
         ),
       ),
     ),

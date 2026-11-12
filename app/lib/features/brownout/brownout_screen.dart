@@ -24,7 +24,7 @@ class BrownoutScreen extends ConsumerWidget {
     final outlook = solar ? ref.watch(outlookProvider) : null;
     return Scaffold(
       backgroundColor: C.cream,
-      body: RefreshIndicator(
+      body: GlassBackdrop(child: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(outlookProvider);
           await ref.refresh(brownoutProvider.future).then((_) {}, onError: (_) {});
@@ -56,7 +56,7 @@ class BrownoutScreen extends ConsumerWidget {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }

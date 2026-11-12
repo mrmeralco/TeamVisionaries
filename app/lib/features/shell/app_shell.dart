@@ -102,7 +102,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
     return Scaffold(
       backgroundColor: C.cream,
-      body: shell,
+      body: GlassBackdrop(child: shell),
       floatingActionButton: const MiraButton(),
       bottomNavigationBar: SolarisNavBar(
         index: shell.currentIndex,

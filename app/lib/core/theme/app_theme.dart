@@ -89,6 +89,18 @@ class C {
   static Color get divider => _n(const Color(0x1F292929), const Color(0x24FFFFFF)); // between rows
   static Color get shadow => _n(const Color(0x40000000), const Color(0x66000000));
 
+  // Frosted glass cards (SCard, PressCard): a translucent fill, lighter at the top-left, over the
+  // page's blurred warm glow ([glow], painted by GlassBackdrop). The glow stays pale enough that
+  // [muted] text holds 4.5:1 on its richest spot of the page and 5.1:1 on a card; at night 5.6:1+.
+  static Color get glassTop => _n(const Color(0xB8FFFFFF), const Color(0xB82A3558)); // .72
+  static Color get glassBottom => _n(const Color(0x85FFFFFF), const Color(0x991A2440)); // .52 / .60
+  static Color get glassEdge => _n(const Color(0xF2FFFFFF), const Color(0x47FFFFFF)); // lit rim (not text)
+  static Color get glassEdgeFar => _n(const Color(0x59FF7415), const Color(0x40FF7415)); // far rim, orange
+  /// Page glow blobs: top right, middle left, bottom right.
+  static List<Color> get glow => night
+      ? const [Color(0x664B5BC8), Color(0x2EF47721), Color(0x4D3B4BA8)]
+      : const [Color(0x66FFC857), Color(0x59FFC59D), Color(0x26F47721)];
+
   // Status
   static Color get green => _n(const Color(0xFF299D65), const Color(0xFF4FCB8D));
   static Color get red => _n(const Color(0xFFD93B30), const Color(0xFFFF7A70));

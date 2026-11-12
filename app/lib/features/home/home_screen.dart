@@ -435,8 +435,8 @@ class _BrownoutAdvisor extends ConsumerWidget {
             label: '$title. $value hours: $caption.${facts.isEmpty ? '' : ' $facts.'} Open Brownout Advisor',
             excludeSemantics: true,
             child: PressCard(
-              color: on ? C.orangeDeep.withValues(alpha: 0.08) : C.card,
-              side: on ? BorderSide(color: C.orangeDeep.withValues(alpha: 0.5), width: 0.5) : kCardLine,
+              color: on ? C.orangeDeep.withValues(alpha: 0.08) : null,
+              side: on ? BorderSide(color: C.orangeDeep.withValues(alpha: 0.5), width: 0.5) : null,
               onTap: () => context.push(Routes.brownout),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
