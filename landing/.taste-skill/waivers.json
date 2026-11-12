@@ -1,0 +1,4 @@
+[
+  { "check": "cut-text", "target": "dg-cap__l", "reason": "the kit's lanes diagram switches to its narrow tile layout under 1280px and sets each caption under its tile, outside the tile's own box; every caption shows whole (crop 1024-11-cut-text.jpg)" },
+  { "check": "scroll-reveal", "target": "div.frame.frame--split > div.dg", "reason": "the diagram is held still (motion pulse none); the kit's diagram.css eases its nodes' colours into the still frame over 0.9 s when diagram.js mounts it in view; nothing fades, rises or unmasks, and the kit's files are not edited" }
+]
