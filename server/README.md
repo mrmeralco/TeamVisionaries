@@ -75,13 +75,22 @@ and the model is pulled.
 ## How the numbers work
 
 - **kWh**: each 5 s power sample is counted until the next one (gaps over 15 min are not counted).
-- **Bill** = grid import kWh priced at Meralco's consumption levels: the rate setting is the ₱/kWh up to
-  200 kWh, higher levels add a fixed ₱/kWh ([app/tariff.py](app/tariff.py)).
-  **Savings** = home use not taken from the grid × rate setting.
+- **Bill** = grid import kWh priced with Meralco's residential schedule ([app/tariff.py](app/tariff.py),
+  October 2026 billing): the rate setting is Meralco's monthly "overall rate" for a 200 kWh household
+  (₱15.06 in Oct 2026; update it each month). The whole month pays the distribution charge of its
+  consumption level (up to 200, 201-300, 301-400, over 400 kWh), plus ₱23.95 fixed charges and energy
+  tax above 650 kWh. **Savings** = home use not taken from the grid × rate setting.
 - **Forecast** = month-to-date kWh + weekday/weekend daily averages (last 28 days, divided by each day's
   season factor, then multiplied by the remaining days' factor) × days left, priced with the tariff.
-  Range = ± daily std dev × √days left. The season index and level adders are tables in `tariff.py`.
-- **Brownout runtime** = `batt_soc% × battery_kWh ÷ load_w`.
+  Range = ± daily std dev × √days left. The season index and Meralco tables are in `tariff.py`.
+- **Brownout runtime** = `batt_soc% × battery_kWh ÷ load_w` (no sun). During a brownout the advice also
+  gives the time the battery runs out with the forecast sun counted.
+- **Outlook** (`/api/outlook`, [app/outlook.py](app/outlook.py)): Open-Meteo radiation forecast × this
+  house's kWh per kWh/m² (fitted on the last 7 days; `PV_KWP` × 0.8 until then) = solar per hour. Typical
+  load per hour of day. The battery is simulated hour by hour for 48 h: when it hits `BATT_RESERVE_PCT`
+  (grid on) or `BATT_CUTOFF_PCT` (brownout), whether tomorrow's sun refills it. Weather refreshes every
+  30 min in the background; offline or `WEATHER_ENABLED=0` falls back to the last 14 days' solar.
+  Only `SITE_LAT`/`SITE_LON` (default: Metro Manila) are sent to Open-Meteo.
 - **AI**: the backend computes every number; the model only phrases cited facts in Taglish, and a guard
   rejects any reply with a number that isn't in the facts. If the LLM is off, slow or fails the guard twice,
   a rule-based answer is returned (`"source": "fallback"`). Full guide: [ai/README.md](ai/README.md).

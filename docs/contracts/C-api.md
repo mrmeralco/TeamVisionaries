@@ -20,6 +20,7 @@ Conventions:
 | `GET /api/energy?period=day\|week\|month` | Time series + totals + self-sufficiency % | Energy | [energy_day.json](examples/energy_day.json) |
 | `GET /api/bill` | Month-to-date ₱, forecast ₱ + range, vs last month, savings, weekly costs | Bill, Home | [bill.json](examples/bill.json) |
 | `GET /api/brownout` | Status, start time, battery runtime estimate, advice | Brownout Advisor | [brownout.json](examples/brownout.json) |
+| `GET /api/outlook` | Solar forecast (weather), battery projection 48 h, brownout runtime with sun, advice | Brownout Advisor, Home | [outlook.json](examples/outlook.json) |
 | `GET /api/alerts` | Alert list, unread count | Alerts | [alerts.json](examples/alerts.json) |
 | `POST /api/alerts/{id}/read` | Marks one alert read, returns it | Alerts | — |
 | `POST /api/alerts/read-all` | Marks all read, returns `{ "unread": 0 }` | Alerts | — |
@@ -29,7 +30,7 @@ Conventions:
 | `GET /api/health` | `{ "ok": true, "mock": false, "llm": "qwen3.5:4b", "llm_provider": "ollama", "llm_reachable": true }` | Settings (connection test) | — |
 
 `POST /api/alerts/{id}/read`, `POST /api/alerts/read-all` and `GET /api/health` are additions to the
-plan's table, proposed for Aldrin's approval.
+plan's table, proposed for Aldrin's approval. `GET /api/outlook` is an addition too.
 
 ## Shapes
 
@@ -81,9 +82,10 @@ plan's table, proposed for Aldrin's approval.
 }
 ```
 
-Bill = grid import kWh priced with Meralco's residential consumption levels (pure solar household, no
-net-metering credit). `rate_php_per_kwh` is the user's setting, the ₱/kWh for up to 200 kWh. Higher levels
-add a fixed ₱/kWh on top (`server/app/tariff.py`). Forecast = month-to-date kWh + weekday/weekend daily
+Bill = grid import kWh priced with Meralco's residential schedule (pure solar household, no net-metering
+credit; `server/app/tariff.py`). `rate_php_per_kwh` is the user's setting: Meralco's monthly overall rate
+for a 200 kWh household. The whole month pays the distribution charge of its consumption level (up to 200,
+201-300, 301-400, over 400 kWh), plus fixed supply and metering charges. Forecast = month-to-date kWh + weekday/weekend daily
 averages (last 28 days, adjusted by a monthly season index) × days left, then priced. Range = ± one daily
 standard deviation × √days left. `month_to_date_php` and `weekly_costs` use the ₱/kWh of the level the
 forecast lands in. Savings stay at `rate_php_per_kwh`, matching `saved_today_php` in `/api/live`.
@@ -99,7 +101,36 @@ forecast lands in. Savings stay at `rate_php_per_kwh`, matching `saved_today_php
 }
 ```
 
-When `active` is false, `start_ts`/`duration_min` describe the **last** outage (or are null).
+When `active` is false, `start_ts`/`duration_min` describe the **last** outage (or are null). During a brownout, `advice`
+also says how long the battery lasts once the forecast sun is counted (from `/api/outlook`).
+
+### `GET /api/outlook`
+
+Next 48 hours, hour by hour: forecast solar, typical home use and projected battery %.
+
+```jsonc
+{
+  "generated_ts": 1794456190, "source": "weather",       // "history" = no weather forecast, last 14 days used
+  "solar_today_kwh": 10.7, "solar_tomorrow_kwh": 5.2, "solar_typical_kwh": 17.0,   // typical: null without 14 days
+  "battery": {
+    "soc_pct": 37, "reserve_pct": 20,
+    "reserve_ts": 1794491696,          // battery reaches reserve_pct, grid takes over; null if not within 48 h
+    "full_ts": null,                   // sun fills it to 100 %; null if not within 48 h
+    "tomorrow_max_soc_pct": 38.5, "grid_kwh_24h": 5.22
+  },
+  "brownout": {                        // if the grid were out from now on; null if no telemetry yet
+    "active": false, "cutoff_pct": 5,
+    "lasts_until_ts": 1794494807, "hours": 10.7   // null = lasts past 48 h
+  },
+  "advice": "Maulap ang forecast bukas: mga 5 kWh lang ang solar, kumpara sa karaniwang 17 kWh. ...",
+  "hours": [ { "ts": 1794456000, "pv_kwh": 1.89, "load_kwh": 0.3, "soc_pct": 51.3, "cloud_pct": 30 } ]  // 48 items
+}
+```
+
+Solar = forecast radiation (Open-Meteo) × this house's kWh per kWh/m², fitted on the last 7 days. Load =
+average for that hour of the day (weekday/weekend, last 28 days). The battery is simulated hour by hour:
+with the grid on it drains to `reserve_pct`, in a brownout to `cutoff_pct`. `hours[0]` is the current hour.
+
 
 ### `GET /api/alerts`
 

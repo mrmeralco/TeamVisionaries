@@ -159,6 +159,55 @@
         "outages_this_month": { "type": "integer", "minimum": 0 }
       }
     },
+    "outlook": {
+      "description": "GET /api/outlook: solar + battery outlook for the next 48 h",
+      "type": "object",
+      "required": ["generated_ts", "source", "solar_today_kwh", "solar_tomorrow_kwh", "solar_typical_kwh", "battery", "brownout", "advice", "hours"],
+      "properties": {
+        "generated_ts": { "$ref": "#/$defs/ts" },
+        "source": { "enum": ["weather", "history"] },
+        "solar_today_kwh": { "$ref": "#/$defs/kwh" },
+        "solar_tomorrow_kwh": { "$ref": "#/$defs/kwh" },
+        "solar_typical_kwh": { "type": ["number", "null"], "minimum": 0 },
+        "battery": {
+          "type": "object",
+          "required": ["soc_pct", "reserve_pct", "reserve_ts", "full_ts", "tomorrow_max_soc_pct", "grid_kwh_24h"],
+          "properties": {
+            "soc_pct": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+            "reserve_pct": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "reserve_ts": { "$ref": "#/$defs/ts_or_null" },
+            "full_ts": { "$ref": "#/$defs/ts_or_null" },
+            "tomorrow_max_soc_pct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+            "grid_kwh_24h": { "$ref": "#/$defs/kwh" }
+          }
+        },
+        "brownout": {
+          "type": ["object", "null"],
+          "required": ["active", "cutoff_pct", "lasts_until_ts", "hours"],
+          "properties": {
+            "active": { "type": "boolean" },
+            "cutoff_pct": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "lasts_until_ts": { "$ref": "#/$defs/ts_or_null" },
+            "hours": { "type": ["number", "null"], "minimum": 0 }
+          }
+        },
+        "advice": { "type": "string", "minLength": 1 },
+        "hours": {
+          "type": "array", "minItems": 48, "maxItems": 48,
+          "items": {
+            "type": "object",
+            "required": ["ts", "pv_kwh", "load_kwh", "soc_pct", "cloud_pct"],
+            "properties": {
+              "ts": { "$ref": "#/$defs/ts" },
+              "pv_kwh": { "$ref": "#/$defs/kwh" },
+              "load_kwh": { "$ref": "#/$defs/kwh" },
+              "soc_pct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+              "cloud_pct": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 }
+            }
+          }
+        }
+      }
+    },
     "alert": {
       "type": "object",
       "required": ["id", "ts", "type", "severity", "title", "message", "read"],

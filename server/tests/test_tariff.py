@@ -1,6 +1,6 @@
 """SPEC: Meralco consumption levels and the seasonal bill forecast (app/tariff.py, energy.bill).
 
-  cost     = kWh x (rate setting + adder of the level the month's total falls in)   ("whole" mode)
+  cost     = fixed charges + kWh x (rate setting - fixed/200 + distribution difference of the month's level)
   forecast = month-to-date kWh + season-adjusted weekday/weekend averages x days left, then priced
 """
 from datetime import date, timedelta
@@ -28,29 +28,38 @@ def history(device, today: date, kwh_per_day: float, days: int = 45):
 
 
 # ------------------------------------------------------------------- tariff --
-@pytest.mark.parametrize("kwh,expected", [(0, 0), (200, 2400), (250, 250 * 12.35), (350, 350 * 12.65), (450, 450 * 13.25)])
-def test_whole_month_is_charged_at_its_level(kwh, expected):
-    assert tariff.cost(kwh, 12.0) == pytest.approx(expected)
+FIXED = (16.38 + 5.00) * 1.12  # Meralco supply + metering per customer, with VAT
 
 
-def test_marginal_mode_charges_each_slice_at_its_own_level(monkeypatch):
-    monkeypatch.setattr(tariff, "BRACKET_MODE", "marginal")
-    assert tariff.cost(250, 12.0) == pytest.approx(200 * 12 + 50 * 12.35)
-    assert tariff.cost(450, 12.0) == pytest.approx(200 * 12 + 100 * 12.35 + 100 * 12.65 + 50 * 13.25)
+def test_typical_200_kwh_month_costs_exactly_the_announced_rate():
+    assert tariff.cost(200, 15.0615) == pytest.approx(200 * 15.0615)
 
 
-@pytest.mark.parametrize("mode", ["whole", "marginal"])
-def test_more_kwh_never_costs_less(monkeypatch, mode):
-    monkeypatch.setattr(tariff, "BRACKET_MODE", mode)
-    costs = [tariff.cost(k / 2, 12.0) for k in range(0, 1200)]
+@pytest.mark.parametrize("kwh,dist", [(150, 0.9803), (250, 1.2908), (350, 1.5837), (450, 2.0941)])
+def test_whole_month_pays_the_distribution_charge_of_its_level(kwh, dist):
+    per_kwh = 12.0 - FIXED / 200 + (dist - 0.9803) * 1.12
+    assert tariff.cost(kwh, 12.0) == pytest.approx(FIXED + kwh * per_kwh)
+
+
+def test_fixed_charges_are_paid_even_with_no_grid_use():
+    assert tariff.cost(0, 12.0) == pytest.approx(FIXED)
+
+
+def test_energy_tax_only_above_650_kwh_in_slices():
+    assert tariff.energy_tax(650) == 0
+    assert tariff.energy_tax(700) == pytest.approx(50 * 0.10)
+    assert tariff.energy_tax(1600) == pytest.approx(350 * 0.10 + 500 * 0.20 + 100 * 0.35)
+
+
+def test_more_kwh_never_costs_less():
+    costs = [tariff.cost(k / 2, 12.0) for k in range(0, 2400)]
     assert costs == sorted(costs)
 
 
 def test_bracket_limits():
-    assert tariff.bracket(150) == (0, 200, 0.0)
-    assert tariff.bracket(200) == (0, 200, 0.0)
-    assert tariff.bracket(201) == (200, 300, 0.35)
-    assert tariff.bracket(999) == (400, None, 1.25)
+    assert tariff.bracket(200)[:2] == (0, 200) and tariff.bracket(200)[2] == 0
+    assert tariff.bracket(201)[:2] == (200, 300) and tariff.bracket(201)[2] == pytest.approx(0.3105 * 1.12)
+    assert tariff.bracket(999)[:2] == (400, None) and tariff.bracket(999)[2] == pytest.approx(1.1138 * 1.12)
 
 
 # ------------------------------------------------------------------- season --
@@ -74,7 +83,7 @@ def test_flat_season_forecast_is_history_times_days(device, monkeypatch):
     b = energy.bill(device, {"rate_php_per_kwh": 12.0, "battery_kwh": 10})
     # Apr 1-14 = 28 kWh, today expected 2, Apr 16-30 = 15 x 2
     assert b["forecast_kwh"] == pytest.approx(60, abs=0.2)
-    assert b["forecast_php"] == pytest.approx(720, abs=3)
+    assert b["forecast_php"] == pytest.approx(tariff.cost(60, 12.0), abs=3)
 
 
 def test_hot_season_raises_the_forecast(device, monkeypatch):
@@ -96,7 +105,7 @@ def test_heading_into_a_higher_level_prices_the_whole_month_there(device, monkey
     history(device, d, 9.0)  # 30 x 9 = 270 kWh -> 201-300 level
     b = energy.bill(device, {"rate_php_per_kwh": 12.0, "battery_kwh": 10})
     assert b["forecast_kwh"] == pytest.approx(270, abs=1)
-    assert b["forecast_rate_php_per_kwh"] == pytest.approx(12.35)
+    assert b["forecast_rate_php_per_kwh"] == pytest.approx(tariff.rate_at(270, 12.0), abs=0.01)
     assert b["forecast_bracket_kwh"] == (200, 300)
-    assert b["month_to_date_php"] == pytest.approx(126 * 12.35, abs=1)
+    assert b["month_to_date_php"] == pytest.approx(126 * tariff.rate_at(270, 12.0), abs=1)
     assert b["month_to_date_php"] <= b["forecast_low_php"] <= b["forecast_php"] <= b["forecast_high_php"]

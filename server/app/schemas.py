@@ -111,6 +111,44 @@ class Brownout(BaseModel):
     outages_this_month: int
 
 
+# ------------------------------------------------------------- /api/outlook --
+class OutlookHour(BaseModel):
+    ts: int = Field(description="Hour start, Unix s. The first hour is the current one.")
+    pv_kwh: float = Field(description="Forecast solar for the full hour")
+    load_kwh: float = Field(description="Typical home use for this hour of the day")
+    soc_pct: float | None = Field(description="Projected battery % at the end of the hour, grid on; null if no telemetry")
+    cloud_pct: int | None = Field(description="Cloud cover; null when the hour has no weather forecast")
+
+
+class OutlookBattery(BaseModel):
+    soc_pct: int | None = Field(description="Now; null if no telemetry yet")
+    reserve_pct: int = Field(description="Below this the inverter switches the house to the grid")
+    reserve_ts: int | None = Field(description="When the battery reaches reserve_pct; null if not within 48 h")
+    full_ts: int | None = Field(description="When the sun fills it to 100 %; null if not within 48 h")
+    tomorrow_max_soc_pct: float | None = Field(description="Highest projected % tomorrow; null if no telemetry")
+    grid_kwh_24h: float = Field(description="Projected grid import over the next 24 h")
+
+
+class OutlookBrownout(BaseModel):
+    """What happens if the grid is out from now on (the real projection when `active`)."""
+    active: bool = Field(description="A brownout is happening now")
+    cutoff_pct: int = Field(description="The inverter shuts down at this %")
+    lasts_until_ts: int | None = Field(description="When the battery hits cutoff_pct, sun included; null = lasts past 48 h")
+    hours: float | None = Field(description="Hours from now until then; null = more than 48")
+
+
+class Outlook(BaseModel):
+    generated_ts: int
+    source: Literal["weather", "history"] = Field(description="history = no weather forecast; solar from the last 14 days")
+    solar_today_kwh: float = Field(description="Produced so far today + forecast for the rest of today")
+    solar_tomorrow_kwh: float
+    solar_typical_kwh: float | None = Field(description="Average day, last 14 days; null without 14 days of history")
+    battery: OutlookBattery
+    brownout: OutlookBrownout | None = Field(description="null if no telemetry yet")
+    advice: str = Field(min_length=1)
+    hours: list[OutlookHour] = Field(min_length=48, max_length=48)
+
+
 # -------------------------------------------------------------- /api/alerts --
 class Alert(BaseModel):
     id: int

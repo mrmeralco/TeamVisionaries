@@ -13,9 +13,10 @@ import re
 from dataclasses import dataclass, field
 from datetime import timedelta
 
-from app import db, energy
+from app import db, energy, outlook
 
 from .faults import explain_fault
+from .prompts import when
 
 
 @dataclass
@@ -156,6 +157,35 @@ def gather(device_id: str, settings: dict) -> FactSet:
     else:
         fs.add("brownout.active", "brownout", "Walang brownout ngayon.")
     fs.add("brownout.count_month", "brownout", f"Bilang ng brownout ngayong buwan: {bo['outages_this_month']}", (bo["outages_this_month"],))
+
+    # ---- solar + battery outlook (weather forecast; see app/outlook.py)
+    o = outlook.outlook(device_id, settings)
+    ob, obo = o["battery"], o["brownout"]
+    src = "weather forecast" if o["source"] == "weather" else "nakaraang 14 araw (walang weather forecast ngayon)"
+    typ = f" (karaniwan: {kwh(o['solar_typical_kwh'])})" if o["solar_typical_kwh"] else ""
+    fs.add("outlook.solar_tomorrow_kwh", "outlook", f"Forecast ng solar bukas: mga {kwh(o['solar_tomorrow_kwh'])}{typ}, batay sa {src}",
+           (o["solar_tomorrow_kwh"],), ("Solar tomorrow", kwh(o["solar_tomorrow_kwh"])))
+    fs.add("outlook.solar_today_kwh", "outlook", f"Inaasahang kabuuang solar ngayong araw (kasama na ang nakuha na): mga {kwh(o['solar_today_kwh'])}",
+           (o["solar_today_kwh"],))
+    if ob["soc_pct"] is not None:
+        if ob["reserve_ts"] is not None:
+            fs.add("outlook.battery_reserve", "outlook", f"Sa forecast, aabot sa {ob['reserve_pct']}% ang battery {when(ob['reserve_ts'])}; grid na ang gagamitin pagkatapos")
+        else:
+            fs.add("outlook.battery_reserve", "outlook", f"Sa forecast, hindi bababa sa {ob['reserve_pct']}% ang battery sa susunod na 48 oras")
+        if ob["full_ts"] is not None:
+            fs.add("outlook.battery_full", "outlook", f"Sa forecast, mapupuno ang battery {when(ob['full_ts'])}")
+        elif ob["tomorrow_max_soc_pct"] is not None:
+            fs.add("outlook.battery_full", "outlook", f"Sa forecast, hindi mapupuno ang battery sa susunod na 48 oras; pinakamataas bukas: {ob['tomorrow_max_soc_pct']:.0f}%")
+    if obo:
+        # During a brownout this is the real projection, so it goes with the always-included brownout facts.
+        topic = "brownout" if obo["active"] else "outlook"
+        lead = "Sa brownout na ito" if obo["active"] else "Kung mag-brownout ngayon"
+        if obo["lasts_until_ts"] is None:
+            fs.add("outlook.brownout_until", topic, f"{lead}, kasama ang forecast na araw at karaniwang gamit, kakayanin ng battery ang susunod na 48 oras")
+        else:
+            fs.add("outlook.brownout_until", topic, f"{lead}, kasama ang forecast na araw at karaniwang gamit, mauubos ang battery {when(obo['lasts_until_ts'])} "
+                   f"(mga {obo['hours']:g} oras mula ngayon)", (obo["hours"],), ("Battery lasts", f"{obo['hours']:g} h"))
+    fs.add("outlook.advice", "outlook", f"Payo tungkol sa araw at battery: {o['advice']}")
 
     # ---- fault
     if t and t["fault_code"]:

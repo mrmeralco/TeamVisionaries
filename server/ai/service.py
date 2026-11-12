@@ -99,6 +99,7 @@ FALLBACK_IDS = {
     "bill": ("bill.month_to_date_php", "bill.forecast_php", "usage.peak_hours"),
     "savings": ("today.saved_php", "bill.savings_month_php"),
     "yesterday": ("yesterday.solar_kwh", "yesterday.cost_php", "yesterday.saved_php"),
+    "outlook": ("outlook.advice",),
     "battery": ("now.battery_pct", "now.battery_w"),
     "usage": ("usage.peak_hours", "week.grid_kwh", "week.self_sufficiency_pct"),
     "alerts": ("alerts.unread",),
@@ -106,7 +107,7 @@ FALLBACK_IDS = {
     "now": ("now.solar_w", "now.load_w", "now.grid_w"),
 }
 # "now" is last: every question includes it, so it only answers when nothing more specific was asked.
-FALLBACK_ORDER = ("fault", "brownout", "bill", "savings", "yesterday", "battery", "usage", "alerts", "today", "now")
+FALLBACK_ORDER = ("fault", "brownout", "bill", "savings", "yesterday", "outlook", "battery", "usage", "alerts", "today", "now")
 
 
 def fallback_reply(asked: set[str], active: set[str], fs: FactSet) -> str:

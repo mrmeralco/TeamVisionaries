@@ -52,8 +52,18 @@ CHAT_BUDGET_S = float(os.getenv("CHAT_BUDGET_S", "25"))   # whole /api/chat incl
 LLM_KEEP_ALIVE = os.getenv("LLM_KEEP_ALIVE", "60m")
 AI_LOG = Path(os.getenv("AI_LOG", SERVER_DIR / "logs" / "ai.jsonl"))
 
+# Solar + battery outlook. Weather: Open-Meteo (free, no key); only SITE_LAT/SITE_LON are sent.
+WEATHER_ENABLED = _bool("WEATHER_ENABLED", "1")
+WEATHER_URL = os.getenv("WEATHER_URL", "https://api.open-meteo.com/v1/forecast")
+SITE_LAT = float(os.getenv("SITE_LAT", "14.5995"))   # Metro Manila
+SITE_LON = float(os.getenv("SITE_LON", "120.9842"))
+PV_KWP = float(os.getenv("PV_KWP", "5.0"))           # until there's a week of history to calibrate on
+BATT_RESERVE_PCT = int(os.getenv("BATT_RESERVE_PCT", "20"))  # grid takes over below this
+BATT_CUTOFF_PCT = int(os.getenv("BATT_CUTOFF_PCT", "5"))     # inverter shuts down here in a brownout
+BATT_MAX_KW = float(os.getenv("BATT_MAX_KW", "3.0"))
+
 DEFAULT_SETTINGS = {
-    "rate_php_per_kwh": float(os.getenv("DEFAULT_RATE", "13.0")),
+    "rate_php_per_kwh": float(os.getenv("DEFAULT_RATE", "15.06")),  # Meralco overall rate, Oct 2026
     "battery_kwh": float(os.getenv("DEFAULT_BATTERY_KWH", "10.0")),
     "user_name": os.getenv("DEFAULT_USER_NAME", "Juan"),
     "device_id": os.getenv("DEFAULT_DEVICE_ID", "sinag-001"),

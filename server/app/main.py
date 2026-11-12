@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ai import llm
 from ai import service as ai
 
-from . import config, db, energy, hub, ingest, mock
+from . import config, db, energy, hub, ingest, mock, outlook, weather
 from . import schemas as S  # Contract C response shapes
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -22,11 +22,13 @@ log = logging.getLogger("sinag")
 
 
 async def _background() -> None:
-    """Offline watchdog + keep yesterday's AI summary pre-generated."""
+    """Offline watchdog + keep yesterday's AI summary pre-generated + weather forecast fresh."""
     n = 0
     while True:
         await asyncio.sleep(5)
         try:
+            if n % 360 == 0 and config.WEATHER_ENABLED:  # every 30 min, first one at startup
+                await asyncio.to_thread(weather.refresh)
             ingest.check_stale()
             if n % 120 == 0:  # every 10 min
                 s = db.get_settings()
@@ -100,6 +102,13 @@ def get_brownout():
     if config.MOCK:
         return mock.load("brownout")
     return energy.brownout(_dev(), _settings())
+
+
+@app.get("/api/outlook", response_model=S.Outlook)
+def get_outlook():
+    if config.MOCK:
+        return mock.load("outlook")
+    return outlook.outlook(_dev(), _settings())
 
 
 @app.get("/api/alerts", response_model=S.AlertList)

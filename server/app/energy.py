@@ -214,8 +214,8 @@ def bill(device_id: str, settings: dict) -> dict:
     # Each remaining day (today included) is an independent draw, so the spread grows with √days.
     spread_kwh = max(sd * tariff.season_factor(d) * (len(future) + 1) ** 0.5, fc_kwh * 0.05)
 
-    forecast = tariff.cost(fc_kwh, rate)
-    eff_rate = forecast / fc_kwh if fc_kwh > 0 else rate  # ₱/kWh at the level this month is heading for
+    forecast = tariff.cost(fc_kwh, rate)  # incl. fixed monthly charges
+    eff_rate = tariff.rate_at(fc_kwh, rate)  # ₱/kWh at the level this month is heading for
     mtd_php = mtd_kwh * eff_rate
     low = max(mtd_php, tariff.cost(max(mtd_kwh, fc_kwh - spread_kwh), rate))
     high = tariff.cost(fc_kwh + spread_kwh, rate)
@@ -263,7 +263,9 @@ def _has_data(device_id: str, start: date, end: date | None = None) -> bool:
 
 # ----------------------------------------------------------------- brownout --
 def brownout(device_id: str, settings: dict) -> dict:
-    from ai.prompts import brownout_advice
+    from ai.prompts import brownout_advice, outlook_brownout_note
+
+    from . import outlook
 
     t = db.latest_telemetry(device_id)
     o = db.open_outage(device_id) or db.last_outage(device_id)
@@ -279,6 +281,6 @@ def brownout(device_id: str, settings: dict) -> dict:
         "start_ts": o["start_ts"] if o else None,
         "duration_min": round((end - o["start_ts"]) / 60) if o else None,
         "batt_soc": soc, "load_w": load, "runtime_h": rt,
-        "advice": brownout_advice(active, soc, load, rt),
+        "advice": brownout_advice(active, soc, load, rt, outlook_brownout_note(outlook.outlook(device_id, settings)) if active and t else ""),
         "outages_this_month": n,
     }

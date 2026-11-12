@@ -15,6 +15,8 @@ KEYWORDS: dict[str, tuple[str, ...]] = {
     "brownout": ("brownout", "blackout", "walang kuryente", "nawalan", "outage", "power interruption"),
     "fault": ("fault", "error", "sira", "problema", "init", "mainit", "temperature", "overheat", "code"),
     "alerts": ("alert", "abiso", "notification", "babala"),
+    "outlook": ("bukas", "tomorrow", "makalawa", "mamaya", "panahon", "weather", "ulap", "maulap", "ulan", "umuulan",
+                "bagyo", "sisikat", "sikat", "mauubos", "maubos", "mapupuno", "mapuno", "aabot"),
     "now": ("ngayon", "now", "solar", "araw", "panel", "grid", "live"),
 }
 # Cost words that mean "bill" only when nothing more specific was asked:
@@ -38,4 +40,6 @@ def topics_for(message: str, active: set[str]) -> set[str]:
         found = {"today", "bill", "savings"}
     if "bill" in found:
         found.add("usage")  # "why is my bill high" needs the usage pattern
+    if "battery" in found or "brownout" in found:
+        found.add("outlook")  # "will my battery last?" depends on tomorrow's sun
     return found | ALWAYS | active

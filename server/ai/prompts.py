@@ -51,8 +51,9 @@ def render_facts(facts) -> str:
     return "\n".join(f"[{f.id}] {f.text}" for f in facts)
 
 
-def brownout_advice(active: bool, soc: int | None, load_w: int | None, runtime_h: float | None) -> str:
-    """Rule-based on purpose: brownout advice must be correct, not creative."""
+def brownout_advice(active: bool, soc: int | None, load_w: int | None, runtime_h: float | None, solar_note: str = "") -> str:
+    """Rule-based on purpose: brownout advice must be correct, not creative.
+    `solar_note` = outlook_brownout_note(): how long the battery lasts once the forecast sun is counted."""
     if not active:
         return "Walang brownout ngayon. Puno-puno ang battery kapag maaraw, kaya handa ka kung sakali."
     if soc is None:
@@ -61,4 +62,52 @@ def brownout_advice(active: bool, soc: int | None, load_w: int | None, runtime_h
         return f"May brownout. {soc}% ang battery at halos walang gumagamit ng kuryente ngayon."
     tip = ("Patayin muna ang aircon, plantsa at water heater para tumagal ang battery."
            if load_w and load_w > 1000 else "Ilaw, electric fan, ref at charger lang muna para tumagal.")
-    return f"May brownout. Sa {load_w} W na gamit, aabot pa ng mga {runtime_h:g} oras ang battery mo ({soc}%). {tip}"
+    note = f" {solar_note}" if solar_note else ""
+    return f"May brownout. Sa {load_w} W na gamit, aabot pa ng mga {runtime_h:g} oras ang battery mo ({soc}%).{note} {tip}"
+
+
+# ----------------------------------------------------------------- outlook --
+def when(ts: int) -> str:
+    """'mamayang 9PM' / 'bukas ng 6AM' / 'sa makalawa ng 2AM', in local time."""
+    from app import energy
+
+    lt = energy.to_local(ts)
+    h = f"{lt.hour % 12 or 12}{'AM' if lt.hour < 12 else 'PM'}"
+    days = (lt.date() - energy.today()).days
+    return f"mamayang {h}" if days <= 0 else f"bukas ng {h}" if days == 1 else f"sa makalawa ng {h}"
+
+
+def outlook_brownout_note(o: dict) -> str:
+    """Brownout runtime with the forecast sun counted (the plain runtime_h assumes no sun at all)."""
+    bo = o.get("brownout")
+    if not bo:
+        return ""
+    if bo["lasts_until_ts"] is None:
+        return "Kasama ang forecast na araw at ang karaniwang gamit mo, kakayanin ng battery ang susunod na 48 oras."
+    return f"Kasama ang forecast na araw at ang karaniwang gamit mo, mauubos ang battery {when(bo['lasts_until_ts'])}."
+
+
+CLOUDY_RATIO = 0.6  # tomorrow's solar below 60% of typical = cloudy day
+
+
+def outlook_advice(o: dict) -> str:
+    """Rule-based: what the next 48 h of sun mean for the battery. Most urgent first."""
+    b, bo = o["battery"], o["brownout"]
+    tm, typ = o["solar_tomorrow_kwh"], o["solar_typical_kwh"]
+    parts = []
+    if bo and bo["active"]:
+        parts.append(outlook_brownout_note(o))
+    if typ and tm < CLOUDY_RATIO * typ:
+        parts.append(f"Maulap ang forecast bukas: mga {tm:.0f} kWh lang ang solar, kumpara sa karaniwang {typ:.0f} kWh.")
+        if b["tomorrow_max_soc_pct"] is not None and b["tomorrow_max_soc_pct"] < 90:
+            parts.append(f"Hindi mapupuno ang battery bukas (hanggang {b['tomorrow_max_soc_pct']:.0f}% lang), "
+                         "kaya mas maikli ang itatagal nito kung may brownout. Gamitin ang malalaking appliance sa tanghali.")
+    else:
+        parts.append(f"Forecast ng solar bukas: mga {tm:.0f} kWh.")
+        if b["full_ts"] is not None:
+            parts.append(f"Mapupuno ang battery {when(b['full_ts'])}.")
+    if not (bo and bo["active"]) and b["reserve_ts"] is not None and b["reserve_ts"] - o["generated_ts"] <= 24 * 3600:
+        parts.append(f"Aabot sa {b['reserve_pct']}% ang battery {when(b['reserve_ts'])}; grid na ang gagamitin pagkatapos.")
+    if o["source"] == "history":
+        parts.append("Walang weather forecast ngayon, kaya batay ito sa nakaraang 14 araw.")
+    return " ".join(parts)
