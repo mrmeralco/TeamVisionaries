@@ -36,8 +36,7 @@ class _SinagAppState extends State<SinagApp> {
   Widget build(BuildContext context) => MaterialApp.router(
         title: 'Sinag',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.light(),
-        darkTheme: AppTheme.dark(),
+        theme: AppTheme.light(), // Figma design is light-only
         routerConfig: _router,
       );
 }

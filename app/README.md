@@ -1,8 +1,8 @@
 # Sinag Flutter app
 
 Owners: **Aldrin** (dev) + **Shane** (UI/UX). Flutter 3.44, targets **web + Android**
-(`ph.sinag.sinag`). The server connection is done; screens are placeholders that show the raw
-server data until Shane's Figma design is implemented.
+(`ph.sinag.sinag`). Screens follow the Figma "MOBILE" frames (HTML export with colours, spacing, DM Sans
+and the images/icons in `assets/images/`), on top of the server connection below.
 
 ## Run
 
@@ -34,19 +34,20 @@ lib/
   main.dart                       ProviderScope + MaterialApp.router
   core/config/server_config.dart  default URL, URL normalising ("192.168.43.100" → http://…:8000)
   core/router.dart                go_router: 5-tab shell + /settings, /brownout
-  core/theme/app_theme.dart       placeholder tokens → replace with Figma styles
+  core/theme/app_theme.dart       Figma tokens (C.*), ts() text styles, DM Sans
   core/utils/format.dart          ₱, W/kW, kWh, Manila time from Unix seconds
   services/api_service.dart       every Contract C call (spec-tested)
   services/mock_api_service.dart  same API from assets/mock/*.json
   services/live_connection.dart   /ws/live with reconnect + backoff
   providers/                      Riverpod: server config, live state, per-tab data, alerts, chat
-  features/<tab>/                 one folder per screen (placeholders now)
-  features/common/placeholder.dart  temporary raw-JSON widgets; delete as screens get designed
+  features/<tab>/                 one folder per screen (Home, Energy, Bill, Ask, Alerts, Brownout, Settings)
+  features/common/ui.dart         header (link dot + gear), cards, two-column grid, AsyncBody, bottom nav
+  features/common/charts.dart     hand-drawn line chart (Energy) and bar chart (Bill)
 ```
 
 Libraries: `http`, `web_socket_channel`, `flutter_riverpod` (state), `go_router` (navigation),
 `fl_chart` (Energy/Bill charts), `shared_preferences` (saved server URL), `intl` (₱, dates),
-`flutter_svg` (Figma icon exports). Fonts from Figma go in `assets/fonts/` (the demo is offline,
+`flutter_svg` (Figma icon exports). DM Sans is bundled in `assets/fonts/` (SIL OFL; the demo is offline,
 so no runtime font downloads).
 
 What the screens read: Home → `liveProvider` (updates on every `/ws/live` message, `link` says
@@ -61,7 +62,9 @@ flutter test
 ```
 
 `test/spec/` is a copy of `test_spec/` (the contract spec, 30 tests); `test/connection_test.dart`
-covers URL parsing and WebSocket reconnect; `test/widget_test.dart` boots the app in mock mode.
+covers URL parsing and WebSocket reconnect; `test/widget_test.dart` drives every designed screen with the
+contract examples: brownout / fault / offline / empty states, alerts read flow, chat, settings, and a
+320 × 640 no-overflow check.
 
 ## Tests to build against
 

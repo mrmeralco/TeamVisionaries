@@ -67,6 +67,11 @@ flutter:
 
   assets:
     - assets/mock/ # copies of docs/contracts/examples, used by MockApiService
+    - assets/images/ # Figma exports (Sinag_HTML/assets)
+  fonts:
+    - family: DMSans # variable font (opsz, wght), SIL OFL: assets/fonts/OFL.txt
+      fonts:
+        - asset: assets/fonts/DMSans.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
