@@ -1,5 +1,6 @@
-// Night (6 PM to 6 AM, Manila) is a full dark mode, to match the night house: navy page, dark cards,
-// light text, on every screen. Settings > Appearance can pin it to light or dark. And the house on Home
+// The app is light by default; Home's house and sky still follow the time (the night house from 6 PM).
+// Settings > Appearance > Auto makes night (6 PM to 6 AM, Manila) a full dark
+// mode, to match the night house: navy page, dark cards, light text, on every screen; Dark keeps it dark. And the house on Home
 // matches the household: no panels or battery for a meter-only home, still labelled.
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -30,6 +31,8 @@ void _at(int hour, [int minute = 0]) {
   addTearDown(() => homeClock = manilaNow);
 }
 
+const _auto = {'appearance': 'auto'};
+
 Future<StateMock> _meterHome() async {
   final api = StateMock(live: example('live_meter_only'));
   await api.updateSettings({'setup': 'meter_only'});
@@ -37,9 +40,22 @@ Future<StateMock> _meterHome() async {
 }
 
 void main() {
-  testWidgets('at night every screen is dark: navy page, light text', (t) async {
-    _at(20, 30);
+  testWidgets('light by default, even at night; the house on Home still follows the time', (t) async {
+    _at(21);
     await pumpApp(t, size: _tall);
+    expect(C.night, isFalse);
+    expect(_pageColor(t), _cream);
+    expect(_textColor(t, 'Solar tips'), isNot(_navy)); // dark text on the light dashboard
+    expect(_houseAsset(t), 'assets/images/house-hero-night.svg');
+    expect(find.textContaining('Magandang gabi'), findsOneWidget);
+    await t.tap(find.bySemanticsLabel('Settings').first);
+    await t.pumpAndSettle();
+    expect(t.widget<ChoiceChip>(find.byKey(const Key('appearance-light'))).selected, isTrue);
+  });
+
+  testWidgets('Auto, at night: every screen is dark: navy page, light text', (t) async {
+    _at(20, 30);
+    await pumpApp(t, size: _tall, prefs: _auto);
     expect(C.night, isTrue);
     expect(_pageColor(t), _navy);
     expect(_textColor(t, 'Solar tips'), C.ink);
@@ -53,17 +69,17 @@ void main() {
     expect(_pageColor(t), _navy);
   });
 
-  testWidgets('by day: light', (t) async {
+  testWidgets('Auto, by day: light', (t) async {
     _at(10);
-    await pumpApp(t, size: _tall);
+    await pumpApp(t, size: _tall, prefs: _auto);
     expect(C.night, isFalse);
     expect(_pageColor(t), _cream);
     expect(_houseAsset(t), 'assets/images/house-hero.svg');
   });
 
-  testWidgets('turns dark by itself at 6 PM, without reopening the app', (t) async {
+  testWidgets('Auto turns dark by itself at 6 PM, without reopening the app', (t) async {
     _at(17, 59);
-    await pumpApp(t, size: _tall);
+    await pumpApp(t, size: _tall, prefs: _auto);
     expect(C.night, isFalse);
     final dayInk = _textColor(t, 'Solar tips');
 
@@ -77,7 +93,7 @@ void main() {
     expect(_houseAsset(t), 'assets/images/house-hero-night.svg');
   });
 
-  testWidgets('Settings > Appearance: dark by day, light at night, saved', (t) async {
+  testWidgets('Settings > Appearance: dark, back to light, then Auto at night', (t) async {
     _at(10);
     final c = await pumpApp(t, size: _tall);
     await t.tap(find.bySemanticsLabel('Settings').first);
@@ -93,31 +109,36 @@ void main() {
     expect(C.night, isFalse);
     expect(_pageColor(t), _cream);
 
-    // Pinned to light: stays light at night.
+    // Auto from Settings: dark at night.
     _at(21);
-    await pumpApp(t, size: _tall, prefs: {'appearance': 'light'});
-    expect(C.night, isFalse);
+    final again = await pumpApp(t, size: _tall);
+    await t.tap(find.bySemanticsLabel('Settings').first);
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const Key('appearance-auto')));
+    await t.pumpAndSettle();
+    expect(C.night, isTrue);
+    expect(again.read(appearanceProvider), Appearance.auto);
   });
 
-  testWidgets('a meter-only home: the house without solar, with HOME and METER labels', (t) async {
+  testWidgets('a meter-only home: the house without solar, with HOME and GRID labels', (t) async {
     _at(10);
     await pumpApp(t, api: await _meterHome(), size: _tall);
     expect(_houseAsset(t), 'assets/images/house-hero-meter.svg');
     expect(find.text('HOME'), findsOneWidget);
-    expect(find.text('METER'), findsOneWidget);
-    for (final gone in ['SOLAR', 'BATTERY', 'GRID']) {
+    expect(find.text('GRID'), findsOneWidget);
+    for (final gone in ['SOLAR', 'BATTERY', 'METER']) {
       expect(find.text(gone), findsNothing, reason: gone);
     }
     // A label zooms in and explains, like the solar house.
-    await t.tap(find.text('METER'));
+    await t.tap(find.text('GRID'));
     await t.pumpAndSettle();
-    expect(find.textContaining('boltahe mula sa Meralco'), findsOneWidget);
+    expect(find.textContaining('boltahe ng kuryente mula sa Meralco'), findsOneWidget);
     expect(find.text('Normal'), findsWidgets);
   });
 
-  testWidgets('a meter-only home at night: the night house without solar', (t) async {
+  testWidgets('a meter-only home at night (Auto): the night house without solar', (t) async {
     _at(22);
-    await pumpApp(t, api: await _meterHome(), size: _tall);
+    await pumpApp(t, api: await _meterHome(), size: _tall, prefs: _auto);
     expect(_houseAsset(t), 'assets/images/house-hero-night-meter.svg');
     expect(find.text('HOME'), findsOneWidget);
   });

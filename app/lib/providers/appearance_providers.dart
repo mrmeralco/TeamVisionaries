@@ -1,5 +1,5 @@
-// Day or night look. Auto (default): dark from 6 PM to 6 AM, Manila time, to match the night house.
-// Settings can pin it to light or dark (saved on the device).
+// Day or night look. Light by default. Settings can switch to Auto (dark from 6 PM to 6 AM, Manila time,
+// with the night house) or always dark (saved on the device).
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,7 +15,7 @@ class AppearanceNotifier extends Notifier<Appearance> {
   @override
   Appearance build() {
     final saved = ref.watch(sharedPreferencesProvider).getString(_key);
-    return Appearance.values.firstWhere((a) => a.name == saved, orElse: () => Appearance.auto);
+    return Appearance.values.firstWhere((a) => a.name == saved, orElse: () => Appearance.light);
   }
 
   Future<void> set(Appearance a) async {
@@ -26,13 +26,11 @@ class AppearanceNotifier extends Notifier<Appearance> {
 
 final appearanceProvider = NotifierProvider<AppearanceNotifier, Appearance>(AppearanceNotifier.new);
 
-/// True while the app should look like night. In auto it checks the clock every 30 s, so it turns
-/// over within half a minute of 6 o'clock.
-class NightNotifier extends Notifier<bool> {
+/// Night by the clock: 6 PM to 6 AM, Manila time, checked every 30 s so it turns over within half a
+/// minute of 6 o'clock. Home's house and sky follow it whatever the app's appearance.
+class ClockNightNotifier extends Notifier<bool> {
   @override
   bool build() {
-    final a = ref.watch(appearanceProvider);
-    if (a != Appearance.auto) return a == Appearance.dark;
     final timer = Timer.periodic(const Duration(seconds: 30), (_) {
       final n = isNightAt(homeClock());
       if (n != state) state = n;
@@ -42,4 +40,11 @@ class NightNotifier extends Notifier<bool> {
   }
 }
 
-final nightProvider = NotifierProvider<NightNotifier, bool>(NightNotifier.new);
+final clockNightProvider = NotifierProvider<ClockNightNotifier, bool>(ClockNightNotifier.new);
+
+/// True while the whole app should look dark: always for Dark, never for Light, by the clock for Auto.
+final nightProvider = Provider<bool>((ref) => switch (ref.watch(appearanceProvider)) {
+      Appearance.light => false,
+      Appearance.dark => true,
+      Appearance.auto => ref.watch(clockNightProvider),
+    });

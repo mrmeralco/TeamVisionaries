@@ -36,9 +36,9 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final live = ref.watch(liveProvider);
-    // Night (6 PM to 6 AM): the night house, navy sky, light text. Home rebuilds on every reading,
-    // so it turns over within seconds of 6 o'clock.
-    final night = ref.watch(nightProvider);
+    // Night (6 PM to 6 AM, by the clock, whatever the app's appearance): the night house, navy sky,
+    // light text on it.
+    final night = ref.watch(clockNightProvider);
     final bill = ref.watch(billProvider).value;
     final summary = ref.watch(dailySummaryProvider);
     final name = str(ref.watch(serverSettingsProvider).value?['user_name']);

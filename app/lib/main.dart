@@ -60,7 +60,7 @@ class _SolarisAppState extends ConsumerState<SolarisApp> {
     return MaterialApp.router(
       title: 'Solaris',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.current(), // light by day; dark at night (Settings > Appearance)
+      theme: AppTheme.current(), // light unless Settings > Appearance says Dark, or Auto at night
       themeAnimationDuration: Duration.zero, // tokens switch at once; a lerp would mix old and new
       routerConfig: _router,
       builder: (context, child) => _MaxWidth(child: child ?? const SizedBox.shrink()),
