@@ -274,7 +274,7 @@ Show the Household card: the 24-hour activity strip, the “likely home now” s
 - Voltage quality: whether the supply is normal, too low, or too high, with the last 24 hours’ minimum and maximum
 - Usage pattern: daily use, peak hours, night share, and weekday versus weekend use
 - **Meralco rate level this month:** which consumption level the month is heading for and its price per kWh
-- **Level warning:** “You are 132 kWh above the 400 kWh level; cutting about 7 kWh a day could save ₱2,096”
+- **Level warning:** “You are 132 kWh above the 400 kWh level; cutting about 7 kWh a day could save ₱2,369”
 - Always-on load in kWh and pesos per month
 - The meter’s import reading, the same number Meralco reads
 - Brownout and grid-restored alerts from the meter, with advice to protect appliances

@@ -16,11 +16,14 @@ follows the visitor's choice (the sun/moon button, remembered) or else opens in 
 | Section | Shows |
 |---|---|
 | Hero | Fluted glass over a blurred sunset behind a house; glass cards with the app's live and bill figures, the headline, Book a demo, a five-item feature strip |
-| `#app` | Ask Mira: the real conversation ("Bakit mataas ang bill ko?") in front of the real Home screen |
+| `#features` | Eight feature cards, one per feature slide of the presentation (`SOLARIS_PRESENTATION.md`, slides 5 to 12) |
+| `#app` | Ask Mira: the real conversation ("Bakit mataas ang bill ko?") and its sources, in front of the real Home screen |
 | `#bill` | The bill forecast in the app's deep orange, beside the real Bill & Savings screen |
-| `#forecast` | The app screen by screen: real Energy, Brownout Advisor and Alerts screens |
-| `#questions` | Six questions in two columns |
-| `#setup` | Inverter, Solaris device, app, alerts, Mira (diagram) |
+| `#forecast` | The app screen by screen: real Energy, Solar tips, Your household, System check, Brownout Advisor and Alerts screens |
+| `#meter` | Smart meter mode and the three setups, with the real meter-only Home and its rate-level warning |
+| `#meralco` | How Solaris helps Meralco serve its customers (slide 13): what works today, what needs a partnership, privacy |
+| `#questions` | Eight questions in two columns |
+| `#setup` | Inverter or meter, Solaris device, app, alerts, Mira (diagram) |
 | Footer | Book a demo; Team Visionaries, who built what, GitHub and email |
 
 **The phone screens are real.** `assets/app/*-day.jpg` and `*-night.jpg` are screenshots of the Flutter app
@@ -28,16 +31,18 @@ follows the visitor's choice (the sun/moon button, remembered) or else opens in 
 is the server's example data (`docs/contracts/examples/`). The day set shows in the light theme, the night set in
 the dark one. To capture them again after the app changes: `flutter build web`, serve `app/build/web`, run the
 server with `SOLARIS_MOCK=1`, open each route at 393x852 with `flutter.onboarded` and `flutter.appearance` set in
-localStorage, and save each screen as a 590x1278 JPEG under the same names.
+localStorage, and save each screen as a 590x1278 JPEG under the same names. `tips` and `household` are Home
+scrolled to those cards, `check` is Bill scrolled to the system check, and `meter` / `metersave` are Home with the
+mock server switched to the meter-only setup (`PUT /api/settings {"setup": "meter_only"}`, then back to `solar`).
 
 - **Colours and type** are the app's own (`app/lib/core/theme/app_theme.dart`): cream and orange by day, its navy at
   night, DM Sans.
 - **The glass** is `assets/solaris-glass.js`: a small WebGL shader that renders once into each `[data-glass]`
   section's background (scenes `sunset` and `band`), redrawn on resize. Without WebGL the CSS background stays.
-- **Every number in the copy** comes from the repo: readings every 5 s (`docs/contracts/B-mqtt.md`), the ₱15.06/kWh
-  default rate (`server/app/config.py`), the 48-hour Open-Meteo outlook and its 7- and 14-day fallbacks, Qwen 3.5 on
-  Ollama (`server/ai/README.md`). The bill and live figures in the copy and the hero cards (₱746, ₱1,995, 3.1 kW,
-  78%) match the app screens, so the page never shows two different numbers for one thing.
+- **Every number in the copy** comes from the repo: readings every 5 s (`docs/contracts/B-mqtt.md`), Meralco's published
+  ₱15.0615/kWh rate (October 2026 billing, fetched by `server/app/meralco.py`; ₱15.06 default in `server/app/config.py`), the 48-hour Open-Meteo outlook and its 7- and 14-day fallbacks, Qwen 3.5 on
+  Ollama (`server/ai/README.md`). The bill and live figures in the copy and the hero cards (₱857, ₱2,310, ₱2,123–₱2,497,
+  3.1 kW, 78%) match the app screens, so the page never shows two different numbers for one thing.
 
 ## Still to supply
 
