@@ -15,8 +15,8 @@
 //      Later with MAX3485/RS485 module: set RS485_DE_PIN to the DE+RE pin.
 #define MB_SLAVE_ID     1
 #define MB_BAUD         9600
-#define MB_RX_PIN       16
-#define MB_TX_PIN       17
+#define MB_RX_PIN       26
+#define MB_TX_PIN       25
 #define RS485_DE_PIN    -1                 // -1 = direct UART (no transceiver)
 
 // ---- Front panel

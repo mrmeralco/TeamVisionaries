@@ -1,0 +1,261 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sinag.local/contracts/schema.json",
+  "title": "Sinag contracts B (MQTT) and C (REST + WebSocket)",
+  "description": "Machine-checkable version of B-mqtt.md and C-api.md. Tests in server/tests, tests/acceptance and app/test_spec validate against these. Change this file together with the .md files.",
+  "$defs": {
+    "ts": { "type": "integer", "minimum": 0 },
+    "ts_or_null": { "type": ["integer", "null"], "minimum": 0 },
+    "php": { "type": "number" },
+    "kwh": { "type": "number", "minimum": 0 },
+
+    "telemetry": {
+      "description": "Contract B: sinag/{device_id}/telemetry. Also the `telemetry` object in /api/live.",
+      "type": "object",
+      "required": ["ts", "pv_w", "load_w", "grid_w", "batt_soc", "batt_w", "grid_on", "inv_temp_c", "fault_code"],
+      "properties": {
+        "ts": { "$ref": "#/$defs/ts" },
+        "pv_w": { "type": "integer", "minimum": 0 },
+        "load_w": { "type": "integer", "minimum": 0 },
+        "grid_w": { "type": "integer" },
+        "batt_soc": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "batt_w": { "type": "integer" },
+        "grid_on": { "type": "boolean" },
+        "inv_temp_c": { "type": "integer", "minimum": -40, "maximum": 150 },
+        "fault_code": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "meter": {
+      "description": "Contract B: sinag/{device_id}/meter",
+      "type": "object",
+      "required": ["ts", "meter_type", "voltage_v", "power_w", "import_kwh", "export_kwh", "grid_on"],
+      "properties": {
+        "ts": { "$ref": "#/$defs/ts" },
+        "meter_type": { "enum": ["sdm120", "ansi-c12"] },
+        "voltage_v": { "type": "number", "minimum": 0 },
+        "current_a": { "type": "number", "minimum": 0 },
+        "power_w": { "type": "number" },
+        "apparent_va": { "type": "number" },
+        "reactive_var": { "type": "number" },
+        "pf": { "type": "number", "minimum": -1, "maximum": 1 },
+        "freq_hz": { "type": "number", "minimum": 0 },
+        "import_kwh": { "type": "number", "minimum": 0 },
+        "export_kwh": { "type": "number", "minimum": 0 },
+        "grid_on": { "type": "boolean" }
+      }
+    },
+    "status": {
+      "description": "Contract B: sinag/{device_id}/status (retained). The last will is just {\"online\": false}.",
+      "type": "object",
+      "required": ["online"],
+      "properties": {
+        "online": { "type": "boolean" },
+        "rssi": { "type": "integer", "maximum": 0 },
+        "fw": { "type": "string" }
+      }
+    },
+
+    "device": {
+      "type": "object",
+      "required": ["id", "online", "rssi", "fw", "last_seen_ts"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "online": { "type": "boolean" },
+        "rssi": { "type": ["integer", "null"] },
+        "fw": { "type": ["string", "null"] },
+        "last_seen_ts": { "$ref": "#/$defs/ts_or_null" }
+      }
+    },
+    "live": {
+      "description": "GET /api/live and WS {type: telemetry}",
+      "type": "object",
+      "required": ["device", "telemetry", "state", "status_line", "saved_today_php", "rate_php_per_kwh"],
+      "properties": {
+        "device": { "$ref": "#/$defs/device" },
+        "telemetry": { "oneOf": [{ "$ref": "#/$defs/telemetry" }, { "type": "null" }] },
+        "state": { "enum": ["solar", "battery", "grid", "brownout", "fault", "offline"] },
+        "status_line": { "type": "string", "minLength": 1 },
+        "saved_today_php": { "$ref": "#/$defs/php" },
+        "rate_php_per_kwh": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "kwh_totals": {
+      "type": "object",
+      "required": ["pv_kwh", "load_kwh", "grid_import_kwh", "grid_export_kwh", "batt_charge_kwh", "batt_discharge_kwh"],
+      "properties": {
+        "pv_kwh": { "$ref": "#/$defs/kwh" },
+        "load_kwh": { "$ref": "#/$defs/kwh" },
+        "grid_import_kwh": { "$ref": "#/$defs/kwh" },
+        "grid_export_kwh": { "$ref": "#/$defs/kwh" },
+        "batt_charge_kwh": { "$ref": "#/$defs/kwh" },
+        "batt_discharge_kwh": { "$ref": "#/$defs/kwh" }
+      }
+    },
+    "energy": {
+      "description": "GET /api/energy?period=day|week|month",
+      "type": "object",
+      "required": ["period", "bucket", "start_ts", "end_ts", "points", "totals", "self_sufficiency_pct"],
+      "properties": {
+        "period": { "enum": ["day", "week", "month"] },
+        "bucket": { "enum": ["hour", "day"] },
+        "start_ts": { "$ref": "#/$defs/ts" },
+        "end_ts": { "$ref": "#/$defs/ts" },
+        "points": {
+          "type": "array",
+          "minItems": 7,
+          "items": {
+            "allOf": [{ "$ref": "#/$defs/kwh_totals" }],
+            "type": "object",
+            "required": ["ts", "label"],
+            "properties": { "ts": { "$ref": "#/$defs/ts" }, "label": { "type": "string", "minLength": 1 } }
+          }
+        },
+        "totals": { "$ref": "#/$defs/kwh_totals" },
+        "self_sufficiency_pct": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "bill": {
+      "description": "GET /api/bill",
+      "type": "object",
+      "required": ["month", "days_elapsed", "days_in_month", "rate_php_per_kwh", "month_to_date_kwh", "month_to_date_php",
+                   "forecast_php", "forecast_low_php", "forecast_high_php", "last_month_php", "vs_last_month_pct",
+                   "savings_today_php", "savings_month_php", "weekly_costs"],
+      "properties": {
+        "month": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" },
+        "days_elapsed": { "type": "integer", "minimum": 1, "maximum": 31 },
+        "days_in_month": { "type": "integer", "minimum": 28, "maximum": 31 },
+        "rate_php_per_kwh": { "type": "number", "exclusiveMinimum": 0 },
+        "month_to_date_kwh": { "$ref": "#/$defs/kwh" },
+        "month_to_date_php": { "$ref": "#/$defs/php" },
+        "forecast_php": { "$ref": "#/$defs/php" },
+        "forecast_low_php": { "$ref": "#/$defs/php" },
+        "forecast_high_php": { "$ref": "#/$defs/php" },
+        "last_month_php": { "type": ["number", "null"] },
+        "vs_last_month_pct": { "type": ["number", "null"] },
+        "savings_today_php": { "$ref": "#/$defs/php" },
+        "savings_month_php": { "$ref": "#/$defs/php" },
+        "weekly_costs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["week_start_ts", "label", "php"],
+            "properties": { "week_start_ts": { "$ref": "#/$defs/ts" }, "label": { "type": "string" }, "php": { "$ref": "#/$defs/php" } }
+          }
+        }
+      }
+    },
+    "brownout": {
+      "description": "GET /api/brownout",
+      "type": "object",
+      "required": ["active", "start_ts", "duration_min", "batt_soc", "load_w", "runtime_h", "advice", "outages_this_month"],
+      "properties": {
+        "active": { "type": "boolean" },
+        "start_ts": { "$ref": "#/$defs/ts_or_null" },
+        "duration_min": { "type": ["integer", "null"], "minimum": 0 },
+        "batt_soc": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "load_w": { "type": ["integer", "null"], "minimum": 0 },
+        "runtime_h": { "type": ["number", "null"], "minimum": 0 },
+        "advice": { "type": "string", "minLength": 1 },
+        "outages_this_month": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "alert": {
+      "type": "object",
+      "required": ["id", "ts", "type", "severity", "title", "message", "read"],
+      "properties": {
+        "id": { "type": "integer" },
+        "ts": { "$ref": "#/$defs/ts" },
+        "type": { "enum": ["fault", "brownout", "grid_restored", "low_battery", "high_temp", "device_offline", "device_online"] },
+        "severity": { "enum": ["info", "warning", "critical"] },
+        "title": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "read": { "type": "boolean" }
+      }
+    },
+    "alerts": {
+      "description": "GET /api/alerts",
+      "type": "object",
+      "required": ["unread", "alerts"],
+      "properties": {
+        "unread": { "type": "integer", "minimum": 0 },
+        "alerts": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/alert" } }
+      }
+    },
+    "chat_request": {
+      "type": "object",
+      "required": ["message"],
+      "properties": { "message": { "type": "string", "minLength": 1, "maxLength": 500 } }
+    },
+    "chat": {
+      "description": "POST /api/chat",
+      "type": "object",
+      "required": ["reply", "chips", "source"],
+      "properties": {
+        "reply": { "type": "string", "minLength": 1 },
+        "chips": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["label", "value"],
+            "properties": { "label": { "type": "string" }, "value": { "type": "string" } }
+          }
+        },
+        "source": { "enum": ["llm", "fallback"] },
+        "facts_used": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "summary": {
+      "description": "GET /api/summary/daily",
+      "type": "object",
+      "required": ["date", "summary", "totals", "source"],
+      "properties": {
+        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "summary": { "type": "string", "minLength": 1 },
+        "source": { "enum": ["llm", "fallback"] },
+        "totals": {
+          "type": "object",
+          "required": ["pv_kwh", "load_kwh", "grid_import_kwh", "cost_php", "savings_php"],
+          "properties": {
+            "pv_kwh": { "$ref": "#/$defs/kwh" }, "load_kwh": { "$ref": "#/$defs/kwh" },
+            "grid_import_kwh": { "$ref": "#/$defs/kwh" }, "cost_php": { "$ref": "#/$defs/php" },
+            "savings_php": { "$ref": "#/$defs/php" }
+          }
+        }
+      }
+    },
+    "settings": {
+      "description": "GET|PUT /api/settings",
+      "type": "object",
+      "required": ["rate_php_per_kwh", "battery_kwh", "user_name", "device_id"],
+      "properties": {
+        "rate_php_per_kwh": { "type": "number", "exclusiveMinimum": 0 },
+        "battery_kwh": { "type": "number", "exclusiveMinimum": 0 },
+        "user_name": { "type": "string" },
+        "device_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "health": {
+      "description": "GET /api/health",
+      "type": "object",
+      "required": ["ok", "mock", "llm", "llm_reachable"],
+      "properties": {
+        "ok": { "const": true },
+        "mock": { "type": "boolean" },
+        "llm": { "type": ["string", "null"] },
+        "llm_provider": { "type": "string" },
+        "llm_reachable": { "type": "boolean" }
+      }
+    },
+    "ws_message": {
+      "description": "Every message on WS /ws/live",
+      "type": "object",
+      "required": ["type", "data"],
+      "oneOf": [
+        { "properties": { "type": { "const": "telemetry" }, "data": { "$ref": "#/$defs/live" } } },
+        { "properties": { "type": { "const": "alert" }, "data": { "$ref": "#/$defs/alert" } } },
+        { "properties": { "type": { "const": "status" }, "data": { "$ref": "#/$defs/device" } } },
+        { "properties": { "type": { "const": "meter" }, "data": { "type": "object" } } }
+      ]
+    }
+  }
+}

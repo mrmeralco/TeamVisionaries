@@ -1,1 +1,5 @@
 pytest>=8
+jsonschema>=4.20
+# hardware tests only (tests/acceptance -m hardware):
+# pymodbus>=3.6
+# pyserial>=3.5
