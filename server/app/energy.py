@@ -151,8 +151,25 @@ def live(device_id: str, settings: dict) -> dict:
 
 
 # ------------------------------------------------------------------- energy --
-def energy(device_id: str, period: str) -> dict:
+def _months_back(d: date, n: int) -> date:
+    """The day-1 date of the month n months before d's month."""
+    m = d.year * 12 + (d.month - 1) - n
+    return date(m // 12, m % 12 + 1, 1)
+
+
+def energy(device_id: str, period: str, back: int = 0) -> dict:
+    """`back` = how many whole periods before the current one (0 = today / past 7 days / this month,
+    1 = yesterday / the 7 days before / last month)."""
+    if back < 0:
+        raise ValueError("back must be 0 or more")
     d = today()
+    if period == "day":
+        d -= timedelta(days=back)
+    elif period == "week":
+        d -= timedelta(days=7 * back)
+    elif period == "month" and back:
+        first = _months_back(d, back)
+        d = date(first.year, first.month, calendar.monthrange(first.year, first.month)[1])
     if period == "day":
         start = local_midnight(d)
         edges = [start + h * 3600 for h in range(25)]

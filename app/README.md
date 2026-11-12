@@ -51,9 +51,41 @@ Libraries: `http`, `web_socket_channel`, `flutter_riverpod` (state), `go_router`
 so no runtime font downloads).
 
 What the screens read: Home → `liveProvider` (updates on every `/ws/live` message, `link` says
-connected / reconnecting); Energy → `energyProvider('day'|'week'|'month')`; Bill → `billProvider`;
-Brownout → `brownoutProvider`; Alerts → `alertsProvider` (+ `unreadAlertsProvider` for the badge,
-live alerts merged in); Ask → `chatProvider`; Settings → `serverConfigProvider`, `serverSettingsProvider`.
+connected / reconnecting); Energy → `energyProvider((period, back))` (`back` 1 = yesterday / last
+week / last month); Bill → `billProvider` (+ `outlookProvider` for the tip); Brownout → `brownoutProvider`;
+Alerts → `alertsProvider` (+ `unreadAlertsProvider` for the badge, live alerts merged in); Ask →
+`chatProvider`; Settings → `serverConfigProvider`, `serverSettingsProvider`.
+
+## Readability rules
+
+From the Nov 2026 UI review; `flutter test` checks the layout parts at 320 px and at 2× system text.
+
+- **Text size:** body text ≥ 11, labels ≥ 10. Nothing smaller.
+- **Contrast:** text ≥ 4.5:1 on its background, big bold numbers ≥ 3:1. Use the tokens in
+  `core/theme/app_theme.dart` (each notes its ratio): `C.label` / `C.muted` for grey text, `C.orangeText`
+  for small orange text and links, `C.orangeDeep` for big orange numbers, `gradientDeep` behind white
+  text. `C.orange` is for fills, lines and icons, not small text. No `Color(0x…)` in screens.
+- **Tap targets:** ≥ 44 × 44 (`kMinTap`). Use `LinkButton` for "Do this →" links.
+- **No fixed heights around text:** use `minHeight` constraints, `Wrap`, `Flexible`, so large system
+  fonts grow the layout instead of clipping it. The app is centred at `kMaxAppWidth` (480) on wide screens.
+- **Screen readers:** wrap label + value tiles in `Readout` so they read as one phrase; charts get a
+  `Semantics` summary.
+- **Server data:** read fields with `str` / `numOr` / `intOrNull` / `mapOf` / `listOfMaps`
+  (`core/utils/format.dart`), not `as String`, so a missing field shows a fallback instead of an error
+  screen. `ErrorBox` / `friendlyError` say whether the server is unreachable, failing, or sent bad data.
+
+## Copy style (English and Taglish)
+
+One rule, so screens don't mix languages at random:
+
+- **English** for the interface itself: navigation, titles and headings, labels, units, buttons and chips
+  ("Mark all read", "Try again", "Next 48 hours", "Duration"). These match the Figma.
+- **Taglish** for sentences that explain or advise: Mira's answers, status lines, alert messages and
+  their explanations, empty and error states ("Hindi maabot ang Solaris server.", "Walang alerts.").
+- Suggested questions to Mira are in Taglish because they're what the user would say to her.
+
+Strings live in the widgets for now; moving them to ARB files (and an English / Taglish toggle) is the
+next step if the app needs full translations.
 
 ## Tests
 

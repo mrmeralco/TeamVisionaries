@@ -77,7 +77,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       SnackBar(
         backgroundColor: critical ? C.red : C.ink,
         content: Text(text, maxLines: 2, overflow: TextOverflow.ellipsis),
-        action: SnackBarAction(label: 'Tingnan', textColor: C.yellow, onPressed: () => widget.shell.goBranch(4)),
+        action: SnackBarAction(label: 'View', textColor: C.yellow, onPressed: () => widget.shell.goBranch(4)),
       ),
     );
   }

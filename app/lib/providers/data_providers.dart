@@ -8,9 +8,10 @@ import 'server_providers.dart';
 
 typedef Json = Map<String, dynamic>;
 
-/// GET /api/energy?period=day|week|month
-final energyProvider = FutureProvider.family<Json, String>(
-  (ref, period) => ref.watch(apiServiceProvider).getEnergy(period),
+/// GET /api/energy?period=day|week|month&back=N: N periods before the current one (0 = today / this week /
+/// this month, 1 = yesterday / last week / last month).
+final energyProvider = FutureProvider.family<Json, (String, int)>(
+  (ref, q) => ref.watch(apiServiceProvider).getEnergy(q.$1, back: q.$2),
 );
 
 /// GET /api/bill

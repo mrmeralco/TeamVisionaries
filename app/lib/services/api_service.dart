@@ -27,7 +27,9 @@ class ApiService {
   static const _chatTimeout = Duration(seconds: 30); // the local LLM can take ~10 s
 
   Future<Map<String, dynamic>> getLive() => _get('/api/live');
-  Future<Map<String, dynamic>> getEnergy(String period) => _get('/api/energy?period=$period'); // day|week|month
+  /// [period] day|week|month; [back] how many periods before the current one (0 = today / this week / month).
+  Future<Map<String, dynamic>> getEnergy(String period, {int back = 0}) =>
+      _get('/api/energy?period=$period${back > 0 ? '&back=$back' : ''}');
   Future<Map<String, dynamic>> getBill() => _get('/api/bill');
   Future<Map<String, dynamic>> getBrownout() => _get('/api/brownout');
 

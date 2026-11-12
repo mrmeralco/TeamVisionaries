@@ -1,5 +1,5 @@
-// Alerts (Figma "Alerts"): GET /api/alerts grouped Today / Earlier, live alerts merged in, tap marks read,
-// "Mark all read". Brownout alerts link to the Brownout Advisor.
+// Alerts (Figma "Alerts"): GET /api/alerts grouped Today / Earlier, live alerts merged in, severity filter,
+// "Mark all read". Tapping an alert opens its explanation (alert_detail.dart) and marks it read.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,25 +9,31 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../providers/data_providers.dart';
 import '../common/ui.dart';
+import 'alert_detail.dart';
 
-class AlertsScreen extends ConsumerWidget {
+class AlertsScreen extends ConsumerStatefulWidget {
   const AlertsScreen({super.key});
+  @override
+  ConsumerState<AlertsScreen> createState() => _AlertsScreenState();
+}
 
-  Future<void> _run(BuildContext context, Future<void> Function() action) async {
+class _AlertsScreenState extends ConsumerState<AlertsScreen> {
+  String? _severity; // null = all
+
+  Future<void> _markAll() async {
     try {
-      await action();
+      await ref.read(alertsProvider.notifier).markAllRead();
     } catch (_) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hindi na-mark as read. Subukan ulit.')));
       }
     }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final alerts = ref.watch(alertsProvider);
     final unread = ref.watch(unreadAlertsProvider);
-    final notifier = ref.read(alertsProvider.notifier);
 
     return RefreshIndicator(
       onRefresh: () => ref.refresh(alertsProvider.future).then((_) {}, onError: (_) {}),
@@ -36,40 +42,63 @@ class AlertsScreen extends ConsumerWidget {
           bottom: false,
           child: PageHeader(
             'Alerts',
-            unread == 0 ? 'Updates about your solar, battery and grid.' : '$unread unread · updates about your home power.',
+            unread == 0
+                ? 'View your latest notifications and updates.'
+                : '${badgeText(unread)} unread · your latest notifications and updates.',
             trailing: unread > 0
                 ? TextButton(
-                    onPressed: () => _run(context, notifier.markAllRead),
-                    child: Text('Mark all read', style: ts(11, w: FontWeight.w700, color: C.orange)),
+                    onPressed: _markAll,
+                    style: TextButton.styleFrom(minimumSize: const Size(kMinTap, kMinTap)),
+                    child: Text('Mark all read', style: ts(12, w: FontWeight.w700, color: C.orangeText)),
                   )
                 : null,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
         AsyncBody(
           value: alerts,
           onRetry: () => ref.invalidate(alertsProvider),
           data: (a) {
-            final list = (a['alerts'] as List).cast<Map<String, dynamic>>();
-            if (list.isEmpty) {
+            final all = listOfMaps(a['alerts']);
+            if (all.isEmpty) {
               return Padding(
                 padding: const EdgeInsets.all(40),
                 child: Column(children: [
-                  const Icon(Icons.notifications_none_rounded, size: 36, color: C.orange),
+                  const Icon(Icons.notifications_none_rounded, size: 36, color: C.orangeDeep),
                   const SizedBox(height: 8),
-                  Text('Walang alerts. Maayos ang lahat!', style: ts(12, w: FontWeight.w600)),
+                  Text('Walang alerts. Maayos ang lahat!', style: ts(13, w: FontWeight.w600)),
                 ]),
               );
             }
-            final today = list.where((x) => isTodayManila(x['ts'] as int)).toList();
-            final earlier = list.where((x) => !isTodayManila(x['ts'] as int)).toList();
-            void tap(Map<String, dynamic> x) {
-              if (x['read'] != true) _run(context, () => notifier.markRead(x['id'] as int));
+            final counts = <String, int>{};
+            for (final x in all) {
+              final s = str(x['severity'], 'info');
+              counts[s] = (counts[s] ?? 0) + 1;
+            }
+            final list = _severity == null ? all : all.where((x) => str(x['severity'], 'info') == _severity).toList();
+            bool today(Map<String, dynamic> x) {
+              final t = intOrNull(x['ts']);
+              return t != null && isTodayManila(t);
             }
 
-            return Column(children: [
-              if (today.isNotEmpty) _Group('Today', today, tap),
-              if (earlier.isNotEmpty) _Group('Earlier', earlier, tap),
+            final todays = list.where(today).toList();
+            final earlier = list.where((x) => !today(x)).toList();
+            void open(Map<String, dynamic> x) => showAlertDetail(context, ref, x);
+
+            return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (counts.length > 1)
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  child: Row(children: [
+                    _Filter('All', all.length, _severity == null, () => setState(() => _severity = null)),
+                    for (final s in ['critical', 'warning', 'info'])
+                      if (counts[s] != null)
+                        _Filter(severityLabel(s), counts[s]!, _severity == s, () => setState(() => _severity = s)),
+                  ]),
+                ),
+              if (todays.isNotEmpty) _Group('Today', todays, open),
+              if (earlier.isNotEmpty) _Group('Earlier', earlier, open),
               const SizedBox(height: 24),
             ]);
           },
@@ -79,6 +108,30 @@ class AlertsScreen extends ConsumerWidget {
   }
 }
 
+class _Filter extends StatelessWidget {
+  const _Filter(this.label, this.count, this.selected, this.onTap);
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: ChoiceChip(
+          label: Text('$label  ${badgeText(count)}'),
+          labelStyle: ts(12, w: FontWeight.w700, color: selected ? Colors.white : C.ink),
+          selected: selected,
+          showCheckmark: false,
+          selectedColor: C.brandDark,
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: C.tileBorder),
+          onSelected: (_) => onTap(),
+        ),
+      );
+}
+
+/// Figma: section title, then one white card with the alerts separated by thin lines.
 class _Group extends StatelessWidget {
   const _Group(this.label, this.alerts, this.onTap);
   final String label;
@@ -87,11 +140,26 @@ class _Group extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('$label  ·  ${alerts.length}', style: ts(9, w: FontWeight.w500, spacing: -0.18)),
+          Semantics(
+            header: true,
+            child: Text('$label  ·  ${alerts.length}', style: ts(13, w: FontWeight.w700, spacing: -0.2)),
+          ),
           const SizedBox(height: 8),
-          for (final a in alerts) _AlertTile(a, onTap: () => onTap(a)),
+          Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            elevation: 1,
+            shadowColor: C.shadow,
+            clipBehavior: Clip.antiAlias,
+            child: Column(children: [
+              for (var i = 0; i < alerts.length; i++) ...[
+                if (i > 0) const Divider(height: 1, indent: 16, endIndent: 16, color: C.divider),
+                _AlertTile(alerts[i], onTap: () => onTap(alerts[i])),
+              ],
+            ]),
+          ),
         ]),
       );
 }
@@ -101,72 +169,62 @@ class _AlertTile extends StatelessWidget {
   final Map<String, dynamic> a;
   final VoidCallback onTap;
 
-  static (IconData, Color) _look(String type, String severity) => (
-        switch (type) {
-          'fault' => Icons.error_outline_rounded,
-          'brownout' => Icons.power_off_rounded,
-          'grid_restored' => Icons.power_rounded,
-          'low_battery' => Icons.battery_alert_rounded,
-          'high_temp' => Icons.thermostat_rounded,
-          'device_offline' => Icons.cloud_off_rounded,
-          'device_online' => Icons.cloud_done_rounded,
-          _ => Icons.notifications_rounded,
-        },
-        switch (severity) { 'critical' => C.red, 'warning' => C.amber, _ => C.green },
-      );
-
   @override
   Widget build(BuildContext context) {
     final read = a['read'] == true;
-    final (icon, color) = _look(a['type'] as String, a['severity'] as String);
-    final ts0 = a['ts'] as int;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: read ? Colors.white.withValues(alpha: 0.6) : Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(12, 11, 12, 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: read ? Colors.transparent : color.withValues(alpha: 0.45), width: 0.8),
-            ),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(5)),
-                child: Icon(icon, size: 16, color: color),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Expanded(child: Text(a['title'] as String, style: ts(11, w: read ? FontWeight.w500 : FontWeight.w700, spacing: -0.18))),
-                    if (!read) Container(width: 7, height: 7, decoration: const BoxDecoration(color: C.orange, shape: BoxShape.circle)),
-                  ]),
-                  const SizedBox(height: 4),
-                  Text(a['message'] as String, style: ts(10, height: 1.35, spacing: -0.18, color: read ? C.muted : C.ink)),
-                  const SizedBox(height: 6),
-                  Row(children: [
-                    Expanded(
-                      child: Text('${formatClock(ts0)}  ·  ${formatAgo(ts0)}',
-                          overflow: TextOverflow.ellipsis, style: ts(8, color: C.muted, spacing: -0.14)),
+    final type = str(a['type']);
+    final (icon, color) = alertLook(type, str(a['severity'], 'info'));
+    final ts0 = intOrNull(a['ts']);
+    final title = str(a['title'], 'Alert');
+    final message = str(a['message']);
+    final brownoutLink = type == 'brownout' || type == 'low_battery';
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 8, 4),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(color: color.withValues(alpha: read ? 0.1 : 0.16), borderRadius: BorderRadius.circular(6)),
+            child: Icon(icon, size: 18, color: color, semanticLabel: severityLabel(str(a['severity'], 'info'))),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(
+                  child: Text(title, style: ts(13, w: read ? FontWeight.w600 : FontWeight.w800, spacing: -0.1)),
+                ),
+                if (!read)
+                  Semantics(
+                    label: 'Unread',
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      margin: const EdgeInsets.only(right: 6),
+                      decoration: const BoxDecoration(color: C.orange, shape: BoxShape.circle),
                     ),
-                    if (a['type'] == 'brownout')
-                      GestureDetector(
-                        onTap: () => context.push(Routes.brownout),
-                        child: Text('Brownout Advisor →', style: ts(9, w: FontWeight.w700, color: C.orange)),
-                      ),
-                  ]),
-                ]),
+                  ),
+              ]),
+              const SizedBox(height: 4),
+              Text(message, style: ts(12, height: 1.4, color: read ? C.muted : C.ink)),
+              // Wrap: at large text sizes the link moves under the time instead of overflowing.
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                children: [
+                  Text(ts0 == null ? '' : formatWhen(ts0), style: ts(10, color: C.muted)),
+                  brownoutLink
+                      ? LinkButton('Brownout Advisor', size: 11, onTap: () => context.push(Routes.brownout))
+                      : LinkButton('See explanation', size: 11, onTap: onTap),
+                ],
               ),
             ]),
           ),
-        ),
+        ]),
       ),
     );
   }

@@ -1,6 +1,8 @@
-// Energy (Figma "Energy"): GET /api/energy?period=day|week|month: totals, self-sufficiency, solar chart.
+// Energy (Figma "Energy"): GET /api/energy?period=day|week|month&back=N: totals, self-sufficiency, and a
+// solar vs. home vs. grid chart. ‹ › step back to yesterday / last week / last month.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
@@ -16,25 +18,91 @@ class EnergyScreen extends ConsumerStatefulWidget {
 
 class _EnergyScreenState extends ConsumerState<EnergyScreen> {
   static const _periods = [('day', 'Today'), ('week', 'Week'), ('month', 'Month')];
-  static const _subs = {
-    'day': 'Electricity today, hour by hour.',
-    'week': 'Daily electricity over the past 7 days.',
-    'month': 'Daily electricity this month.',
-  };
+  static const _maxBack = {'day': 30, 'week': 12, 'month': 12};
   String _period = 'day';
+  int _back = 0;
+
+  /// Last data shown, kept on screen (dimmed, with a progress bar) while another period loads, so the
+  /// layout doesn't jump to a spinner and back.
+  Map<String, dynamic>? _shown;
+
+  (String, int) get _q => (_period, _back);
+
+  String _sub() => switch ((_period, _back)) {
+        ('day', 0) => 'Electricity today, hour by hour.',
+        ('day', _) => 'Electricity for one day, hour by hour.',
+        ('week', 0) => 'Daily electricity over the past 7 days.',
+        ('week', _) => 'Daily electricity for one week.',
+        ('month', 0) => 'Daily electricity this month.',
+        _ => 'Daily electricity for one month.',
+      };
+
+  /// "Today", "Yesterday", "Nov 9"; "Past 7 days", "Oct 30 – Nov 5"; "November 2026".
+  static String _rangeLabel(String period, int back, Map<String, dynamic>? e) {
+    final start = intOrNull(e?['start_ts']);
+    final end = intOrNull(e?['end_ts']);
+    switch (period) {
+      case 'day':
+        if (back == 0) return 'Today';
+        if (back == 1) return 'Yesterday';
+        return start == null ? '$back days ago' : DateFormat('EEE, MMM d').format(manilaTime(start));
+      case 'week':
+        if (back == 0) return 'Past 7 days';
+        if (start == null || end == null) return '$back weeks ago';
+        return '${formatShortDate(start)} – ${formatShortDate(end - 1)}';
+      default:
+        if (back == 0) return 'This month';
+        return start == null ? '$back months ago' : DateFormat('MMMM yyyy').format(manilaTime(start));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final energy = ref.watch(energyProvider(_period));
+    final energy = ref.watch(energyProvider(_q));
+    if (energy.hasValue && !energy.isLoading) _shown = energy.value;
+    final loading = energy.isLoading;
+    final stale = !energy.hasValue || energy.isLoading;
+
+    final Widget body;
+    if (energy.hasError && !energy.isLoading) {
+      body = ErrorBox(onRetry: () => ref.invalidate(energyProvider(_q)), error: energy.error);
+    } else if (_shown == null) {
+      body = const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()));
+    } else {
+      body = AnimatedOpacity(
+        duration: const Duration(milliseconds: 150),
+        opacity: stale && loading ? 0.45 : 1,
+        child: IgnorePointer(ignoring: stale && loading, child: _EnergyBody(_shown!)),
+      );
+    }
+
     return RefreshIndicator(
-      onRefresh: () => ref.refresh(energyProvider(_period).future).then((_) {}, onError: (_) {}),
+      onRefresh: () => ref.refresh(energyProvider(_q).future).then((_) {}, onError: (_) {}),
       child: ListView(padding: EdgeInsets.zero, children: [
-        SafeArea(bottom: false, child: PageHeader('Energy', _subs[_period]!)),
+        SafeArea(bottom: false, child: PageHeader('Energy', _sub())),
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-          child: _PeriodSwitch(options: _periods, value: _period, onChanged: (p) => setState(() => _period = p)),
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+          child: _PeriodSwitch(
+            options: _periods,
+            value: _period,
+            onChanged: (p) => setState(() {
+              _period = p;
+              _back = 0;
+            }),
+          ),
         ),
-        AsyncBody(value: energy, onRetry: () => ref.invalidate(energyProvider(_period)), data: (e) => _EnergyBody(e)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+          child: _RangeStepper(
+            label: _rangeLabel(_period, _back, energy.value ?? (loading ? null : _shown)),
+            canBack: _back < _maxBack[_period]!,
+            canForward: _back > 0,
+            onBack: () => setState(() => _back++),
+            onForward: () => setState(() => _back--),
+          ),
+        ),
+        SizedBox(height: 2, child: loading ? const LinearProgressIndicator(minHeight: 2) : null),
+        body,
       ]),
     );
   }
@@ -48,35 +116,73 @@ class _PeriodSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        height: 38,
-        padding: const EdgeInsets.all(7),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          gradient: const LinearGradient(
-              begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [C.orange, C.yellow], stops: [0, 1.17]),
-        ),
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), gradient: gradientOrange),
         child: Row(children: [
           for (final (key, label) in options)
             Expanded(
               child: Semantics(
                 selected: key == value,
                 button: true,
-                child: GestureDetector(
-                  onTap: () => onChanged(key),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: key == value ? C.cream.withValues(alpha: 0.63) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(5),
+                inMutuallyExclusiveGroup: true,
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(7),
+                    onTap: () => onChanged(key),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      constraints: const BoxConstraints(minHeight: kMinTap),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: key == value ? C.cream.withValues(alpha: 0.85) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: Text(label, style: ts(13, w: key == value ? FontWeight.w800 : FontWeight.w600)),
                     ),
-                    child: Text(label, style: ts(11, w: FontWeight.w700)),
                   ),
                 ),
               ),
             ),
         ]),
       );
+}
+
+/// ‹  Yesterday  › under the period switch.
+class _RangeStepper extends StatelessWidget {
+  const _RangeStepper({
+    required this.label,
+    required this.canBack,
+    required this.canForward,
+    required this.onBack,
+    required this.onForward,
+  });
+  final String label;
+  final bool canBack, canForward;
+  final VoidCallback onBack, onForward;
+
+  @override
+  Widget build(BuildContext context) => Row(children: [
+        IconButton(
+          tooltip: 'Earlier',
+          onPressed: canBack ? onBack : null,
+          icon: const Icon(Icons.chevron_left_rounded),
+          color: C.ink,
+        ),
+        Expanded(
+          child: Semantics(
+            liveRegion: true,
+            child: Text(label, textAlign: TextAlign.center, style: ts(13, w: FontWeight.w700)),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Later',
+          onPressed: canForward ? onForward : null,
+          icon: const Icon(Icons.chevron_right_rounded),
+          color: C.ink,
+        ),
+      ]);
 }
 
 class _EnergyBody extends StatelessWidget {
@@ -92,9 +198,10 @@ class _EnergyBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = (e['totals'] as Map).cast<String, dynamic>();
-    final points = (e['points'] as List).cast<Map<String, dynamic>>();
+    final t = mapOf(e['totals']);
+    final points = listOfMaps(e['points']);
     final hourly = e['bucket'] == 'hour';
+    List<double> col(String k) => [for (final p in points) numOr(p[k]).toDouble()];
     // Figma 22:160 / 41:492 / 41:497 / 41:507 (Grid Used = what the household paid for).
     final cards = [
       ('Solar Produced', kwhNum(t['pv_kwh']), 'kWh', C.yellowCard),
@@ -103,42 +210,56 @@ class _EnergyBody extends StatelessWidget {
       ('Self-Sufficiency', pctNum(e['self_sufficiency_pct']), '%', C.peach),
     ];
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 35, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         TwoCol(gap: 9, runGap: 10, children: [
           for (final (label, value, unit, color) in cards)
-            Container(
-              constraints: const BoxConstraints(minHeight: 78),
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
-              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(15)),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text(label, style: ts(9, w: FontWeight.w500, color: const Color(0xB8292929))),
-                const SizedBox(height: 14),
-                Reading(value, unit, size: 22, unitColor: const Color(0xA8292929), unitWeight: FontWeight.w700),
-              ]),
+            Readout(
+              label: label,
+              value: value,
+              unit: unit,
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 78),
+                padding: const EdgeInsets.fromLTRB(18, 14, 12, 14),
+                decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(15)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(label, style: ts(11, w: FontWeight.w600, color: C.labelOnYellow)),
+                    const SizedBox(height: 12),
+                    Reading(value, unit, size: 22, unitColor: C.labelOnYellow, unitWeight: FontWeight.w700),
+                  ],
+                ),
+              ),
             ),
         ]),
-        const SizedBox(height: 30),
+        const SizedBox(height: 24),
         SCard(
-          padding: const EdgeInsets.fromLTRB(16, 11, 13, 14),
+          padding: const EdgeInsets.fromLTRB(14, 14, 12, 12),
           border: Border.all(color: C.orangeLine, width: 0.5),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            LineChartView(
-              title: 'Solar Production',
-              values: [for (final p in points) (p['pv_kwh'] as num).toDouble()],
-              labels: [for (final p in points) hourly ? _hourLabel(p['label'] as String) : p['label'] as String],
-            ),
-          ]),
+          child: points.isEmpty
+              ? Text('Wala pang data para sa panahong ito.', style: ts(12, color: C.muted))
+              : LineChartView(
+                  title: 'Solar vs. Home vs. Grid (kWh)',
+                  labels: [for (final p in points) hourly ? _hourLabel(str(p['label'])) : str(p['label'])],
+                  series: [
+                    ChartSeries('Solar', C.seriesSolar, col('pv_kwh'), primary: true),
+                    ChartSeries('Home', C.seriesHome, col('load_kwh')),
+                    ChartSeries('Grid', C.seriesGrid, col('grid_import_kwh')),
+                  ],
+                ),
         ),
         const SizedBox(height: 12),
         SCard(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Saan galing ang kuryente mo', style: ts(12, w: FontWeight.w600, spacing: 0.12)),
-            const SizedBox(height: 10),
-            _Row('Grid (binayaran)', '${kwhNum(t['grid_import_kwh'])} kWh'),
+            Semantics(header: true, child: Text('Where your power went', style: ts(13, w: FontWeight.w700, spacing: 0.1))),
+            const SizedBox(height: 8),
+            _Row('Home used', '${kwhNum(t['load_kwh'])} kWh'),
+            _Row('Bought from the grid', '${kwhNum(t['grid_import_kwh'])} kWh'),
             _Row('Battery charged', '${kwhNum(t['batt_charge_kwh'])} kWh'),
-            _Row('Sent to grid', '${kwhNum(t['grid_export_kwh'])} kWh'),
+            _Row('Sent to the grid', '${kwhNum(t['grid_export_kwh'])} kWh'),
           ]),
         ),
       ]),
@@ -150,11 +271,13 @@ class _Row extends StatelessWidget {
   const _Row(this.label, this.value);
   final String label, value;
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(children: [
-          Expanded(child: Text(label, style: ts(11, color: C.muted))),
-          Text(value, style: ts(11, w: FontWeight.w700)),
-        ]),
+  Widget build(BuildContext context) => MergeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(children: [
+            Expanded(child: Text(label, style: ts(12, color: C.label))),
+            Text(value, style: ts(12, w: FontWeight.w700)),
+          ]),
+        ),
       );
 }

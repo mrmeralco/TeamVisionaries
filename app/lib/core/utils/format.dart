@@ -65,8 +65,34 @@ String formatAgo(int ts, {DateTime? now}) {
 }
 
 /// Same Manila calendar day as [now].
-bool isTodayManila(int ts, {DateTime? now}) {
+bool isTodayManila(int ts, {DateTime? now}) => _daysAgo(ts, now: now) == 0;
+
+int _daysAgo(int ts, {DateTime? now}) {
   final d = manilaTime(ts);
   final n = (now ?? DateTime.now()).toUtc().add(_manilaOffset);
-  return d.year == n.year && d.month == n.month && d.day == n.day;
+  return DateTime.utc(n.year, n.month, n.day).difference(DateTime.utc(d.year, d.month, d.day)).inDays;
 }
+
+/// Alert times as in the Figma: "8:00 AM · 5 min ago" today, "Yesterday, 1:15 PM", then "Nov 7, 3:30 PM".
+String formatWhen(int ts, {DateTime? now}) => switch (_daysAgo(ts, now: now)) {
+      0 => '${formatClock(ts)}  ·  ${formatAgo(ts, now: now)}',
+      1 => 'Yesterday, ${formatClock(ts)}',
+      _ => formatDateTime(ts),
+    };
+
+/// 45 → "45 min", 85 → "1 h 25 min", 120 → "2 h".
+String formatDuration(int minutes) {
+  if (minutes < 60) return '$minutes min';
+  final h = minutes ~/ 60, m = minutes % 60;
+  return m == 0 ? '$h h' : '$h h $m min';
+}
+
+// ---- Safe reads of server JSON ----
+// A missing or mistyped field shows a fallback instead of throwing in build() (a red error screen).
+
+String str(Object? v, [String fallback = '']) => v == null ? fallback : '$v';
+num numOr(Object? v, [num fallback = 0]) => v is num ? v : (v is String ? num.tryParse(v) ?? fallback : fallback);
+int? intOrNull(Object? v) => v is int ? v : (v is num ? v.toInt() : null);
+Map<String, dynamic> mapOf(Object? v) => v is Map ? v.cast<String, dynamic>() : const {};
+List<Map<String, dynamic>> listOfMaps(Object? v) =>
+    v is List ? [for (final x in v) if (x is Map) x.cast<String, dynamic>()] : const [];

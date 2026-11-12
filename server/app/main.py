@@ -8,7 +8,7 @@ import contextlib
 import logging
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from ai import llm
@@ -84,10 +84,11 @@ def get_live():
 
 
 @app.get("/api/energy", response_model=S.Energy)
-def get_energy(period: Literal["day", "week", "month"] = "day"):
+def get_energy(period: Literal["day", "week", "month"] = "day", back: int = Query(0, ge=0, le=366)):
+    """`back`: periods before the current one (1 = yesterday / previous 7 days / last month)."""
     if config.MOCK:
         return mock.load(f"energy_{period}")
-    return energy.energy(_dev(), period)
+    return energy.energy(_dev(), period, back)
 
 
 @app.get("/api/bill", response_model=S.Bill)

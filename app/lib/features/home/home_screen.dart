@@ -12,6 +12,7 @@ import '../../providers/chat_providers.dart';
 import '../../providers/data_providers.dart';
 import '../../providers/live_providers.dart';
 import '../../services/live_connection.dart';
+import '../alerts/alert_detail.dart';
 import '../common/ui.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -29,7 +30,7 @@ class HomeScreen extends ConsumerWidget {
     final live = ref.watch(liveProvider);
     final bill = ref.watch(billProvider).value;
     final summary = ref.watch(dailySummaryProvider);
-    final name = ref.watch(serverSettingsProvider).value?['user_name'] as String? ?? '';
+    final name = str(ref.watch(serverSettingsProvider).value?['user_name']);
     final data = live.live;
     final w = MediaQuery.sizeOf(context).width;
     final top = MediaQuery.paddingOf(context).top; // status bar
@@ -41,6 +42,7 @@ class HomeScreen extends ConsumerWidget {
     }
 
     final rate = (data?['rate_php_per_kwh'] as num?) ?? (bill?['rate_php_per_kwh'] as num?);
+    final forecast = bill?['forecast_php'];
 
     return ColoredBox(
       color: C.cream,
@@ -52,7 +54,8 @@ class HomeScreen extends ConsumerWidget {
               top: 0,
               left: 0,
               right: 0,
-              // Ends just below the hero card (Figma: 278 of 852) whatever the screen width.
+              // Ends just below the hero card (Figma: 278 of 852). Width is capped by the app's max width,
+              // so the stretch stays mild on tablets and the web.
               child: SvgPicture.asset('assets/images/header-circle.svg', width: w, height: 278 + top, fit: BoxFit.fill),
             ),
             ListView(
@@ -61,38 +64,42 @@ class HomeScreen extends ConsumerWidget {
                 SafeArea(
                   bottom: false,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const TopBar(onDark: true),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${_greeting()}${name.isEmpty ? '' : ', $name'}!',
-                          style: ts(24, w: FontWeight.w700, color: Colors.white, spacing: -0.48),
+                        // Dark text: white on the orange → yellow header was 1.5:1 to 2.8:1.
+                        Semantics(
+                          header: true,
+                          child: Text(
+                            '${_greeting()}${name.isEmpty ? '' : ', $name'}!',
+                            style: ts(24, w: FontWeight.w700, spacing: -0.48),
+                          ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          'Here’s what’s happening at home.',
-                          style: ts(12, color: Colors.white.withValues(alpha: 0.7)),
-                        ),
+                        Text('Here’s what’s happening at home.', style: ts(12, w: FontWeight.w500)),
                         const SizedBox(height: 18),
-                        _Hero(live: data),
+                        Padding(padding: const EdgeInsets.only(right: 8), child: _Hero(live: data)),
                       ],
                     ),
                   ),
                 ),
                 if (data == null && live.link == LinkStatus.waiting)
-                  ErrorBox(onRetry: () => ref.invalidate(liveProvider))
+                  ErrorBox(onRetry: () => ref.invalidate(liveProvider), error: live.error)
                 else if (data == null)
                   const Padding(
                     padding: EdgeInsets.all(32),
                     child: Center(child: CircularProgressIndicator()),
                   )
                 else ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: Freshness(readingTs: intOrNull(live.telemetry?['ts']), link: live.link),
+                  ),
                   _StateBanner(live: live),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                     child: _Stats(telemetry: live.telemetry),
                   ),
                   if (live.telemetry != null)
@@ -109,7 +116,7 @@ class HomeScreen extends ConsumerWidget {
                           Expanded(
                             child: _Money(
                               'Saved Today',
-                              formatPhp(data['saved_today_php'] as num? ?? 0),
+                              formatPhp(numOr(data['saved_today_php'])),
                               caption: rate == null ? null : 'At ${formatPhp(rate)}/kWh',
                             ),
                           ),
@@ -117,7 +124,7 @@ class HomeScreen extends ConsumerWidget {
                           Expanded(
                             child: _Money(
                               'Est. Monthly Bill',
-                              bill == null ? '—' : formatPhp(bill['forecast_php'] as num, whole: true),
+                              forecast is num ? formatPhp(forecast, whole: true) : '—',
                               caption: 'Tap for Bill Details',
                               onTap: () => context.go(Routes.bill),
                             ),
@@ -129,9 +136,9 @@ class HomeScreen extends ConsumerWidget {
                 ],
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                  child: Text(
-                    'Yesterday’s Summary',
-                    style: ts(12, w: FontWeight.w700, color: Colors.black, spacing: -0.24),
+                  child: Semantics(
+                    header: true,
+                    child: Text('Yesterday’s Summary', style: ts(13, w: FontWeight.w700, spacing: -0.24)),
                   ),
                 ),
                 Padding(
@@ -157,107 +164,124 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
+/// Figma hero card: status sentence on the left, trees + house art at the bottom. Sizes scale with the
+/// card's width (designed at 353 px), and the card grows with the text, so a 320 px phone or a large
+/// system font never puts the house over the words or cuts the sentence off.
 class _Hero extends StatelessWidget {
   const _Hero({required this.live});
   final Map<String, dynamic>? live;
 
   @override
   Widget build(BuildContext context) {
-    final state = live?['state'] as String? ?? 'offline';
-    final t = live?['telemetry'] as Map?;
-    final sunny = ((t?['pv_w'] as num?) ?? 0) > 0;
-    final text = live?['status_line'] as String? ?? 'Kumokonekta sa Solaris… Ilang saglit lang.';
+    final state = str(live?['state'], 'offline');
+    final t = mapOf(live?['telemetry']);
+    final sunny = numOr(t['pv_w']) > 0;
+    final text = str(live?['status_line'], 'Kumokonekta sa Solaris… Ilang saglit lang.');
     final colors = switch (state) {
-      'brownout' => const [Color(0xFFFFB37A), Color(0xFFF47721)],
-      'fault' => const [Color(0xFFFFA48F), Color(0xFFE5533D)],
-      'offline' => const [Color(0xFFE7E1D8), Color(0xFFCFC6BA)],
-      _ => const [Color(0xFFFED47D), Color(0xFFFFC142)],
+      'brownout' => C.heroBrownout,
+      'fault' => C.heroFault,
+      'offline' => C.heroOffline,
+      _ => C.heroSunny,
     };
-    return Container(
-      height: 154,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: colors,
-          stops: const [0.02, 0.65],
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            bottom: 0,
-            width: 264,
-            height: 98,
-            child: Image.asset('assets/images/trees.png', fit: BoxFit.fill),
-          ),
-          Positioned(
-            right: 0,
-            bottom: 0,
-            width: 194,
-            height: 143,
-            child: Image.asset('assets/images/house.png', fit: BoxFit.fill),
-          ),
-          if (sunny) ...[
-            Positioned(
-              left: 95.4,
-              top: 56.6,
-              child: SvgPicture.asset('assets/images/arrow-up.svg', width: 6, height: 39),
-            ),
-            Positioned(
-              left: 98,
-              top: 94.65,
-              child: SvgPicture.asset('assets/images/arrow-right.svg', width: 74, height: 1),
-            ),
-          ],
-          Positioned(
-            left: 22,
-            top: 14,
-            width: 160,
-            child: Text(
-              text,
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-              style: ts(11, w: FontWeight.w600),
+    return LayoutBuilder(
+      builder: (context, box) {
+        final w = box.maxWidth;
+        final k = w / 353; // Figma card width
+        return Container(
+          width: double.infinity,
+          constraints: BoxConstraints(minHeight: 154 * k.clamp(0.85, 1.2)),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: colors,
+              stops: const [0.02, 0.65],
             ),
           ),
-        ],
-      ),
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                bottom: 0,
+                width: 264 * k,
+                height: 98 * k,
+                child: ExcludeSemantics(child: Image.asset('assets/images/trees.png', fit: BoxFit.fill)),
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                width: 194 * k,
+                height: 143 * k,
+                child: ExcludeSemantics(child: Image.asset('assets/images/house.png', fit: BoxFit.fill)),
+              ),
+              if (sunny) ...[
+                Positioned(
+                  left: 95.4 * k,
+                  bottom: 58.4 * k,
+                  child: SvgPicture.asset('assets/images/arrow-up.svg', width: 6 * k, height: 39 * k),
+                ),
+                Positioned(
+                  left: 98 * k,
+                  bottom: 58.4 * k,
+                  child: SvgPicture.asset('assets/images/arrow-right.svg', width: 74 * k, height: 1),
+                ),
+              ],
+              // The only non-positioned child: it sets the card's height. It stops before the house
+              // (which starts at 45 % of the width) and leaves room under it for the trees.
+              Padding(
+                padding: EdgeInsets.fromLTRB(18, 14, 0, 70 * k),
+                child: SizedBox(
+                  width: w * 0.45 - 22,
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Text(text, style: ts(12, w: FontWeight.w600, height: 1.3)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
 
 /// Brownout / fault / offline get a tappable banner so the user knows what to do next.
-class _StateBanner extends StatelessWidget {
+class _StateBanner extends ConsumerWidget {
   const _StateBanner({required this.live});
   final LiveState live;
 
   @override
-  Widget build(BuildContext context) {
-    final lastSeen = live.device?['last_seen_ts'];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lastSeen = intOrNull(live.device?['last_seen_ts']);
     final (IconData, Color, String, String, VoidCallback?)? b = switch (live.state) {
       'brownout' => (
         Icons.power_off_rounded,
         C.orangeDeep,
         'May brownout ngayon',
-        'Tingnan kung gaano katagal ang battery →',
+        'Tingnan kung gaano katagal ang battery',
         () => context.push(Routes.brownout),
       ),
       'fault' => (
         Icons.warning_amber_rounded,
         C.red,
         'May problema ang inverter',
-        'Buksan ang Alerts para sa paliwanag →',
-        () => context.go(Routes.alerts),
+        'Tingnan ang paliwanag at kung ano ang gagawin',
+        () {
+          // Open the newest inverter alert's explanation (Alerts tab underneath), or just the tab.
+          final alerts = listOfMaps(ref.read(alertsProvider).value?['alerts']);
+          final fault = alerts.where((a) => a['type'] == 'fault' || a['type'] == 'high_temp').firstOrNull;
+          context.go(Routes.alerts);
+          if (fault != null) showAlertDetail(context, ref, fault);
+        },
       ),
       'offline' => (
         Icons.cloud_off_rounded,
         C.muted,
         'Offline ang Solaris device',
-        lastSeen is int ? 'Huling reading: ${formatAgo(lastSeen)}' : 'Wala pang natatanggap na reading',
+        lastSeen != null ? 'Huling reading: ${formatAgo(lastSeen)}' : 'Wala pang natatanggap na reading',
         null,
       ),
       _ => null,
@@ -265,14 +289,15 @@ class _StateBanner extends StatelessWidget {
     if (b == null) return const SizedBox.shrink();
     final (icon, color, title, sub, onTap) = b;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(19, 14, 19, 0),
+      padding: const EdgeInsets.fromLTRB(19, 10, 19, 0),
       child: Material(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: onTap,
-          child: Padding(
+          child: Container(
+            constraints: const BoxConstraints(minHeight: kMinTap),
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
@@ -282,14 +307,13 @@ class _StateBanner extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        style: ts(12, w: FontWeight.w700, color: color),
-                      ),
-                      Text(sub, style: ts(10)),
+                      Text(title, style: ts(13, w: FontWeight.w700, color: color == C.muted ? C.ink : color)),
+                      const SizedBox(height: 2),
+                      Text(sub, style: ts(11)),
                     ],
                   ),
                 ),
+                if (onTap != null) Icon(Icons.chevron_right_rounded, color: color),
               ],
             ),
           ),
@@ -311,7 +335,7 @@ class _Stats extends StatelessWidget {
 
   static String? _battNote(num? w) {
     if (w == null || w.abs() < 20) return null;
-    return w < 0 ? 'Charging' : 'Ginagamit';
+    return w < 0 ? 'Charging' : 'In use';
   }
 
   @override
@@ -323,12 +347,13 @@ class _Stats extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 12),
         child: Column(
           children: [
-            const Icon(Icons.solar_power_rounded, color: C.orange, size: 32),
+            const Icon(Icons.solar_power_rounded, color: C.orangeDeep, size: 32),
             const SizedBox(height: 8),
-            Text('Wala pang reading mula sa device.', style: ts(12, w: FontWeight.w700)),
+            Text('Wala pang reading mula sa device.', style: ts(13, w: FontWeight.w700), textAlign: TextAlign.center),
+            const SizedBox(height: 2),
             Text(
               'Lalabas dito ang solar, battery at grid kapag naka-on na ang Solaris device.',
-              style: ts(10, color: C.muted),
+              style: ts(11, color: C.labelOnYellow),
               textAlign: TextAlign.center,
             ),
           ],
@@ -336,13 +361,14 @@ class _Stats extends StatelessWidget {
       );
     } else {
       final gridOn = t['grid_on'] != false;
+      final soc = t['batt_soc'];
       body = TwoCol(
         gap: 7,
         runGap: 9,
         children: [
           _Tile('Solar Production', kwNum(t['pv_w']), 'kW'),
           _Tile('Home Usage', kwNum(t['load_w']), 'kW'),
-          _Tile('Battery Level', '${t['batt_soc']}', '%', note: _battNote(t['batt_w'] as num?)),
+          _Tile('Battery Level', soc is num ? pctNum(soc) : '—', '%', note: _battNote(t['batt_w'] as num?)),
           _Tile(
             'Grid Power',
             gridOn ? kwNum(t['grid_w']) : 'Off',
@@ -358,7 +384,7 @@ class _Stats extends StatelessWidget {
       decoration: BoxDecoration(
         color: C.yellow,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 4, offset: Offset(0, 2))],
+        boxShadow: const [BoxShadow(color: C.shadow, blurRadius: 4, offset: Offset(0, 2))],
       ),
       child: body,
     );
@@ -371,39 +397,29 @@ class _Tile extends StatelessWidget {
   final String? note;
 
   @override
-  Widget build(BuildContext context) => Container(
-    constraints: const BoxConstraints(minHeight: 77),
-    padding: const EdgeInsets.fromLTRB(13, 11, 10, 10),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: C.tileBorder, width: 0.5),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: ts(9, w: FontWeight.w600, color: const Color(0x6B292929), spacing: -0.18),
-              ),
-            ),
-            if (note != null)
-              Flexible(
-                child: Text(
-                  note!,
-                  overflow: TextOverflow.ellipsis,
-                  style: ts(8, w: FontWeight.w600, color: C.orange),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Reading(value, unit, valueColor: C.orange, unitColor: const Color(0x82F47721), unitWeight: FontWeight.w700),
-      ],
+  Widget build(BuildContext context) => Readout(
+    label: label,
+    value: value,
+    unit: unit,
+    note: note,
+    child: Container(
+      constraints: const BoxConstraints(minHeight: 77),
+      padding: const EdgeInsets.fromLTRB(13, 11, 10, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: C.tileBorder, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: ts(11, w: FontWeight.w600, color: C.label, spacing: -0.1)),
+          if (note != null) Text(note!, style: ts(10, w: FontWeight.w700, color: C.orangeText)),
+          const SizedBox(height: 8),
+          Reading(value, unit, valueColor: C.orangeDeep, unitWeight: FontWeight.w700),
+        ],
+      ),
     ),
   );
 }
@@ -416,45 +432,47 @@ class _Money extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.white,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(15),
-      side: const BorderSide(color: C.orangeLine, width: 0.5),
-    ),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(15),
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 71),
-        padding: const EdgeInsets.fromLTRB(16, 11, 12, 9),
-        child: Stack(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
+  Widget build(BuildContext context) => Semantics(
+    button: onTap != null,
+    label: '$label: $value${caption == null ? '' : '. $caption'}',
+    excludeSemantics: true,
+    child: Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+        side: const BorderSide(color: C.orangeLine, width: 0.5),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(15),
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 76),
+          padding: const EdgeInsets.fromLTRB(16, 11, 12, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: Text(label, style: ts(11, w: FontWeight.w600, color: C.label))),
+                  if (onTap != null) const Icon(Icons.chevron_right_rounded, size: 18, color: C.orangeText),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(value, style: ts(17, w: FontWeight.w700, spacing: 0.15)),
+              if (caption != null) ...[
+                const SizedBox(height: 6),
                 Text(
-                  label,
-                  style: ts(8, w: FontWeight.w600, color: C.label55, spacing: -0.16),
-                ),
-                const SizedBox(height: 10),
-                Text(value, style: ts(15, w: FontWeight.w700, spacing: 0.15)),
-                const SizedBox(height: 8),
-                if (caption != null)
-                  Text(
-                    caption!,
-                    style: ts(
-                      7.5,
-                      w: onTap == null ? FontWeight.w400 : FontWeight.w500,
-                      color: onTap == null ? C.label55 : C.peachText,
-                      spacing: -0.15,
-                    ),
+                  caption!,
+                  style: ts(
+                    10,
+                    w: onTap == null ? FontWeight.w500 : FontWeight.w700,
+                    color: onTap == null ? C.label : C.orangeText,
                   ),
+                ),
               ],
-            ),
-            if (onTap != null) Positioned(top: 2, right: 0, child: svg('chevron-right', width: 4, height: 7)),
-          ],
+            ],
+          ),
         ),
       ),
     ),
@@ -471,8 +489,8 @@ class _Summary extends StatelessWidget {
   static final _figure = RegExp(r'₱\s?[\d,]+(?:\.\d+)?|\d[\d,]*(?:\.\d+)?\s?(?:%|kWh)');
 
   List<TextSpan> _spans(String text) {
-    final light = ts(10, w: FontWeight.w300, height: 1.4);
-    final bold = ts(10, w: FontWeight.w700, height: 1.4);
+    final light = ts(12, height: 1.45);
+    final bold = ts(12, w: FontWeight.w700, height: 1.45);
     final out = <TextSpan>[];
     var i = 0;
     for (final m in _figure.allMatches(text)) {
@@ -485,43 +503,34 @@ class _Summary extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => SCard(
-    padding: const EdgeInsets.fromLTRB(16, 15, 16, 10),
-    border: Border.all(color: C.orangeLine, width: 0.5),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        svg('sparkles', width: 15, height: 15),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text.rich(TextSpan(children: _spans(s['summary'] as String))),
-              const SizedBox(height: 6),
-              InkWell(
-                onTap: onAsk,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Ask Mira about yesterday',
-                        style: ts(7, w: FontWeight.w600, color: C.orange, height: 13 / 7),
-                      ),
-                      const SizedBox(width: 6),
-                      svg('link-arrow', width: 6, height: 5),
-                    ],
-                  ),
+  Widget build(BuildContext context) {
+    final summary = str(s['summary']);
+    return SCard(
+      padding: const EdgeInsets.fromLTRB(16, 15, 8, 4),
+      border: Border.all(color: C.orangeLine, width: 0.5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(padding: const EdgeInsets.only(top: 2), child: svg('sparkles', width: 15, height: 15)),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: summary.isEmpty
+                      ? Text('Wala pang buod para kahapon.', style: ts(12, color: C.muted))
+                      : Text.rich(TextSpan(children: _spans(summary))),
                 ),
-              ),
-            ],
+                Transform.translate(offset: const Offset(-8, 0), child: LinkButton('Ask Mira about yesterday', onTap: onAsk)),
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 /// Inverter + Solaris device status (presentation slide 5): inverter temperature, fault code, Wi-Fi signal.
@@ -533,9 +542,9 @@ class _DeviceHealth extends StatelessWidget {
 
   static (String, Color) _signal(num? rssi) => switch (rssi) {
         null => ('—', C.muted),
-        >= -60 => ('Malakas', C.green),
-        >= -75 => ('Katamtaman', C.amber),
-        _ => ('Mahina', C.red),
+        >= -60 => ('Strong', C.green),
+        >= -75 => ('Fair', C.amber),
+        _ => ('Weak', C.red),
       };
 
   @override
@@ -546,27 +555,37 @@ class _DeviceHealth extends StatelessWidget {
     final (signal, signalColor) = _signal(device?['rssi'] as num?);
 
     Widget item(IconData icon, Color color, String label, String value, {VoidCallback? onTap}) => Expanded(
-          child: InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(children: [
-                Icon(icon, size: 16, color: color),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(label, style: ts(7.5, w: FontWeight.w600, color: C.label55)),
-                    Text(value, overflow: TextOverflow.ellipsis, style: ts(10, w: FontWeight.w700, color: color)),
-                  ]),
-                ),
-              ]),
+          child: Semantics(
+            button: onTap != null,
+            label: '$label: $value',
+            excludeSemantics: true,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: onTap,
+              child: Container(
+                constraints: const BoxConstraints(minHeight: kMinTap),
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                child: Row(children: [
+                  Icon(icon, size: 16, color: color),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(label, style: ts(10, w: FontWeight.w600, color: C.label)),
+                        Text(value, overflow: TextOverflow.ellipsis, style: ts(11, w: FontWeight.w700, color: color)),
+                      ],
+                    ),
+                  ),
+                ]),
+              ),
             ),
           ),
         );
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -578,7 +597,7 @@ class _DeviceHealth extends StatelessWidget {
           fault == 0 ? Icons.check_circle_rounded : Icons.error_rounded,
           fault == 0 ? C.green : C.red,
           'Status',
-          fault == 0 ? 'Walang problema' : 'Fault $fault',
+          fault == 0 ? 'No issues' : 'Fault $fault',
           onTap: fault == 0 ? null : () => context.go(Routes.alerts),
         ),
         item(Icons.wifi_rounded, signalColor, 'Solaris device', signal),

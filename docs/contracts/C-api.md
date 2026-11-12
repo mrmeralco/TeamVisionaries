@@ -56,6 +56,9 @@ plan's table, proposed for Aldrin's approval. `GET /api/outlook` is an addition 
 
 `day` = today by hour (24 points), `week` = last 7 days by day, `month` = this month by day.
 
+Optional `back=N` (default 0, max 366): the same period N steps earlier. `day&back=1` = yesterday,
+`week&back=1` = the 7 days before the last 7, `month&back=1` = last calendar month. Mock mode ignores it.
+
 ```jsonc
 {
   "period": "day", "bucket": "hour", "start_ts": 1762876800, "end_ts": 1762963200,

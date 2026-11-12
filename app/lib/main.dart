@@ -38,5 +38,32 @@ class _SolarisAppState extends State<SolarisApp> {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(), // Figma design is light-only
         routerConfig: _router,
+        builder: (context, child) => _MaxWidth(child: child ?? const SizedBox.shrink()),
       );
+}
+
+/// On tablets and laptops (the app also builds for web) lay the phone design out at most
+/// [kMaxAppWidth] wide, centred, instead of stretching every card edge to edge. MediaQuery's size is
+/// narrowed too, so screens that size things from it (header art, chat bubbles) follow.
+class _MaxWidth extends StatelessWidget {
+  const _MaxWidth({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    if (mq.size.width <= kMaxAppWidth + 40) return child;
+    return ColoredBox(
+      color: C.backdrop,
+      child: Center(
+        child: SizedBox(
+          width: kMaxAppWidth,
+          child: MediaQuery(
+            data: mq.copyWith(size: Size(kMaxAppWidth, mq.size.height)),
+            child: ClipRect(child: child),
+          ),
+        ),
+      ),
+    );
+  }
 }

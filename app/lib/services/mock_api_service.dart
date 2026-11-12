@@ -26,7 +26,18 @@ class MockApiService implements ApiService {
   @override
   Future<Map<String, dynamic>> getLive() => _json('live');
   @override
-  Future<Map<String, dynamic>> getEnergy(String period) => _json('energy_$period');
+  Future<Map<String, dynamic>> getEnergy(String period, {int back = 0}) async {
+    final e = await _json('energy_$period');
+    // Demo data has one example per period: earlier periods reuse it with the dates moved back.
+    final shift = back * switch (period) { 'day' => 86400, 'week' => 7 * 86400, _ => 0 };
+    if (shift == 0) return e;
+    return {
+      ...e,
+      'start_ts': (e['start_ts'] as int) - shift,
+      'end_ts': (e['end_ts'] as int) - shift,
+      'points': [for (final p in e['points'] as List) {...(p as Map<String, dynamic>), 'ts': (p['ts'] as int) - shift}],
+    };
+  }
   @override
   Future<Map<String, dynamic>> getBill() => _json('bill');
   @override
@@ -75,13 +86,20 @@ class MockApiService implements ApiService {
   Stream<Map<String, dynamic>> liveMessages({Duration every = const Duration(seconds: 5)}) async* {
     final base = await _json('live');
     var i = 0;
-    yield {'type': 'telemetry', 'data': base};
+    // Stamp readings "now" so Home's "Updated …" line reads like a live demo, not a 6-hour-old file.
+    Map<String, dynamic> fresh(Map<String, dynamic> live) {
+      final t = live['telemetry'];
+      if (t is Map<String, dynamic>) t['ts'] = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      return live;
+    }
+
+    yield {'type': 'telemetry', 'data': fresh(jsonDecode(jsonEncode(base)) as Map<String, dynamic>)};
     await for (final _ in Stream.periodic(every)) {
       final live = jsonDecode(jsonEncode(base)) as Map<String, dynamic>;
       final t = live['telemetry'] as Map<String, dynamic>;
       t['pv_w'] = (t['pv_w'] as int) + ((i++ % 5) - 2) * 100;
       t['batt_w'] = (t['load_w'] as int) - (t['pv_w'] as int);
-      yield {'type': 'telemetry', 'data': live};
+      yield {'type': 'telemetry', 'data': fresh(live)};
     }
   }
 }

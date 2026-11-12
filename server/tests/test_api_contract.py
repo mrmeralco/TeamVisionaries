@@ -67,6 +67,19 @@ def test_energy_rejects_unknown_period(client):
     assert client.get("/api/energy?period=year").status_code == 422
 
 
+def test_energy_back_steps_whole_periods(client):
+    day0 = client.get("/api/energy?period=day").json()
+    day1 = client.get("/api/energy?period=day&back=1").json()
+    validate("energy", day1)
+    assert day1["end_ts"] == day0["start_ts"]  # yesterday ends where today starts
+    assert len(day1["points"]) == 24
+    week1 = client.get("/api/energy?period=week&back=1").json()
+    assert week1["end_ts"] == client.get("/api/energy?period=week").json()["start_ts"]
+    month1 = client.get("/api/energy?period=month&back=1").json()
+    assert month1["end_ts"] == client.get("/api/energy?period=month").json()["start_ts"]
+    assert client.get("/api/energy?period=day&back=-1").status_code == 422
+
+
 def test_chat_matches_contract(client):
     r = client.post("/api/chat", json={"message": "Bakit mataas ang bill ko?"})
     assert r.status_code == 200

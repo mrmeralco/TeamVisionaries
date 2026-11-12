@@ -10,6 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solaris/core/utils/format.dart';
+import 'package:solaris/features/common/charts.dart';
+import 'package:solaris/features/common/ui.dart';
 import 'package:solaris/main.dart';
 import 'package:solaris/providers/data_providers.dart';
 import 'package:solaris/providers/notification_providers.dart';
@@ -51,6 +53,19 @@ class StateMock extends MockApiService {
   @override
   Future<Map<String, dynamic>> chat(String message) {
     chats++;
+    return super.chat(message);
+  }
+}
+
+/// Chat that fails until [fail] is cleared (for "Try again").
+class FailingChat extends StateMock {
+  bool fail = true;
+  @override
+  Future<Map<String, dynamic>> chat(String message) async {
+    if (fail) {
+      chats++;
+      throw TimeoutException('no answer');
+    }
     return super.chat(message);
   }
 }
@@ -115,6 +130,9 @@ void main() {
       expect(find.text('78'), findsOneWidget); // batt_soc
       expect(find.text('₱23.82'), findsOneWidget); // saved_today_php
       expect(find.text('₱1,995'), findsOneWidget); // bill.forecast_php
+      // The recap is below the fold now that text is larger: scroll to it.
+      await t.scrollUntilVisible(find.text(example('summary_daily')['summary'] as String), 200,
+          scrollable: find.byType(Scrollable).first);
       expect(find.text(example('summary_daily')['summary'] as String), findsOneWidget);
     });
 
@@ -125,21 +143,25 @@ void main() {
       await t.tap(find.text('May brownout ngayon'));
       await t.pumpAndSettle();
       expect(find.text('Brownout Advisor'), findsOneWidget);
-      expect(find.text('~7.1 oras'), findsOneWidget);
+      expect(find.text('~7.1 hrs'), findsOneWidget);
       expect(find.text(example('brownout')['advice'] as String), findsOneWidget);
       // /api/outlook section: tomorrow's forecast sun and the server's advice.
       await t.scrollUntilVisible(find.text(example('outlook')['advice'] as String), 300,
           scrollable: find.byType(Scrollable).last);
-      expect(find.text('Susunod na 48 oras'), findsOneWidget);
+      expect(find.text('Next 48 hours'), findsOneWidget);
       expect(find.text(kwhNum(example('outlook')['solar_tomorrow_kwh'])), findsOneWidget);
     });
 
-    testWidgets('fault: banner goes to the Alerts tab', (t) async {
+    testWidgets('fault: banner opens the inverter alert explained, over the Alerts tab', (t) async {
       final live = example('live')
         ..['state'] = 'fault'
         ..['status_line'] = 'May fault ang inverter.';
       await pumpApp(t, api: StateMock(live: live));
       await t.tap(find.text('May problema ang inverter'));
+      await t.pumpAndSettle();
+      expect(find.text('Ano ang ibig sabihin nito?'), findsOneWidget); // the explanation the banner promises
+      expect(find.text('Ano ang gagawin?'), findsOneWidget);
+      await t.tap(find.text('Close'));
       await t.pumpAndSettle();
       expect(find.text('Mark all read'), findsOneWidget);
     });
@@ -166,13 +188,16 @@ void main() {
     final api = StateMock();
     await pumpApp(t, api: api);
     expect(find.text('At ₱13.00/kWh'), findsOneWidget); // live.rate_php_per_kwh
+    await t.drag(find.byType(Scrollable).first, const Offset(0, -200)); // bring the money cards above the nav bar
+    await t.pumpAndSettle();
     await t.tap(find.text('Tap for Bill Details'));
     await t.pumpAndSettle();
     expect(find.text('PREDICTED BILL THIS MONTH · NOVEMBER'), findsOneWidget);
 
     await tab(t, 'Home');
     // Scroll the recap clear of the bottom nav bar, then tap the link.
-    await t.drag(find.byType(Scrollable).first, const Offset(0, -400));
+    await t.scrollUntilVisible(find.text('Ask Mira about yesterday'), 200, scrollable: find.byType(Scrollable).first);
+    await t.drag(find.byType(Scrollable).first, const Offset(0, -150));
     await t.pumpAndSettle();
     await t.tap(find.text('Ask Mira about yesterday'));
     await t.pumpAndSettle();
@@ -186,8 +211,8 @@ void main() {
     testWidgets('normal: temperature, no fault, Wi-Fi signal', (t) async {
       await pumpApp(t);
       expect(find.text('42°C'), findsOneWidget); // live.telemetry.inv_temp_c
-      expect(find.text('Walang problema'), findsOneWidget);
-      expect(find.text('Malakas'), findsOneWidget); // rssi -55
+      expect(find.text('No issues'), findsOneWidget);
+      expect(find.text('Strong'), findsOneWidget); // rssi -55
     });
 
     testWidgets('fault code shows and opens Alerts', (t) async {
@@ -266,15 +291,28 @@ void main() {
     await pumpApp(t);
     await tab(t, 'Energy');
     for (final (label, file) in [('Today', 'energy_day'), ('Week', 'energy_week'), ('Month', 'energy_month')]) {
-      await t.tap(find.text(label));
+      await t.tap(find.text(label).first); // the period switch (the range label below may say "Today" too)
       await t.pumpAndSettle();
       final e = example(file);
       expect(find.text(kwhNum((e['totals'] as Map)['pv_kwh'])), findsOneWidget, reason: label);
       expect(find.text(pctNum(e['self_sufficiency_pct'])), findsOneWidget, reason: label);
       expect(find.text('Grid Used'), findsOneWidget);
       expect(find.text(kwhNum((e['totals'] as Map)['grid_import_kwh'])), findsWidgets, reason: label);
-      expect(find.text('Solar Production'), findsOneWidget);
+      expect(find.text('Solar vs. Home vs. Grid (kWh)'), findsOneWidget);
     }
+  });
+
+  testWidgets('Energy: step back to yesterday and forward again; data stays on screen while loading', (t) async {
+    await pumpApp(t);
+    await tab(t, 'Energy');
+    await t.tap(find.byTooltip('Earlier'));
+    await t.pump(); // loading: the previous day's cards are still there, dimmed
+    expect(find.text('Solar Produced'), findsOneWidget);
+    await t.pumpAndSettle();
+    expect(find.text('Yesterday'), findsOneWidget);
+    await t.tap(find.byTooltip('Later'));
+    await t.pumpAndSettle();
+    expect(find.text('Yesterday'), findsNothing);
   });
 
   testWidgets('Bill: forecast, range, trend, savings, weekly costs', (t) async {
@@ -282,11 +320,19 @@ void main() {
     await tab(t, 'Bill');
     expect(find.text('PREDICTED BILL THIS MONTH · NOVEMBER'), findsOneWidget);
     expect(find.text('₱1,833 – ₱2,156'), findsOneWidget);
-    expect(find.text('8.5% lower than last month'), findsOneWidget);
+    expect(find.text('₱186 less than last month (−8.5%)'), findsOneWidget); // pesos first, plain words
     expect(find.text('₱1,694'), findsOneWidget); // savings_month_php
-    for (final w in (example('bill')['weekly_costs'] as List)) {
+    final weeks = example('bill')['weekly_costs'] as List;
+    for (final w in weeks) {
       expect(find.text(w['label'] as String), findsOneWidget);
     }
+    // Tap a week's bar to see its cost.
+    expect(find.textContaining('Week of ${weeks.last['label']}'), findsOneWidget);
+    await t.ensureVisible(find.text(weeks.first['label'] as String));
+    await t.pumpAndSettle();
+    await t.tap(find.text(weeks.first['label'] as String));
+    await t.pumpAndSettle();
+    expect(find.text('Week of ${weeks.first['label']}: ${formatPhp(weeks.first['php'] as num, whole: true)}'), findsOneWidget);
   });
 
   testWidgets('Ask Mira: sends the question, shows reply + chips', (t) async {
@@ -300,6 +346,27 @@ void main() {
     expect(find.text('Bakit mataas ang bill ko?'), findsOneWidget);
     expect(find.text(example('chat')['reply'] as String), findsOneWidget);
     expect(find.textContaining('Bill this month  ₱746', findRichText: true), findsOneWidget); // chip: UTF-8 ₱ intact
+    // Follow-up suggestions after the answer, without the question already asked.
+    expect(find.text('Kakayanin ba ng battery mamaya?'), findsOneWidget);
+    await t.tap(find.byTooltip('New conversation'));
+    await t.pumpAndSettle();
+    expect(find.text(example('chat')['reply'] as String), findsNothing);
+  });
+
+  testWidgets('Ask Mira: a failed answer offers Try again, which asks the same question', (t) async {
+    final api = FailingChat();
+    await pumpApp(t, api: api);
+    await tab(t, 'Ask Mira');
+    await t.enterText(find.byType(TextField), 'Magkano ang bill ko?');
+    await t.tap(find.text('SEND'));
+    await t.pumpAndSettle();
+    expect(find.textContaining('Hindi ma-reach'), findsOneWidget);
+    api.fail = false;
+    await t.tap(find.text('Try again'));
+    await t.pumpAndSettle();
+    expect(api.chats, 2);
+    expect(find.textContaining('Hindi ma-reach'), findsNothing);
+    expect(find.text(example('chat')['reply'] as String), findsOneWidget);
   });
 
   testWidgets('Alerts: grouped list, badge, tap marks read, mark all read', (t) async {
@@ -311,6 +378,16 @@ void main() {
     await t.tap(find.text('Mainit ang inverter'));
     await t.pumpAndSettle();
     expect(c.read(unreadAlertsProvider), 3);
+    expect(find.text('Ano ang ibig sabihin nito?'), findsOneWidget); // detail sheet, not just "read"
+    await t.tap(find.text('Close'));
+    await t.pumpAndSettle();
+    // Severity filter.
+    await t.tap(find.text('Critical  3'));
+    await t.pumpAndSettle();
+    expect(find.text('Mainit ang inverter'), findsNothing);
+    await t.tap(find.text('All  6'));
+    await t.pumpAndSettle();
+    expect(find.text('Mainit ang inverter'), findsOneWidget);
     await t.tap(find.text('Mark all read'));
     await t.pumpAndSettle();
     expect(c.read(unreadAlertsProvider), 0);
@@ -330,6 +407,48 @@ void main() {
     expect(c.read(serverSettingsProvider).value!['rate_php_per_kwh'], 12.5);
   });
 
+  testWidgets('Settings: invalid household values say why instead of doing nothing', (t) async {
+    final c = await pumpApp(t);
+    await t.tap(find.bySemanticsLabel('Settings').first);
+    await t.pumpAndSettle();
+    await t.enterText(find.widgetWithText(TextField, '13.0'), 'abc');
+    await t.ensureVisible(find.text('Save household'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Save household'));
+    await t.pumpAndSettle();
+    expect(find.textContaining('Numero mula 1 hanggang 100'), findsOneWidget);
+    expect(c.read(serverSettingsProvider).value!['rate_php_per_kwh'], 13.0);
+    await t.enterText(find.widgetWithText(TextField, 'abc'), '13.0');
+    await t.ensureVisible(find.text('Save household'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Save household'));
+    await t.pumpAndSettle();
+    expect(find.textContaining('Walang binago'), findsOneWidget);
+  });
+
+  testWidgets('Home says how old the reading is', (t) async {
+    final live = example('live');
+    (live['telemetry'] as Map)['ts'] = DateTime.now().millisecondsSinceEpoch ~/ 1000 - 600;
+    await pumpApp(t, api: StateMock(live: live));
+    expect(find.text('Last reading 10 min ago'), findsOneWidget);
+  });
+
+  testWidgets('large system text (2x) on a small phone: no overflow on any tab', (t) async {
+    t.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
+    await pumpApp(t, size: const Size(320, 640));
+    expect(t.takeException(), isNull, reason: 'Home');
+    for (final l in ['Energy', 'Bill', 'Ask Mira', 'Alerts', 'Home']) {
+      await tab(t, l);
+      expect(t.takeException(), isNull, reason: l);
+    }
+  });
+
+  testWidgets('wide screens: the app is centred at its max width', (t) async {
+    await pumpApp(t, size: const Size(1280, 800));
+    expect(t.getSize(find.byType(Scaffold).first).width, 480);
+  });
+
   testWidgets('every tab fits a small phone (320 × 640) without overflow', (t) async {
     await pumpApp(t, size: const Size(320, 640));
     for (final l in ['Energy', 'Bill', 'Ask Mira', 'Alerts', 'Home']) {
@@ -347,6 +466,30 @@ void main() {
       expect(formatClock(1794446366), '9:19 AM'); // 2026-11-12 01:19:26 UTC
       expect(formatShortDate(1792339200), 'Oct 19');
       expect(monthNameOf('2026-11'), 'November');
+    });
+    test('alert times, durations, badge', () {
+      final now = DateTime.utc(2026, 11, 12, 4); // 12:00 PM Manila
+      expect(formatWhen(1794446366, now: now), startsWith('9:19 AM')); // same Manila day
+      expect(formatWhen(1794446366 - 86400, now: now), 'Yesterday, 9:19 AM');
+      expect(formatWhen(1794446366 - 5 * 86400, now: now), 'Nov 7, 9:19 AM');
+      expect(formatDuration(45), '45 min');
+      expect(formatDuration(85), '1 h 25 min');
+      expect(formatDuration(120), '2 h');
+      expect(badgeText(7), '7');
+      expect(badgeText(120), '99+');
+    });
+    test('safe reads fall back instead of throwing', () {
+      expect(str(null, '—'), '—');
+      expect(numOr('x'), 0);
+      expect(listOfMaps(null), isEmpty);
+      expect(friendlyError(const FormatException('bad')).kind, ErrorKind.data);
+      expect(friendlyError(TimeoutException('slow')).kind, ErrorKind.offline);
+    });
+    test('chart axis rounds up to readable numbers', () {
+      expect(niceCeil(0.37), 0.5);
+      expect(niceCeil(3.4), 5);
+      expect(niceCeil(12), 20);
+      expect(niceCeil(0), 1);
     });
     test('numbers for tiles', () {
       expect(kwNum(3200), '3.2');

@@ -23,6 +23,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _batt = TextEditingController();
   Map<String, dynamic>? _loaded; // server settings the household fields were filled from
   String? _urlError;
+  String? _nameError, _rateError, _battError;
   bool _testing = false;
   String? _testResult;
   bool _testOk = false;
@@ -67,29 +68,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 '${h['llm_reachable'] == true ? '${h['llm']} ✓' : 'hindi maabot (rule-based answers)'}'
           : 'Server answered but not ok: $h';
     } catch (e) {
+      // Plain words instead of the raw exception text.
+      final f = friendlyError(e);
       _testOk = false;
-      _testResult = '✗ Hindi ma-reach: $e';
+      _testResult = '✗ ${f.title} ${f.hint}';
     }
     if (mounted) setState(() => _testing = false);
   }
 
   Future<void> _saveHousehold() async {
     final s = _loaded ?? const {};
-    final changes = <String, dynamic>{};
+    final messenger = ScaffoldMessenger.of(context);
     final name = _name.text.trim();
     final rate = double.tryParse(_rate.text.trim());
     final batt = double.tryParse(_batt.text.trim());
-    if (name.isNotEmpty && name != s['user_name']) changes['user_name'] = name;
-    if (rate != null && rate > 0 && rate != s['rate_php_per_kwh']) changes['rate_php_per_kwh'] = rate;
-    if (batt != null && batt > 0 && batt != s['battery_kwh']) changes['battery_kwh'] = batt;
-    if (changes.isEmpty) return;
+    // Say what's wrong instead of quietly ignoring a bad value.
+    setState(() {
+      _nameError = name.isEmpty ? 'Ilagay ang pangalan.' : null;
+      _rateError = rate == null || rate <= 0 || rate > 100 ? 'Numero mula 1 hanggang 100, hal. 13.5' : null;
+      _battError = batt == null || batt <= 0 || batt > 200 ? 'Numero mula 1 hanggang 200, hal. 10' : null;
+    });
+    if (_nameError != null || _rateError != null || _battError != null) return;
+    final changes = <String, dynamic>{
+      if (name != s['user_name']) 'user_name': name,
+      if (rate != s['rate_php_per_kwh']) 'rate_php_per_kwh': rate,
+      if (batt != s['battery_kwh']) 'battery_kwh': batt,
+    };
+    if (changes.isEmpty) {
+      messenger.showSnackBar(const SnackBar(content: Text('Walang binago: pareho pa rin ang settings.')));
+      return;
+    }
     setState(() => _saving = true);
-    final messenger = ScaffoldMessenger.of(context);
     try {
       await ref.read(serverSettingsProvider.notifier).save(changes);
       messenger.showSnackBar(const SnackBar(content: Text('Na-save ang settings.')));
-    } catch (_) {
-      messenger.showSnackBar(const SnackBar(content: Text('Hindi na-save: hindi maabot ang server.')));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Hindi na-save. ${friendlyError(e).title}')));
     }
     if (mounted) setState(() => _saving = false);
   }
@@ -108,15 +122,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: ts(11, w: FontWeight.w700)),
+        Text(label, style: ts(12, w: FontWeight.w700)),
         const SizedBox(height: 6),
         TextField(
           controller: c,
           enabled: enabled,
           keyboardType: type,
-          style: ts(13),
+          style: ts(14),
           onSubmitted: onSubmitted,
-          decoration: InputDecoration(hintText: hint, suffixText: suffix, errorText: error),
+          decoration: InputDecoration(
+            hintText: hint,
+            suffixText: suffix,
+            errorText: error,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          ),
         ),
       ],
     ),
@@ -131,52 +150,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final notify = ref.watch(notifyAlertsProvider);
     final notifier = ref.watch(systemNotifierProvider);
 
-    // No Figma frame for Settings yet: same page language as the designed tabs (back + link dot row,
-    // 26 px title, light subtitle, outlined white cards on cream).
+    // Figma "screen 06 - settings" language: back + link dot row, 26 px title, subtitle, outlined white cards.
     return Scaffold(
       backgroundColor: C.cream,
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 20, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    tooltip: 'Back',
-                    icon: const Icon(Icons.arrow_back_rounded, color: C.ink),
-                    onPressed: () => Navigator.of(context).maybePop(),
-                  ),
-                  const Spacer(),
-                  const LinkIndicator(),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Settings', style: ts(26, w: FontWeight.w700, spacing: -0.52)),
-                const SizedBox(height: 4),
-                Text(
-                  'Server connection, alerts and your household.',
-                  style: ts(12, w: FontWeight.w300, color: C.muted),
-                ),
-              ],
-            ),
-          ),
+          const BackHeader('Settings', 'Server connection, alerts and your household.'),
           Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'SERVER',
-                  style: ts(10, w: FontWeight.w700, color: C.muted, spacing: 0.5),
+                Semantics(
+                  header: true,
+                  child: Text('SERVER', style: ts(11, w: FontWeight.w700, color: C.label, spacing: 0.6)),
                 ),
                 const SizedBox(height: 8),
                 SCard(
@@ -190,8 +178,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           contentPadding: EdgeInsets.zero,
                           value: cfg.useMock,
                           onChanged: (v) => ref.read(serverConfigProvider.notifier).setUseMock(v),
-                          title: Text('Demo data (walang server)', style: ts(12, w: FontWeight.w700)),
-                          subtitle: Text('Answers from the contract example files', style: ts(10, color: C.muted)),
+                          title: Text('Demo data (no server)', style: ts(13, w: FontWeight.w700)),
+                          subtitle: Text('Answers from the contract example files', style: ts(11, color: C.muted)),
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -226,16 +214,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         const SizedBox(height: 8),
                         Text(
                           _testResult!,
-                          style: ts(11, w: FontWeight.w600, color: _testOk ? C.green : C.red),
+                          style: ts(12, w: FontWeight.w600, color: _testOk ? C.green : C.red),
                         ),
                       ],
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
-                Text(
-                  'ALERTS',
-                  style: ts(10, w: FontWeight.w700, color: C.muted, spacing: 0.5),
+                Semantics(
+                  header: true,
+                  child: Text('ALERTS', style: ts(11, w: FontWeight.w700, color: C.label, spacing: 0.6)),
                 ),
                 const SizedBox(height: 8),
                 SCard(
@@ -261,20 +249,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               }
                             }
                           : null,
-                      title: Text('Notify me about alerts', style: ts(12, w: FontWeight.w700)),
+                      title: Text('Notify me about alerts', style: ts(13, w: FontWeight.w700)),
                       subtitle: Text(
                         notifier.supported
                             ? 'Brownout, fault, low battery: kahit nasa ibang tab ka.'
                             : 'Sa phone: makikita mo ang mga na-miss na alert pagbalik mo sa app.',
-                        style: ts(10, color: C.muted),
+                        style: ts(11, color: C.muted),
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
-                Text(
-                  'HOUSEHOLD',
-                  style: ts(10, w: FontWeight.w700, color: C.muted, spacing: 0.5),
+                Semantics(
+                  header: true,
+                  child: Text('HOUSEHOLD', style: ts(11, w: FontWeight.w700, color: C.label, spacing: 0.6)),
                 ),
                 const SizedBox(height: 8),
                 AsyncBody(
@@ -285,20 +273,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _field('Pangalan', _name),
+                        _field('Name', _name, error: _nameError),
                         _field(
                           'Meralco rate',
                           _rate,
                           type: const TextInputType.numberWithOptions(decimal: true),
                           suffix: '₱/kWh',
+                          error: _rateError,
                         ),
                         _field(
                           'Battery size',
                           _batt,
                           type: const TextInputType.numberWithOptions(decimal: true),
                           suffix: 'kWh',
+                          error: _battError,
                         ),
-                        Text('Device: ${s['device_id']}', style: ts(10, color: C.muted)),
+                        Text('Device: ${s['device_id'] ?? '—'}', style: ts(11, color: C.muted)),
                         const SizedBox(height: 12),
                         FilledButton(
                           onPressed: _saving ? null : _saveHousehold,
