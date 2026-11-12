@@ -24,7 +24,7 @@ Conventions:
 | `POST /api/chat` | `{message}` → `{reply, chips[], source}` Taglish answer | Ask Sinag | [chat.json](examples/chat.json) |
 | `GET /api/summary/daily` | AI-written recap of yesterday | Home | [summary_daily.json](examples/summary_daily.json) |
 | `GET /api/settings` / `PUT /api/settings` | Rate ₱/kWh, battery kWh, user name, device id | Settings | [settings.json](examples/settings.json) |
-| `GET /api/health` | `{ "ok": true, "mock": false, "llm": "qwen2.5:3b" }` | Settings (connection test) | — |
+| `GET /api/health` | `{ "ok": true, "mock": false, "llm": "qwen3.5:4b", "llm_provider": "ollama", "llm_reachable": true }` | Settings (connection test) | — |
 
 `POST /api/alerts/{id}/read`, `POST /api/alerts/read-all` and `GET /api/health` are additions to the
 plan's table, proposed for Aldrin's approval.
@@ -119,10 +119,14 @@ Request `{ "message": "Bakit mataas ang bill ko?" }`
 ```jsonc
 {
   "reply": "Mas mataas ang gamit mo mula 6 hanggang 10 PM ...",
-  "chips": [ { "label": "Bill this month", "value": "₱536" } ],
-  "source": "llm"                   // llm | fallback (LLM down or too slow: rule-based answer)
+  "chips": [ { "label": "Bill this month", "value": "₱536" } ],   // from the facts the AI cited
+  "source": "llm",                  // llm | fallback (LLM down, too slow, or failed the fact check: rule-based answer)
+  "facts_used": ["bill.month_to_date_php", "usage.peak_hours"]     // optional: ids of the facts behind the answer
 }
 ```
+
+Every number in `reply` comes from the backend's data, never from the model (see `server/ai/README.md`).
+`facts_used` is an addition; the app can ignore it or show "Batay sa: ..." under the answer.
 
 ### `GET /api/summary/daily`
 

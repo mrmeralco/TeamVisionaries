@@ -19,7 +19,7 @@ simulator / real inverter ─RS485 Modbus─▶ Sinag device (ESP32) ─MQTT─�
 | [`firmware/sinag-device/`](firmware/) | ESP32 #1: Modbus master, publishes MQTT | Adrian |
 | [`firmware/inverter-sim/`](firmware/) | ESP32 #2: inverter / smart meter / Meralco meter simulator | Adrian + Stephen |
 | [`server/app/`](server/) | FastAPI: ingest, alerts, bill, forecast, REST + WS | Andy |
-| [`server/ai/`](server/ai/) | Prompts, Ollama client, fault table | Stephen + Aldrin |
+| [`server/ai/`](server/ai/) | Grounded Taglish AI, Qwen 3.5 on Ollama ([guide](server/ai/README.md)) | Andy |
 | [`server/tools/`](server/tools/) | `fake_device.py`, `seed_history.py` | Andy |
 | [`app/`](app/) | Flutter app | Aldrin + Shane |
 | [`docs/contracts/`](docs/contracts/) | **The 3 contracts**: Modbus map, MQTT schema, API spec | Aldrin approves changes |

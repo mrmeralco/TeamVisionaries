@@ -1,157 +1,158 @@
-"""AI service: gathers facts from the DB, asks the LLM, falls back to rule-based text if it can't.
+"""AI service: question -> facts from SQLite -> Qwen 3.5 -> hallucination guard -> reply.
 
-/api/chat -> chat(); /api/summary/daily -> daily_summary() (pre-generated, cached per date).
+    /api/chat            -> chat()
+    /api/summary/daily   -> daily_summary()  (pre-generated, cached per date)
+
+Pipeline (see server/ai/README.md):
+  1. facts.gather()     compute every fact from the DB (the model never calculates)
+  2. router.topics_for  keep only the facts this question needs (+ brownout/fault if active)
+  3. llm.complete_json  Qwen 3.5, thinking off, temperature 0, JSON schema output, must cite fact ids
+  4. guard.check        reject replies with numbers/ids not in the facts given
+  5. one retry with the guard's complaint, else a rule-based answer built from the same facts
+Every exchange is logged to server/logs/ai.jsonl for QA.
 """
+import json
 import logging
-from datetime import date, timedelta
+import time
+from datetime import timedelta
 
-from app import db, energy
+from app import config, db, energy
 
-from . import llm, prompts
-from .faults import explain_fault
+from . import guard, llm, prompts, router
+from .facts import Fact, FactSet, gather
 
 log = logging.getLogger("sinag.ai")
 
-
-# ------------------------------------------------------------------- facts --
-def peak_hours(device_id: str, days: int = 7) -> list[int]:
-    """Hours of the day (0-23) with the most grid import over the last `days` days."""
-    start = energy.local_midnight(energy.today() - timedelta(days=days))
-    edges = [start + h * 3600 for h in range(days * 24 + 1)]
-    by_hour = [0.0] * 24
-    for i, b in enumerate(energy.buckets(device_id, edges)):
-        by_hour[i % 24] += b["grid_import_kwh"]
-    ranked = sorted(range(24), key=lambda h: by_hour[h], reverse=True)
-    return sorted(h for h in ranked[:3] if by_hour[h] > 0)
+DEFAULT_CHIPS = ("bill.month_to_date_php", "bill.forecast_php", "today.saved_php", "now.battery_pct")
+MAX_CHIPS = 4
 
 
-def gather(device_id: str, settings: dict) -> dict:
-    rate = settings["rate_php_per_kwh"]
-    live = energy.live(device_id, settings)
-    t = live["telemetry"]
-    today = energy.day_totals(device_id, energy.today())
-    bill = energy.bill(device_id, settings)
-    bo = energy.brownout(device_id, settings)
-    return {
-        "live": live, "today": today, "bill": bill, "brownout": bo,
-        "peak_hours": peak_hours(device_id),
-        "fault": explain_fault(t["fault_code"]) | {"code": t["fault_code"]} if t and t["fault_code"] else None,
-        "rate": rate,
-        "cost_today_php": round(today["grid_import_kwh"] * rate, 2),
-    }
+# --------------------------------------------------------------- pipeline --
+def _active_topics(fs: FactSet) -> set[str]:
+    by = fs.by_id()
+    active = set()
+    if by.get("brownout.active") and by["brownout.active"].values:
+        active.add("brownout")
+    if by.get("fault.active") and by["fault.active"].values:
+        active.add("fault")
+    return active
 
 
-def facts_text(f: dict) -> str:
-    live, t, today, bill, bo = f["live"], f["live"]["telemetry"], f["today"], f["bill"], f["brownout"]
-    lines = [f"- Ngayon: {live['status_line']}"]
-    if t:
-        lines.append(f"- Live: solar {t['pv_w']} W, gamit ng bahay {t['load_w']} W, grid {t['grid_w']} W "
-                     f"(+ kuha, - benta), battery {t['batt_soc']}%")
-    lines += [
-        f"- Ngayong araw: solar {today['pv_kwh']:.1f} kWh, gamit {today['load_kwh']:.1f} kWh, "
-        f"mula sa grid {today['grid_import_kwh']:.1f} kWh = {prompts.peso(f['cost_today_php'])}, natipid {prompts.peso(bill['savings_today_php'])}",
-        f"- Bill ngayong buwan (hanggang ngayon): {prompts.peso(bill['month_to_date_php'])}; "
-        f"forecast sa katapusan: {prompts.peso(bill['forecast_php'])} "
-        f"({prompts.peso(bill['forecast_low_php'])} hanggang {prompts.peso(bill['forecast_high_php'])})",
-        f"- Bill noong nakaraang buwan: {prompts.peso(bill['last_month_php'])}"
-        + (f" ({bill['vs_last_month_pct']:+.0f}% ang forecast kumpara dito)" if bill["vs_last_month_pct"] is not None else ""),
-        f"- Natipid dahil sa solar ngayong buwan: {prompts.peso(bill['savings_month_php'])}",
-        f"- Rate ng kuryente: ₱{f['rate']:.2f}/kWh",
-    ]
-    if f["peak_hours"]:
-        lines.append("- Oras na pinakamaraming kuha sa grid (7 araw): " + ", ".join(f"{h}:00" for h in f["peak_hours"]))
-    if bo["active"]:
-        lines.append(f"- BROWNOUT ngayon, {bo['duration_min']} minuto na. {bo['advice']}")
-    if f["fault"]:
-        lines.append(f"- FAULT {f['fault']['code']}: {f['fault']['title']}. {f['fault']['message']}")
-    return "\n".join(lines)
+def _chips(cited: list[str], fs: FactSet) -> list[dict]:
+    by = fs.by_id()
+    ids = [i for i in cited if i in by and by[i].chip] or [i for i in DEFAULT_CHIPS if i in by]
+    return [{"label": by[i].chip[0], "value": by[i].chip[1]} for i in ids[:MAX_CHIPS] if by[i].chip]
 
 
-def chips(f: dict) -> list[dict]:
-    bill, live = f["bill"], f["live"]
-    out = [
-        {"label": "Bill this month", "value": prompts.peso(bill["month_to_date_php"])},
-        {"label": "Forecast", "value": prompts.peso(bill["forecast_php"])},
-        {"label": "Saved today", "value": prompts.peso(bill["savings_today_php"])},
-    ]
-    if live["telemetry"]:
-        out.append({"label": "Battery", "value": f"{live['telemetry']['batt_soc']}%"})
-    if f["brownout"]["active"] and f["brownout"]["runtime_h"] is not None:
-        out.append({"label": "Battery runtime", "value": f"{f['brownout']['runtime_h']:g} h"})
-    return out
+def _log(entry: dict) -> None:
+    try:
+        config.AI_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with config.AI_LOG.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except OSError as e:
+        log.warning("could not write AI log: %s", e)
+
+
+async def ask(question: str, given: list[Fact], fallback_text: str) -> dict:
+    """Runs steps 3-5 for any task. Returns {reply, fact_ids, source, answerable, ...}."""
+    t0 = time.monotonic()
+    messages = [{"role": "user", "content": prompts.CHAT_USER.format(facts=prompts.render_facts(given), message=question)}]
+    attempts = []
+    for attempt in range(2):
+        if attempt and time.monotonic() - t0 > config.CHAT_BUDGET_S - config.LLM_TIMEOUT_S:
+            break  # no time left for a retry
+        try:
+            out = await llm.complete_json(prompts.SYSTEM, messages, prompts.REPLY_SCHEMA)
+        except llm.LLMUnavailable as e:
+            attempts.append({"error": str(e)})
+            break
+        reply = str(out.get("reply", "")).strip()
+        ids = [str(i) for i in out.get("fact_ids") or []]
+        answerable = bool(out.get("answerable", True))
+        if not answerable:
+            attempts.append({"raw": out, "guard": "out_of_scope"})
+            return {"reply": prompts.OUT_OF_SCOPE, "fact_ids": [], "source": "llm", "answerable": False,
+                    "attempts": attempts, "latency_s": round(time.monotonic() - t0, 2)}
+        g = guard.check(reply, ids, answerable, given, question)
+        attempts.append({"raw": out, "guard": "ok" if g.ok else g.problems})
+        if g.ok:
+            return {"reply": reply, "fact_ids": ids, "source": "llm", "answerable": True,
+                    "attempts": attempts, "latency_s": round(time.monotonic() - t0, 2)}
+        log.warning("guard rejected reply (%s): %s", "; ".join(g.problems), reply[:160])
+        messages += [{"role": "assistant", "content": json.dumps(out, ensure_ascii=False)},
+                     {"role": "user", "content": prompts.RETRY_NOTE.format(problems="; ".join(g.problems))}]
+    return {"reply": fallback_text, "fact_ids": [], "source": "fallback", "answerable": True,
+            "attempts": attempts, "latency_s": round(time.monotonic() - t0, 2)}
 
 
 # -------------------------------------------------------------------- chat --
-def fallback_reply(message: str, f: dict) -> str:
-    """Rule-based answer used when the LLM is off, down or too slow. Demo must never go silent."""
-    m = message.lower()
-    bill, bo = f["bill"], f["brownout"]
-    if f["fault"] and any(w in m for w in ("fault", "error", "init", "sira", "problema")):
-        return f"{f['fault']['title']}. {f['fault']['message']}"
-    if any(w in m for w in ("brownout", "battery", "tatagal", "kuryente")) and bo["active"]:
-        return bo["advice"]
-    if any(w in m for w in ("bill", "bayad", "mahal", "mataas", "gastos", "magkano")):
-        peaks = ", ".join(f"{h}:00" for h in f["peak_hours"]) or "gabi"
-        return (f"{prompts.peso(bill['month_to_date_php'])} na ang bill mo ngayong buwan, at mga "
-                f"{prompts.peso(bill['forecast_php'])} ang forecast sa katapusan. Pinakamaraming kuha sa grid tuwing {peaks}, "
-                f"kapag wala nang araw. Subukang gamitin ang malalaking appliances habang maaraw.")
-    if any(w in m for w in ("solar", "araw", "tipid", "natipid")):
-        return (f"Ngayong araw, {f['today']['pv_kwh']:.1f} kWh ang galing sa solar at {prompts.peso(bill['savings_today_php'])} "
-                f"ang natipid mo. Ngayong buwan, {prompts.peso(bill['savings_month_php'])} na ang natipid.")
-    return f"{f['live']['status_line']} {prompts.peso(bill['month_to_date_php'])} na ang bill mo ngayong buwan."
+# Rule-based answers: the facts' own sentences, picked by topic. Always grounded, never creative.
+FALLBACK_IDS = {
+    "fault": ("fault.active", "now.temp_c"),
+    "brownout": ("brownout.active", "brownout.advice"),  # advice already states the runtime
+    "bill": ("bill.month_to_date_php", "bill.forecast_php", "usage.peak_hours"),
+    "savings": ("today.saved_php", "bill.savings_month_php"),
+    "yesterday": ("yesterday.solar_kwh", "yesterday.cost_php", "yesterday.saved_php"),
+    "battery": ("now.battery_pct", "now.battery_w"),
+    "usage": ("usage.peak_hours", "week.grid_kwh", "week.self_sufficiency_pct"),
+    "alerts": ("alerts.unread",),
+    "today": ("today.solar_kwh", "today.cost_php", "today.saved_php"),
+}
+FALLBACK_ORDER = ("fault", "brownout", "bill", "savings", "yesterday", "battery", "usage", "alerts", "today")
+
+
+def fallback_reply(asked: set[str], active: set[str], fs: FactSet) -> str:
+    """Urgent items first (one line each), then the facts for what was actually asked."""
+    by = fs.by_id()
+    lines = [by[f"{t}.active"].text.split(". ")[0] for t in ("fault", "brownout") if t in active and t not in asked]
+    for topic in FALLBACK_ORDER:
+        if topic in asked:
+            lines += [by[i].text for i in FALLBACK_IDS[topic] if i in by]
+            break
+    if not lines:
+        lines = [by["now.status"].text]
+    return ". ".join(line.rstrip(".") for line in lines) + "."
 
 
 async def chat(device_id: str, settings: dict, message: str) -> dict:
-    f = gather(device_id, settings)
-    try:
-        reply = await llm.complete(prompts.SYSTEM, prompts.CHAT_USER.format(
-            facts=facts_text(f), user_name=settings["user_name"], message=message))
-        source = "llm"
-    except llm.LLMUnavailable as e:
-        log.warning("chat fallback: %s", e)
-        reply, source = fallback_reply(message, f), "fallback"
-    return {"reply": reply, "chips": chips(f), "source": source}
+    fs = gather(device_id, settings)
+    active = _active_topics(fs)
+    asked = router.topics_for(message, set())
+    topics = asked | active
+    given = fs.select(topics) + [f for f in fs.facts if f.id == "user.name"]
+    given = list({f.id: f for f in given}.values())
+    r = await ask(message, given, fallback_reply(asked, active, fs))
+    _log({"ts": int(time.time()), "task": "chat", "question": message, "topics": sorted(topics),
+          "facts": [f.id for f in given], **{k: r[k] for k in ("reply", "source", "fact_ids", "attempts", "latency_s")}})
+    return {"reply": r["reply"], "chips": _chips(r["fact_ids"], fs), "source": r["source"], "facts_used": r["fact_ids"]}
 
 
 # ------------------------------------------------------------ daily summary --
-def _summary_totals(device_id: str, d: date, rate: float) -> dict:
-    t = energy.day_totals(device_id, d)
-    return {
-        "pv_kwh": round(t["pv_kwh"], 2), "load_kwh": round(t["load_kwh"], 2),
-        "grid_import_kwh": round(t["grid_import_kwh"], 2),
-        "cost_php": round(t["grid_import_kwh"] * rate, 2),
-        "savings_php": round(energy.saved_kwh(t) * rate, 2),
-        "self_sufficiency_pct": energy.self_sufficiency(t),
-    }
-
-
 async def daily_summary(device_id: str, settings: dict, force: bool = False) -> dict:
     d = energy.today() - timedelta(days=1)
     key = f"summary:{device_id}:{d.isoformat()}"
     cached = db.get_kv(key)
-    if cached and not force and (cached["source"] == "llm" or not llm_enabled()):
+    if cached and not force and (cached["source"] == "llm" or not config.LLM_ENABLED):
         return cached
 
-    tot = _summary_totals(device_id, d, settings["rate_php_per_kwh"])
-    facts = (f"- Solar: {tot['pv_kwh']} kWh; gamit ng bahay: {tot['load_kwh']} kWh\n"
-             f"- {tot['self_sufficiency_pct']}% ng kuryente ay hindi galing sa grid (solar + battery)\n"
-             f"- Kuha sa grid: {tot['grid_import_kwh']} kWh = {prompts.peso(tot['cost_php'])}\n"
-             f"- Natipid dahil sa solar: {prompts.peso(tot['savings_php'])}")
-    try:
-        text = await llm.complete(prompts.SYSTEM, prompts.SUMMARY_USER.format(
-            date=d.isoformat(), facts=facts, user_name=settings["user_name"]), max_tokens=160)
-        source = "llm"
-    except llm.LLMUnavailable as e:
-        log.warning("summary fallback: %s", e)
-        text = (f"Kahapon, {tot['self_sufficiency_pct']:.0f}% ng kuryente mo ay galing sa solar at battery. "
-                f"{prompts.peso(tot['cost_php'])} lang ang nagastos sa grid at {prompts.peso(tot['savings_php'])} ang natipid mo. "
-                f"Tip: gamitin ang washing machine at plantsa habang maaraw.")
-        source = "fallback"
-    out = {"date": d.isoformat(), "summary": text, "totals": tot, "source": source}
+    fs = gather(device_id, settings)
+    given = fs.select({"yesterday"}) + [f for f in fs.facts if f.id == "user.name"]
+    by = fs.by_id()
+    fallback = (f"{by['yesterday.self_sufficiency_pct'].text}. {by['yesterday.cost_php'].text}. "
+                f"{by['yesterday.saved_php'].text}. Tip: gamitin ang washing machine at plantsa habang maaraw.")
+    r = await ask(prompts.SUMMARY_TASK, given, fallback)
+    _log({"ts": int(time.time()), "task": "summary", "date": d.isoformat(), "facts": [f.id for f in given],
+          **{k: r[k] for k in ("reply", "source", "fact_ids", "attempts", "latency_s")}})
+
+    tot = energy.day_totals(device_id, d)
+    rate = settings["rate_php_per_kwh"]
+    out = {
+        "date": d.isoformat(), "summary": r["reply"], "source": r["source"],
+        "totals": {"pv_kwh": round(tot["pv_kwh"], 2), "load_kwh": round(tot["load_kwh"], 2),
+                   "grid_import_kwh": round(tot["grid_import_kwh"], 2),
+                   "cost_php": round(tot["grid_import_kwh"] * rate, 2),
+                   "savings_php": round(energy.saved_kwh(tot) * rate, 2),
+                   "self_sufficiency_pct": energy.self_sufficiency(tot)},
+    }
     db.put_kv(key, out)
     return out
-
-
-def llm_enabled() -> bool:
-    from app import config
-    return config.LLM_ENABLED

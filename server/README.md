@@ -1,6 +1,6 @@
 # Sinag server (FastAPI + MQTT ingest + local AI)
 
-Owners: **Andy** (`app/`), **Stephen + Aldrin** (`ai/`). Implements Contract C
+Owners: **Andy** (`app/` and `ai/`; AI guide: [ai/README.md](ai/README.md)). Implements Contract C
 ([docs/contracts/C-api.md](../docs/contracts/C-api.md)) on top of Contract B MQTT.
 
 ```
@@ -14,14 +14,19 @@ server/
 │   ├── hub.py      WebSocket fan-out
 │   ├── mock.py     SINAG_MOCK=1 serves docs/contracts/examples/*.json
 │   └── config.py   env vars (see .env.example)
-├── ai/             local AI service (Stephen + Aldrin)
-│   ├── prompts.py  Taglish system prompt + templates
-│   ├── service.py  gathers facts -> LLM -> rule-based fallback; chat + daily summary
-│   ├── llm.py      OpenAI-compatible client (Ollama by default)
+├── ai/             local AI, Qwen 3.5 on Ollama (Andy). Read ai/README.md
+│   ├── facts.py    every number the AI may say, computed from SQLite
+│   ├── router.py   question -> which facts go in the prompt
+│   ├── prompts.py  Taglish system prompt + JSON reply format
+│   ├── llm.py      Ollama client (thinking off, JSON schema, temp 0) + cloud fallback
+│   ├── guard.py    hallucination guard: rejects numbers/ids not in the facts
+│   ├── service.py  pipeline: facts -> LLM -> guard -> retry -> rule-based fallback
 │   └── faults.py   fault-code table -> plain Taglish
 ├── tools/
 │   ├── fake_device.py    publishes Contract B every 5 s (keys: b brownout, f fault, s/S sun, l/L load)
-│   └── seed_history.py   45 days of fake history so charts and forecast have data
+│   ├── seed_history.py   45 days of fake history so charts and forecast have data
+│   └── eval_ai.py        runs 15 real questions (incl. traps) against the model
+├── tests/          pytest: guard + AI pipeline with a fake model
 └── mosquitto.conf
 ```
 
@@ -36,7 +41,7 @@ cp .env.example .env
 
 ```bash
 brew install mosquitto        # Windows: mosquitto.org/download
-ollama pull qwen2.5:3b        # ~2 GB, do it before the event
+ollama pull qwen3.5:4b        # 3.3 GB, do it before the event
 ```
 
 ## Run
@@ -70,6 +75,6 @@ and the model is pulled.
 - **Bill** = grid import kWh × rate. **Savings** = home use not taken from the grid × rate.
 - **Forecast** = month-to-date + weekday/weekend daily averages (last 28 days) × days left, ± 1 std dev.
 - **Brownout runtime** = `batt_soc% × battery_kWh ÷ load_w`.
-- **AI**: the backend computes every number and passes a FACTS block; the model only phrases it in Taglish.
-  If the LLM is off, missing or slower than `LLM_TIMEOUT_S`, a rule-based answer is returned (`"source": "fallback"`),
-  so the demo never goes silent. Cloud fallback: change `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` in `.env`.
+- **AI**: the backend computes every number; the model only phrases cited facts in Taglish, and a guard
+  rejects any reply with a number that isn't in the facts. If the LLM is off, slow or fails the guard twice,
+  a rule-based answer is returned (`"source": "fallback"`). Full guide: [ai/README.md](ai/README.md).

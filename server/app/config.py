@@ -39,13 +39,18 @@ MQTT_ENABLED = _bool("MQTT_ENABLED", "1")
 # Device is "offline" if no telemetry for this long, even without a last-will message.
 OFFLINE_AFTER_S = int(os.getenv("OFFLINE_AFTER_S", "30"))
 
-# LLM: any OpenAI-compatible /chat/completions endpoint. Ollama serves one at /v1.
-# Cloud fallback = change LLM_BASE_URL + LLM_MODEL (+ LLM_API_KEY). LLM_ENABLED=0 -> rule-based replies only.
+# LLM. Default: Qwen 3.5 on local Ollama. LLM_ENABLED=0 -> rule-based replies only.
+# Cloud fallback: LLM_PROVIDER=openai + LLM_BASE_URL + LLM_MODEL + LLM_API_KEY (any OpenAI-compatible API).
 LLM_ENABLED = _bool("LLM_ENABLED", "1")
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
-LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:3b")
-LLM_API_KEY = os.getenv("LLM_API_KEY", "ollama")
-LLM_TIMEOUT_S = float(os.getenv("LLM_TIMEOUT_S", "20"))
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
+LLM_MODEL = os.getenv("LLM_MODEL", "qwen3.5:4b")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "")
+LLM_TIMEOUT_S = float(os.getenv("LLM_TIMEOUT_S", "20"))   # per LLM call
+CHAT_BUDGET_S = float(os.getenv("CHAT_BUDGET_S", "25"))   # whole /api/chat incl. one retry
+LLM_KEEP_ALIVE = os.getenv("LLM_KEEP_ALIVE", "60m")
+AI_LOG = Path(os.getenv("AI_LOG", SERVER_DIR / "logs" / "ai.jsonl"))
 
 DEFAULT_SETTINGS = {
     "rate_php_per_kwh": float(os.getenv("DEFAULT_RATE", "13.0")),

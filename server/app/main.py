@@ -47,6 +47,7 @@ async def lifespan(app: FastAPI):
         db.conn()
         ingest.start()
         tasks.append(asyncio.create_task(_background()))
+        tasks.append(asyncio.create_task(llm.warmup()))
     yield
     for t in tasks:
         t.cancel()
@@ -70,7 +71,7 @@ def _dev() -> str:
 @app.get("/api/health")
 async def health():
     return {"ok": True, "mock": config.MOCK, "llm": config.LLM_MODEL if config.LLM_ENABLED else None,
-            "llm_reachable": await llm.ping() if config.LLM_ENABLED else False}
+            "llm_provider": config.LLM_PROVIDER, "llm_reachable": await llm.ping() if config.LLM_ENABLED else False}
 
 
 @app.get("/api/live")

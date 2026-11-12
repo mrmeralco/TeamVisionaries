@@ -1,5 +1,5 @@
 {
-  "reply": "₱746 na ang bill mo ngayong buwan, at mga ₱1,995 ang forecast sa katapusan. Pinakamaraming kuha sa grid tuwing 7:00, 21:00, 22:00, kapag wala nang araw. Subukang gamitin ang malalaking appliances habang maaraw.",
+  "reply": "₱746 na ang bill mo ngayong buwan, at mga ₱1,995 ang forecast. Pinakamaraming kuha mo sa grid tuwing 7AM, 9PM at 10PM, kapag wala nang araw. Subukang gamitin ang aircon at plantsa nang mas maaga, habang maaraw pa.",
   "chips": [
     {
       "label": "Bill this month",
@@ -8,15 +8,12 @@
     {
       "label": "Forecast",
       "value": "₱1,995"
-    },
-    {
-      "label": "Saved today",
-      "value": "₱24"
-    },
-    {
-      "label": "Battery",
-      "value": "78%"
     }
   ],
-  "source": "fallback"
+  "source": "llm",
+  "facts_used": [
+    "bill.month_to_date_php",
+    "bill.forecast_php",
+    "usage.peak_hours"
+  ]
 }
