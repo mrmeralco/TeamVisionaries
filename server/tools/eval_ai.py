@@ -76,7 +76,7 @@ async def main() -> None:
         print("!! LLM not reachable or model not pulled. Every answer will be 'fallback'.\n"
               f"   Run: ollama pull {config.LLM_MODEL}\n")
     start = time.monotonic()
-    await llm.warmup()
+    await llm.warmup(prompts.SYSTEM)
     warmup = time.monotonic() - start
     print(f"Warmup: {warmup:.2f}s (excluded from response latency)")
     cases = [(args.question, [""])] if args.question else CASES

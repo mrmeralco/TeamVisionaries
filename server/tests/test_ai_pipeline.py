@@ -49,7 +49,7 @@ def test_repeated_hallucination_falls_back(monkeypatch):
     bad = {"answerable": True, "reply": "Aabot ng ₱9,999 ang bill mo.", "fact_ids": ["bill.forecast_php"]}
     out, _ = run([bad, dict(bad)], monkeypatch=monkeypatch)
     assert out["source"] == "fallback" and "9,999" not in out["reply"]
-    assert "Bill ngayong buwan" in out["reply"]                    # rule-based answer from the same facts
+    assert "nagastos mo sa kuryente ngayong buwan" in out["reply"]  # rule-based answer from the same facts
 
 
 def test_out_of_scope(monkeypatch):
@@ -128,4 +128,4 @@ def test_numbers_written_in_a_fact_sentence_are_allowed():
 
 def test_solar_question_falls_back_to_live_numbers_not_the_bill(monkeypatch):
     out, _ = run([llm.LLMUnavailable("down")], "Kumusta ang solar ko?", monkeypatch)
-    assert out["source"] == "fallback" and "Bill ngayong buwan" not in out["reply"]
+    assert out["source"] == "fallback" and "ngayong buwan" not in out["reply"]

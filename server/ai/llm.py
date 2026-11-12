@@ -73,15 +73,18 @@ async def ping() -> bool:
         return False
 
 
-async def warmup() -> None:
-    """Load the model into memory at startup so the first real question isn't the slow one."""
+async def warmup(system: str = "") -> None:
+    """Load the model into memory at startup so the first real question isn't the slow one.
+    Passing the system prompt also fills Ollama's prompt cache with it: every chat starts with the same
+    system prompt (examples included), so only the facts and question are processed per request."""
     if not config.LLM_ENABLED or config.LLM_PROVIDER != "ollama":
         return
     try:
         async with httpx.AsyncClient(timeout=120) as client:
-            await client.post(f"{config.OLLAMA_URL}/api/generate",
-                              json={"model": config.LLM_MODEL, "prompt": "", "keep_alive": config.LLM_KEEP_ALIVE,
-                                    "options": {"num_ctx": 4096}})
+            await client.post(f"{config.OLLAMA_URL}/api/chat", json={
+                "model": config.LLM_MODEL, "stream": False, "think": False, "keep_alive": config.LLM_KEEP_ALIVE,
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": "FACTS:"}],
+                "options": {"temperature": 0, "seed": 7, "num_predict": 1, "num_ctx": 4096}})
         log.info("LLM %s loaded", config.LLM_MODEL)
     except httpx.HTTPError as e:
         log.warning("LLM warmup failed: %s", e)

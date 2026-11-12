@@ -72,8 +72,13 @@ def bill_problems(reply: str, fact_ids: list[str], given: list[Fact], question: 
     if comparison:
         lower = "mas mababa" in comparison.text
         opposite = r"mas mataas|higher|greater" if lower else r"mas mababa|lower|less than"
-        if re.search(opposite, reply.lower()):
+        # "Hindi mas mataas" / "not higher" agrees with a lower forecast; only an un-negated claim contradicts.
+        if re.search(rf"(?<!hindi )(?<!not )(?:{opposite})", reply.lower()):
             problems.append(f"comparison direction contradicts FACTS: {comparison.text}")
+        # "Mas mataas ba...?" + lower forecast -> the answer is "Hindi", never "Oo, mas mababa".
+        asked = r"mas mataas|higher" if lower else r"mas mababa|lower"
+        if re.search(asked, question.lower()) and re.match(r"\s*(?:oo|yes)\b", reply.lower()):
+            problems.append(f"answers yes but FACTS say no: {comparison.text}")
     return problems
 
 

@@ -19,7 +19,7 @@ from datetime import timedelta
 
 from app import config, db, energy
 
-from . import answers, guard, llm, prompts, router
+from . import answers, guard, llm, prompts, router, style
 from .facts import Fact, FactSet, gather
 
 log = logging.getLogger("solaris.ai")
@@ -60,10 +60,15 @@ def _log(entry: dict) -> None:
         log.warning("could not write AI log: %s", e)
 
 
-async def ask(question: str, given: list[Fact], fallback_text: str) -> dict:
-    """Runs steps 3-5 for any task. Returns {reply, fact_ids, source, answerable, ...}."""
+async def ask(question: str, given: list[Fact], fallback_text: str, task: bool = False) -> dict:
+    """Runs steps 3-5 for any task. Returns {reply, fact_ids, source, answerable, ...}.
+
+    task=True: `question` is the app's own instruction (e.g. the daily recap), not user text. It is sent
+    outside <tanong> so rule 8 doesn't make the model ignore it, and a refusal counts as a failure
+    (retry, then fallback) instead of becoming the OUT_OF_SCOPE reply."""
     t0 = time.monotonic()
-    messages = [{"role": "user", "content": prompts.CHAT_USER.format(facts=prompts.render_facts(given), message=question)}]
+    template = prompts.TASK_USER if task else prompts.CHAT_USER
+    messages = [{"role": "user", "content": template.format(facts=prompts.render_facts(given), message=question)}]
     attempts = []
     for attempt in range(2):
         if attempt and time.monotonic() - t0 > config.CHAT_BUDGET_S - config.LLM_TIMEOUT_S:
@@ -73,9 +78,15 @@ async def ask(question: str, given: list[Fact], fallback_text: str) -> dict:
         except llm.LLMUnavailable as e:
             attempts.append({"error": str(e)})
             break
-        reply = str(out.get("reply", "")).strip()
+        reply = style.polish(str(out.get("reply", "")), style.user_name(given))
         ids = [clean_id(i) for i in out.get("fact_ids") or []]
         answerable = bool(out.get("answerable", True))
+        if not answerable and task:
+            attempts.append({"raw": out, "guard": "task refused"})
+            log.warning("model refused task: %s", reply[:160])
+            messages += [{"role": "assistant", "content": json.dumps(out, ensure_ascii=False)},
+                         {"role": "user", "content": prompts.TASK_RETRY_NOTE}]
+            continue
         if not answerable:
             attempts.append({"raw": out, "guard": "out_of_scope"})
             return {"reply": prompts.OUT_OF_SCOPE, "fact_ids": [], "source": "llm", "answerable": False,
@@ -114,14 +125,14 @@ FALLBACK_ORDER = ("fault", "brownout", "bill", "savings", "yesterday", "outlook"
 def fallback_reply(asked: set[str], active: set[str], fs: FactSet) -> str:
     """Urgent items first (one line each), then the facts for what was actually asked."""
     by = fs.by_id()
-    lines = [by[f"{t}.active"].text.split(". ")[0] for t in ("fault", "brownout") if t in active and t not in asked]
+    lines = [by[f"{t}.active"].spoken.split(". ")[0] for t in ("fault", "brownout") if t in active and t not in asked]
     for topic in FALLBACK_ORDER:
         if topic in asked:
-            lines += [by[i].text for i in FALLBACK_IDS[topic] if i in by]
+            lines += [by[i].spoken for i in FALLBACK_IDS[topic] if i in by]
             break
     if not lines:
-        lines = [by["now.status"].text]
-    return ". ".join(line.rstrip(".") for line in lines) + "."
+        lines = [by["now.status"].spoken]
+    return answers.join_spoken(lines)
 
 
 async def chat(device_id: str, settings: dict, message: str) -> dict:
@@ -138,12 +149,12 @@ async def chat(device_id: str, settings: dict, message: str) -> dict:
         targets = {"current": ["bill.month_to_date_php"], "forecast": ["bill.forecast_php"],
                    "last_month": ["bill.last_month_php"], "comparison": ["bill.last_month_php", "bill.forecast_php", "bill.vs_last_month_pct"],
                    "both": ["bill.month_to_date_php", "bill.forecast_php"]}[intent]
-        urgent = [fs.by_id()[f"{t}.active"].text for t in ("fault", "brownout") if t in active]
-        fallback = " ".join(urgent + [fs.by_id()[target].text for target in targets if target in fs.by_id()])
+        urgent = [fs.by_id()[f"{t}.active"].spoken for t in ("fault", "brownout") if t in active]
+        fallback = answers.join_spoken(urgent + [fs.by_id()[target].spoken for target in targets if target in fs.by_id()])
     if "now" in asked and any(w in message.lower() for w in ("solar", "battery", "baterya", "grid", "ngayon", "now")):
         offline = fs.by_id().get("now.online")
         if offline and offline.text.startswith("OFFLINE"):
-            fallback += " " + offline.text
+            fallback += " " + offline.spoken
     r = answers.direct_answer(message, given)
     if r is None:
         r = await ask(message, given, fallback)
@@ -162,15 +173,17 @@ async def daily_summary(device_id: str, settings: dict, force: bool = False, upg
     d = energy.today() - timedelta(days=1)
     key = f"summary:{device_id}:{d.isoformat()}"
     cached = db.get_kv(key)
+    if cached and cached["summary"] == prompts.OUT_OF_SCOPE:
+        cached = None  # cached by an older version that let the model refuse the recap; regenerate it
     if cached and not force and (cached["source"] == "llm" or not upgrade or not config.LLM_ENABLED):
         return cached
 
     fs = gather(device_id, settings)
     given = fs.select({"yesterday"}) + [f for f in fs.facts if f.id == "user.name"]
     by = fs.by_id()
-    fallback = (f"{by['yesterday.self_sufficiency_pct'].text}. {by['yesterday.cost_php'].text}. "
-                f"{by['yesterday.saved_php'].text}. Tip: gamitin ang washing machine at plantsa habang maaraw.")
-    r = await ask(prompts.SUMMARY_TASK, given, fallback)
+    fallback = prompts.summary_fallback(by["yesterday.self_sufficiency_pct"].values[0],
+                                        by["yesterday.cost_php"].chip[1], by["yesterday.saved_php"].chip[1])
+    r = await ask(prompts.SUMMARY_TASK, given, fallback, task=True)
     _log({"ts": int(time.time()), "task": "summary", "date": d.isoformat(), "facts": [f.id for f in given],
           **{k: r[k] for k in ("reply", "source", "fact_ids", "attempts", "latency_s")}})
 

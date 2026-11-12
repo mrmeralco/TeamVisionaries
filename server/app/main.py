@@ -11,7 +11,7 @@ from typing import Literal
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from ai import llm
+from ai import llm, prompts
 from ai import service as ai
 
 from . import config, db, energy, hub, ingest, mock, outlook, weather
@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
         db.conn()
         ingest.start()
         tasks.append(asyncio.create_task(_background()))
-        tasks.append(asyncio.create_task(llm.warmup()))
+        tasks.append(asyncio.create_task(llm.warmup(prompts.SYSTEM)))
     yield
     for t in tasks:
         t.cancel()
