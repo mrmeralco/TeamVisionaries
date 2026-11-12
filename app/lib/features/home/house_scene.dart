@@ -7,7 +7,7 @@
 // another part to fly to it.
 //
 // A smart-meter-only home (no solar): the same house without panels or battery
-// (house-hero-meter.svg), with two labels from the meter: HOME (what the house uses now) and METER (the
+// (house-hero-meter.svg), with two labels from the meter: HOME (what the house uses now) and GRID (the Meralco supply's
 // voltage, or Off in a brownout).
 //
 // Responsive: the drawing is laid out in its own units and scaled to the screen width (320 px phones
@@ -192,11 +192,11 @@ SpotInfo spotInfo(Spot s, Map<String, dynamic> t, {bool offline = false}) {
 }
 
 /// A meter-only home's labels, from the latest meter reading (Contract B): HOME is everything the house
-/// draws from the grid now, METER the voltage. [voltageStatus] (normal | low | high, from /api/meter)
+/// draws from the grid now, GRID the supply's voltage. [voltageStatus] (normal | low | high, from /api/meter)
 /// says whether the voltage is in range; until it loads the label just shows the volts.
 SpotInfo meterSpotInfo(Spot s, Map<String, dynamic>? m, {String? voltageStatus}) {
   final color = C.orangeText;
-  final title = s == Spot.grid ? 'Meter' : 'Home';
+  final title = s == Spot.grid ? 'Grid' : 'Home';
   if (m == null || m.isEmpty) {
     return SpotInfo(
       title: title,
@@ -231,8 +231,8 @@ SpotInfo meterSpotInfo(Spot s, Map<String, dynamic>? m, {String? voltageStatus})
   final (state, detail, alert) = switch (voltageStatus) {
     'low' => ('Low voltage', 'Mababa ang boltahe. Nakakasira ito sa motor ng aircon at ref; kung madalas, i-report sa Meralco.', true),
     'high' => ('High voltage', 'Mataas ang boltahe. Nakakasira ito sa mga appliance; kung madalas, i-report sa Meralco.', true),
-    'normal' => ('Normal', 'Ang boltahe mula sa Meralco ngayon, sukat ng meter mo. Pasok ito sa normal.', false),
-    _ => (null, 'Ang boltahe mula sa Meralco ngayon, sukat ng meter mo.', false),
+    'normal' => ('Normal', 'Ang boltahe ng kuryente mula sa Meralco (grid) ngayon, sukat ng meter mo. Pasok ito sa normal.', false),
+    _ => (null, 'Ang boltahe ng kuryente mula sa Meralco (grid) ngayon, sukat ng meter mo.', false),
   };
   return SpotInfo(
     title: title,
@@ -266,7 +266,7 @@ class HouseScene extends StatefulWidget {
   /// The latest meter reading (live `meter`), for [meterOnly].
   final Map<String, dynamic>? meter;
 
-  /// normal | low | high (GET /api/meter quality), for the METER label.
+  /// normal | low | high (GET /api/meter quality), for the GRID label.
   final String? voltageStatus;
 
   /// Show the night house (light labels on the navy sky).
