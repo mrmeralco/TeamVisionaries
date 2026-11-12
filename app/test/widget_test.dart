@@ -15,6 +15,7 @@ import 'package:solaris/features/ask/answer_sources.dart';
 import 'package:solaris/features/common/charts.dart';
 import 'package:solaris/features/ask/ask_screen.dart' show isBadNews;
 import 'package:solaris/features/common/ui.dart';
+import 'package:solaris/features/home/house_scene.dart';
 import 'package:solaris/main.dart';
 import 'package:solaris/providers/data_providers.dart';
 import 'package:solaris/providers/notification_providers.dart';
@@ -183,15 +184,60 @@ void main() {
       expect(find.text('Mock'), findsWidgets); // /ws/live link up through MockApiService
       expect(find.text(live['status_line'] as String), findsOneWidget);
       expect(find.textContaining('Juan'), findsOneWidget); // settings.user_name
-      expect(find.text('3.2'), findsOneWidget); // pv_w 3200 -> kW
-      expect(find.text('1.8'), findsOneWidget); // load_w
-      expect(find.text('78'), findsOneWidget); // batt_soc
+      expect(find.text('3.2 kW'), findsOneWidget); // pv_w 3200, on the house's SOLAR label
+      expect(find.text('1.8 kW'), findsOneWidget); // load_w, HOME
+      expect(find.text('78%'), findsOneWidget); // batt_soc, BATTERY
+      // The labelled house makes the hero taller: the money cards are just below the fold.
+      await t.scrollUntilVisible(find.text('₱23.82'), 200, scrollable: find.byType(Scrollable).first);
       expect(find.text('₱23.82'), findsOneWidget); // saved_today_php
       expect(find.text('₱1,995'), findsOneWidget); // bill.forecast_php
       // The recap is below the fold now that text is larger: scroll to it.
       await t.scrollUntilVisible(find.text(example('summary_daily')['summary'] as String), 200,
           scrollable: find.byType(Scrollable).first);
       expect(find.text(example('summary_daily')['summary'] as String), findsOneWidget);
+    });
+
+    test('house: each part of the drawing is a tap target; open ground is not', () {
+      for (final s in Spot.values) {
+        expect(spotAt(spotAnchor(s)), s, reason: s.name);
+      }
+      expect(spotAt(const Offset(283.5, 126)), Spot.solar); // a panel near the ridge
+      expect(spotAt(const Offset(211.5, 265.5)), Spot.battery); // its base, in front of the wall
+      expect(spotAt(const Offset(40, 240)), isNull); // the trees
+      expect(spotAt(const Offset(100, 30)), isNull); // the sky above the roof
+    });
+
+    testWidgets('house: every part is labelled with its live number; tapping one zooms in on it', (t) async {
+      await pumpApp(t);
+      final scene = t.getRect(find.byType(HouseScene));
+      final u = scene.width / kSceneW;
+      Offset at(Spot s) => Offset(scene.left, scene.bottom - kSceneH * u) + spotAnchor(s) * u;
+      // At rest: a label on each part, like the Tesla app.
+      for (final title in ['SOLAR', 'HOME', 'BATTERY', 'GRID']) {
+        expect(find.text(title), findsOneWidget, reason: title);
+      }
+      expect(find.text('3.2 kW'), findsOneWidget); // pv_w 3200
+      expect(find.text('Producing'), findsNothing); // the explanation waits for a tap
+
+      await t.tapAt(at(Spot.solar)); // the roof itself
+      await t.pumpAndSettle();
+      expect(find.text('Producing'), findsOneWidget);
+      expect(find.text('Kuryenteng gawa ng solar panels mo ngayon. Libre ito.'), findsOneWidget);
+      expect(find.text('SOLAR'), findsNWidgets(2), reason: 'the zoomed label, and the resting one faded out');
+
+      await t.tap(find.byTooltip('Zoom out'));
+      await t.pumpAndSettle();
+      expect(find.text('Producing'), findsNothing);
+      expect(find.byTooltip('Zoom out'), findsNothing);
+
+      await t.tap(find.text('GRID')); // its label works too
+      await t.pumpAndSettle();
+      expect(find.text('Not in use'), findsOneWidget); // grid_w 0
+
+      // Tapping open sky while zoomed takes the house back to the whole view.
+      await t.tapAt(scene.topLeft + const Offset(80, 8));
+      await t.pumpAndSettle();
+      expect(find.text('Not in use'), findsNothing);
     });
 
     testWidgets('brownout: the advisor card leads Home and opens the Brownout Advisor', (t) async {
@@ -265,8 +311,9 @@ void main() {
   testWidgets('Home (Figma rev 2): rate caption, bill card opens Bill, recap opens Ask with a question', (t) async {
     final api = StateMock();
     await pumpApp(t, api: api);
+    await t.scrollUntilVisible(find.text('At ₱13.00/kWh'), 200, scrollable: find.byType(Scrollable).first);
     expect(find.text('At ₱13.00/kWh'), findsOneWidget); // live.rate_php_per_kwh
-    await t.drag(find.byType(Scrollable).first, const Offset(0, -200)); // bring the money cards above the nav bar
+    await t.drag(find.byType(Scrollable).first, const Offset(0, -150)); // bring the money cards above the nav bar
     await t.pumpAndSettle();
     await t.tap(find.text('See bill details'));
     await t.pumpAndSettle();
@@ -309,7 +356,7 @@ void main() {
     final live = example('live');
     (live['telemetry'] as Map)['grid_w'] = -2930;
     await pumpApp(t, api: StateMock(live: live));
-    expect(find.text('2.9'), findsOneWidget);
+    expect(find.text('2.9 kW'), findsOneWidget); // the GRID label on the house
     expect(find.text('Exporting'), findsOneWidget);
   });
 
