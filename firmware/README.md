@@ -83,6 +83,24 @@ What each knob target sets: **SUN** = 0–5000 W solar · **LOAD** = 150–4000 
 While you hold the button, the LCD shows what releasing it will do. You don't
 need the web page for anything. Everything can be done and read from the panel.
 
+**AUTO mode (on at every boot).** The simulator drives SUN and LOAD by itself, so
+readings move without anyone touching the knob:
+
+- **Sun** follows the time of day in Manila: dark before 6:00 and after 18:00, peak
+  (`AUTO_SUN_PEAK`, 88 %) at noon. Every 40–180 s a cloud passes for 15–90 s and dims it to 30–75 %.
+  The time comes from the internet once the simulator is on the hotspot. Until then it pretends it booted at 10:00.
+- **Load** follows a household day (morning and evening peaks), plus one appliance at a
+  time: kettle, rice cooker, aircon, iron, washing machine or microwave, for 1–10 min with
+  30–120 s gaps. The serial log prints `[auto] kettle on (+45% load) for 90 s`.
+- Sim speed starts at **1×** in AUTO, so battery % changes at the same rate as the kWh in the app.
+
+Row 1 of the LCD shows `A` instead of `>` while AUTO drives the value (`ASUN 62% 3100W`).
+**Turn the knob firmly** (12 %, `AUTO_KNOB_TAKEOVER_PCT`) on SUN or LOAD, or move a web
+slider, to switch to manual. The **Auto** button on the web page or `auto on` on the USB
+serial monitor switches back. Brownout and fault stay manual, so you trigger them on cue.
+If the knob is missing or noisy, set `AUTO_KNOB_TAKEOVER_PCT` to `101` so it can never stop AUTO.
+To start in manual, set `AUTO_DEFAULT` to `0` in `config.h`.
+
 **Knob pick-up:** after you switch targets, the new value stays where it was
 until you turn the knob a little. This keeps a value from jumping when you switch. The LCD
 shows `=` while it waits and `>` once the knob is in control.
@@ -105,7 +123,7 @@ pages as well.
 
 The battery charges from surplus solar and covers deficits. A 20 % reserve is kept
 while the grid is on, and it drains to 5 % during a brownout. Simulated time runs
-**60×** by default so you can see the SoC move. Change it with the knob (SPEED) or on the web page.
+**60×** in manual mode so you can see the SoC move (AUTO boots at 1×). Change it with the knob (SPEED) or on the web page.
 
 ### Smart meter mode
 
@@ -143,9 +161,9 @@ Solaris-Sim once it joins, so switching the hotspot on late needs no reboot.
 The page has a mode switch at the top (Hybrid inverter / Smart meter). It shows
 live values for the current mode, and the active register map is shown decoded and
 raw, exactly as the Solaris device reads it. Modbus link stats include the last
-request/response bytes. Controls mirror the panel: sun/load/voltage sliders, knob
+request/response bytes. Controls mirror the panel: Auto on/off, sun/load/voltage sliders, knob
 target, brownout, fault or low voltage, sim speed, and set SoC or set meter
-reading. JSON is at `/api/state`. Controls are at `POST /api/control` (`mode`,
+reading. JSON is at `/api/state`. Controls are at `POST /api/control` (`mode`, `auto`,
 `sun`, `load`, `volt`, `knob`, `brownout`, `fault`, `sag`, `speed`, `soc`, `imp`, `exp`).
 
 ## Using the Solaris device
@@ -205,8 +223,9 @@ arduino-cli compile --fqbn esp32:esp32:esp32 -u -p /dev/cu.usbserial-XXXX invert
 arduino-cli compile --fqbn esp32:esp32:esp32 -u -p /dev/cu.usbserial-YYYY solaris-device
 ```
 
-If a board boot-loops with `csum err` / `TG0WDT_SYS_RESET` in the serial log
-(common on cheap CH340 boards), its flash can't run at 80 MHz. Build with
+If a board boot-loops with `csum err` / `TG0WDT_SYS_RESET` (or endless `mmu set` /
+`load:0xd7ffffff` lines) in the serial log (common on cheap CH340 boards), its flash can't run at 80 MHz.
+Our simulator board (`/dev/cu.wchusbserial*`) needs this since the AUTO update. Build with
 `--fqbn "esp32:esp32:esp32:FlashFreq=40,FlashMode=dio"` instead. In the Arduino IDE,
 set Tools → Flash Frequency to 40MHz and Flash Mode to DIO.
 
