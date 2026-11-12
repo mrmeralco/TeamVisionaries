@@ -1,21 +1,30 @@
 {
- "start": "2026-11-12T09:16:05.486Z",
+ "start": "2026-11-12T09:49:26.770Z",
  "round": 2,
  "idle": 0,
  "errors": 0,
  "status": "pass",
  "history": [
   {
-   "at": "2026-11-12T09:18:26.896Z",
+   "at": "2026-11-12T09:51:57.940Z",
    "mode": "manual",
    "status": "fail",
-   "fails": 1,
+   "fails": 4,
    "round": 1,
    "reused": false,
    "stopHookActive": false
   },
   {
-   "at": "2026-11-12T09:21:00.243Z",
+   "at": "2026-11-12T09:52:03.113Z",
+   "mode": "manual",
+   "status": "fail",
+   "fails": 4,
+   "round": 1,
+   "reused": true,
+   "stopHookActive": false
+  },
+  {
+   "at": "2026-11-12T09:55:01.572Z",
    "mode": "manual",
    "status": "fail",
    "fails": 1,
@@ -24,12 +33,12 @@
    "stopHookActive": false
   },
   {
-   "at": "2026-11-12T09:21:18.505Z",
+   "at": "2026-11-12T09:57:36.219Z",
    "mode": "manual",
    "status": "pass",
    "fails": 0,
    "round": 2,
-   "reused": true,
+   "reused": false,
    "stopHookActive": false
   }
  ],
@@ -42,15 +51,15 @@
   "category": "solar home energy monitor and app",
   "primary": "Book a demo",
   "rounds": 3,
-  "start": "2026-11-12T09:16:05.486Z",
+  "start": "2026-11-12T09:49:26.770Z",
   "by": "gate.mjs --start"
  },
  "manual": true,
- "roundKey": "7f590b8ee4012263:b6b89579",
+ "roundKey": "bd72c63f534a8f61:80b2e27b",
  "roundFree": false,
  "idleFree": false,
  "blockKey": null,
- "fp": "7f590b8ee4012263",
+ "fp": "72f63c3a8e4c8e15",
  "page": "index.html",
  "found": {
   "fails": [
@@ -99,10 +108,10 @@
     "from": "consistency"
    },
    {
-    "check": "cut-text",
-    "where": "ul.ui-notify__list > li.ui-note:nth-of-type(3) > span.ui-note__text > span.ui-note__body \"Charged by solar before the outage\"",
-    "msg": "cut 14px at the bottom by the overflow of div.wrap > div.grid > article.card.card--row:nth-of-type(1) > div.panel: a fragment run out through its panel's edge",
-    "fix": "give the text room: no overflow clipping a line, no line past its box",
+    "check": "text-only",
+    "where": "section#questions \"Questions\"",
+    "msg": "the section is only text: no picture, icon, mock or effect in it",
+    "fix": "give the section a visual: a photograph that fits, the real icons, or a UI fragment on a ground",
     "widths": [
      1440,
      390
@@ -110,10 +119,10 @@
     "from": "consistency"
    },
    {
-    "check": "text-only",
-    "where": "section#questions \"Questions\"",
-    "msg": "the section is only text: no picture, icon, mock or effect in it",
-    "fix": "give the section a visual: a photograph that fits, the real icons, or a UI fragment on a ground",
+    "check": "cta",
+    "where": "section#forecast \"Solaris forecasts your bill, sun and bat\"",
+    "msg": "a section over 1.5 screens long with no link or button in it",
+    "fix": "add the action: a button in the hero, one on every priced item, one in the closing section",
     "widths": [
      1440,
      390
@@ -133,7 +142,7 @@
    {
     "check": "text-contrast",
     "where": "div.ui-win__main > ul.ui-win__rows > li.ui-win__row:nth-of-type(1) > span.ui-win__st \"Explained\"",
-    "msg": "15 lines of text in drawn mocks read under 4.5:1 (2 colour pairs), the worst \"Explained\" in #828180 on #fff8f0 at 3.69:1",
+    "msg": "14 lines of text in drawn mocks read under 4.5:1 (2 colour pairs), the worst \"Explained\" in #828180 on #fff8f0 at 3.69:1",
     "fix": "lift the mocks' muted text (labels, meta, initials) to 4.5:1 on their own panel, or set it larger",
     "widths": [
      1440
@@ -142,29 +151,8 @@
    },
    {
     "check": "section-gaps",
-    "where": "main#top > section.hero.hero--collage / section#app",
-    "msg": "179px between these sections, -36% against the median 280px",
-    "fix": "use one gap between sections (all within 25% of each other)",
-    "widths": [
-     1440,
-     390
-    ],
-    "from": "consistency"
-   },
-   {
-    "check": "section-gaps",
-    "where": "section#forecast / section#questions",
-    "msg": "187px between these sections, -33% against the median 280px",
-    "fix": "use one gap between sections (all within 25% of each other)",
-    "widths": [
-     1440
-    ],
-    "from": "consistency"
-   },
-   {
-    "check": "section-gaps",
     "where": "section#questions / section#setup",
-    "msg": "433px between these sections, +55% against the median 280px",
+    "msg": "299px between these sections, +60% against the median 187px",
     "fix": "use one gap between sections (all within 25% of each other)",
     "widths": [
      1440
@@ -174,7 +162,7 @@
    {
     "check": "section-gaps",
     "where": "section#setup / footer#contact",
-    "msg": "373px between these sections, +33% against the median 280px",
+    "msg": "373px between these sections, +53% against the median 243px of gaps at a change of ground",
     "fix": "use one gap between sections (all within 25% of each other)",
     "widths": [
      1440
@@ -193,7 +181,7 @@
    },
    {
     "check": "nav-labels",
-    "where": "div.wrap.nav__bar > nav.nav__links > div.nav__item:nth-of-type(3) > a.nav__link \"Setup\"",
+    "where": "div.wrap.nav__bar > nav.nav__links > div.nav__item:nth-of-type(4) > a.nav__link \"Setup\"",
     "msg": "\"Setup\" opens a section headed \"Wires into your inverter’s RS485 port\"",
     "fix": "name each nav link after the heading of the section it opens",
     "widths": [
@@ -202,20 +190,9 @@
     "from": "consistency"
    },
    {
-    "check": "fade-cut",
-    "where": "ul.ui-notify__list > li.ui-note:nth-of-type(3) > span.ui-note__text > span.ui-note__title \"Battery full 11:40\"",
-    "msg": "2 lines of div.ui.ui-notify fade out under its edge (\"Battery full 11:40\", \"11:40\"): drawn at a fraction of #292929 on #fffef7, half-erased",
-    "fix": "fit the mock's rows inside its panel (fewer rows, a taller panel), or end the fade below the last whole row: no row half-erased",
-    "widths": [
-     1440,
-     390
-    ],
-    "from": "consistency"
-   },
-   {
     "check": "copy-length",
     "where": "section#questions \"Questions\"",
-    "msg": "1 section over 90 words a screen outside the UI mocks (\"Questions\" 102); 56 words a screen across the page (392 words in 7 screens): a tech page says it in about 80 or fewer",
+    "msg": "1 section over 90 words a screen outside the UI mocks (\"Questions\" 126); 60 words a screen across the page (418 words in 7 screens): a tech page says it in about 80 or fewer",
     "fix": "cut every section to its heading, one line and the product UI: the UI says the rest; no second paragraph, no list of feature sentences",
     "widths": [
      1440
@@ -225,7 +202,7 @@
    {
     "check": "nav-current",
     "where": "header.nav.nav--centre",
-    "msg": "the nav stays on screen with 4 links to the page's sections, but never marks the one you are in (no link changes as the page scrolls)",
+    "msg": "the nav stays on screen with 5 links to the page's sections, but never marks the one you are in (no link changes as the page scrolls)",
     "fix": "mark the link of the section on screen (a colour, a weight or a line under it) as the visitor scrolls",
     "widths": [
      1440
@@ -286,10 +263,10 @@
     "from": "consistency"
    },
    {
-    "check": "section-air",
-    "where": "section#questions \"Questions What people ask us at demos. E\"",
-    "msg": "the content fills 51.8% of the section's height (467 of 900px): 55% or more (40% WARN) (SR-3)",
-    "fix": "fill the section to 55%: more content, a picture or a background layer, or merge it into the section above as its last block",
+    "check": "section-height",
+    "where": "footer#contact \"See Solaris run on a real inverterLive r\"",
+    "msg": "the section is 904px tall (1 screens), 4px over one screen (900px): every section after the hero is one screen or two, 2px either way (SR-2)",
+    "fix": "set the section to one screen or two (height: calc(var(--h,1) * 100vh), --h 1 or 2) and cut or split its content to fit",
     "widths": [
      1440
     ],
@@ -298,7 +275,7 @@
    {
     "check": "cut-text",
     "where": "div.ui-chat__body > div.ui-msg.ui-msg--bot:nth-of-type(8) > span.ui-msg__col > span.ui-chat__answer \"Sa 900 W na gamit ngayon, aabot pa ng mg\"",
-    "msg": "cut 9px at the bottom by the overflow of section#app > div.wrap > div.ui.app > div.app__pane.app__pane--open: a fragment run out through its panel's edge (and 1 more like it: \"7 oras\")",
+    "msg": "cut 9px at the bottom by the overflow of section#app > div.wrap > div.ui.app > div.app__pane.app__pane--open: a fragment run out through its panel's edge (and 1 more like it: \"7.1 oras\")",
     "fix": "give the text room: no overflow clipping a line, no line past its box",
     "widths": [
      390
@@ -316,10 +293,20 @@
     "from": "consistency"
    },
    {
-    "check": "fade-cut",
-    "where": "ul.ui-toggles__list > li.ui-tg:nth-of-type(2) > span.ui-tg__text > span.ui-tg__sub \"At 20%, the reserve\"",
-    "msg": "a line of div.ui.ui-panel fades out under its edge (\"At 20%, the reserve\"): drawn at a fraction of #666666 on #fffef7, half-erased",
-    "fix": "fit the mock's rows inside its panel (fewer rows, a taller panel), or end the fade below the last whole row: no row half-erased",
+    "check": "section-gaps",
+    "where": "main#top > section.hero.hero--collage / section#app",
+    "msg": "117px between these sections, -27% against the median 161px",
+    "fix": "use one gap between sections (all within 25% of each other)",
+    "widths": [
+     390
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "section-gaps",
+    "where": "section#forecast / section#questions",
+    "msg": "207px between these sections, +29% against the median 161px",
+    "fix": "use one gap between sections (all within 25% of each other)",
     "widths": [
      390
     ],
@@ -328,8 +315,8 @@
   ],
   "crashed": [],
   "seconds": {
-   "consistency": 135,
-   "layout": 5
+   "consistency": 138,
+   "layout": 6
   }
  },
  "open": [],
@@ -369,6 +356,6 @@
    "reason": "the kit's lanes diagram switches to its narrow tile layout under 1280px and sets each caption under its tile, outside the tile's own box; every caption shows whole (crop 1024-11-cut-text.jpg)"
   }
  ],
- "warnCount": 23,
- "at": "2026-11-12T09:21:18.506Z"
+ "warnCount": 21,
+ "at": "2026-11-12T09:57:36.220Z"
 }
