@@ -42,8 +42,6 @@
 <link rel="stylesheet" href="assets/ui/window/fragment.css">
 <link rel="stylesheet" href="assets/ui/chat/fragment.css">
 <link rel="stylesheet" href="assets/ui/stat/fragment.css">
-<link rel="stylesheet" href="assets/ui/notify/fragment.css">
-<link rel="stylesheet" href="assets/ui/toggles/fragment.css">
 <link rel="stylesheet" href="assets/diagrams/diagram.css">
 <script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
 <script src="assets/backgrounds/backgrounds.js"></script>
@@ -128,15 +126,66 @@
 
   /* ---------- feature cards ---------- */
   #forecast .panel { --p-h: 300px; }
-  @media (min-width: 640px) and (max-width: 1023px) { #forecast .panel { --p-h: 480px; } }
-  @media (min-width: 800px) and (max-width: 1023px) { #forecast .panel { --p-h: 600px; } }
+  @media (min-width: 640px) and (max-width: 1023px) { #forecast .panel { --p-h: clamp(300px, calc(100svh - 540px), 600px); } }
+  /* a short phone (360x740): the hero and the two forecast screens drop their quieter lines */
+  @media (max-width: 639px) { #forecast h2 .muted { display: none; } }
   @media (max-width: 639px) { #forecast .panel { --p-h: 180px; } }
+  /* a short phone (360x740): the hero's buttons share a row, and the four forecast cards flow at their own
+     height in place of two fixed screens (they cannot fit two screens there) */
+  @media (max-width: 639px) and (max-height: 780px) {
+    .hero__proof { display: none; }
+    .hero .btn-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
+    .hero .btn-row > .btn { width: auto; padding-inline: var(--s-3); }
+    #forecast .panel { --p-h: 130px; }
+    main > section#forecast > .wrap { display: block; }
+    main > section#forecast > .wrap > .grid { margin-top: var(--s-6); }
+  }
+  @media (max-width: 639px) and (max-height: 700px) {
+    .hero h1 { font-size: 34px; }
+    #forecast .panel { --p-h: 110px; }
+  }
   /* the 48-hour outlook card, drawn as the app draws it */
   .sx-outlook svg { display: block; width: 100%; height: 96px; margin-top: 10px; }
   .sx-outlook .sx-axis { margin-top: 4px; }
   .sx-legend { display: flex; gap: 14px; margin-top: 8px; font-size: 13px; color: #5c5c5c; }
   .sx-legend span { display: inline-flex; align-items: center; gap: 6px; }
   .sx-legend span::before { content: ""; width: 12px; height: 3px; border-radius: 2px; background: var(--sw); }
+
+  /* ---------- the app's own Brownout Advisor and Alerts screens (app/lib/features/brownout, alerts) ----------
+     fluid: they take the width their slot gives them and re-flow by container width, never a fixed size */
+  .sx-app { width: 100%; display: grid; gap: 12px; color: #292929; font: 400 13px/1.4 var(--font-text); text-align: left; container-type: inline-size; }
+  .sx-app > .sx-bo { box-shadow: 0 18px 40px -22px rgb(120 50 0 / .7); }
+  .sx-bo { display: grid; gap: 2px; padding: 16px 18px; border-radius: 15px; color: #fff; background: linear-gradient(135deg, #c2500a, #a94306); }
+  .sx-bo__top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
+  .sx-bo__top svg { width: 20px; height: 20px; flex: none; }
+  .sx-bo b { font: 600 32px/1.05 var(--font-text); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .sx-bo span { font-size: 13px; font-weight: 500; }
+  .sx-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .sx-stats > div { display: grid; gap: 4px; padding: 10px 12px; border-radius: 12px; background: #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / .05), 0 6px 16px -10px rgb(0 0 0 / .35); min-width: 0; }
+  .sx-stats small { font-size: 13px; font-weight: 500; color: #5c5c5c; }
+  .sx-stats b { font: 500 20px/1.1 var(--font-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .sx-stats b i { margin-left: 3px; font-style: normal; font-size: 13px; font-weight: 400; color: #5c5c5c; }
+  .sx-stats em { font-style: normal; font-size: 13px; color: #5c5c5c; }
+  .sx-advice { padding: 12px 14px; border-radius: 12px; background: #fff; border: 1px solid #ff7415; }
+  .sx-advice b { display: block; margin-bottom: 6px; font-weight: 600; }
+  .sx-advice p { margin: 0; font-size: 13px; line-height: 1.45; }
+  .sx-group-label { font-size: 13px; font-weight: 600; padding-left: 2px; }
+  .sx-group { overflow: hidden; border-radius: 12px; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / .18); }
+  .sx-alert { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding: 14px 14px 10px; }
+  .sx-alert + .sx-alert { border-top: 1px solid rgb(41 41 41 / .12); }
+  .sx-alert__ic { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 6px; color: var(--c); background: color-mix(in srgb, var(--c) 16%, transparent); }
+  .sx-alert__ic svg { width: 18px; height: 18px; }
+  .sx-alert__t { display: flex; align-items: center; gap: 8px; }
+  .sx-alert__t b { flex: 1; min-width: 0; font-weight: 600; }
+  .sx-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #f47721; }
+  .sx-alert p { margin: 4px 0 0; font-size: 13px; line-height: 1.4; }
+  .sx-alert__f { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; margin-top: 6px; font-size: 13px; color: #5c5c5c; }
+  .sx-alert__f span + span { color: #a94306; font-weight: 500; }
+  /* a phone's short panel holds the advisor's headline card alone */
+  @media (max-width: 639px) { .sx-app > .sx-stats, .sx-app > .sx-advice, .sx-bo > span { display: none; } }
+  /* the fifth question only where the FAQ has the room for it */
+  @media (max-width: 1279px) { .faq__item--more { display: none; } }
+  @container (max-width: 300px) { .sx-bo { padding: 14px; } .sx-bo b { font-size: 26px; } .sx-stats { gap: 8px; } .sx-stats b { font-size: 18px; } }
 
   /* ---------- the setup split: the diagram fills its frame ---------- */
   #setup .frame { --ratio: 80%; }
@@ -167,6 +216,7 @@
     <a class="skip-link" href="#top">Skip to content</a>
     <a class="nav__logo" href="#top"><span class="mark" data-mark="ring" aria-hidden="true"></span>Solaris</a>
     <nav class="nav__links" aria-label="Main">
+      <div class="nav__item"><a class="nav__link" href="#top">Home</a></div>
       <div class="nav__item"><a class="nav__link" href="#app">Alerts</a></div>
       <div class="nav__item"><a class="nav__link" href="#forecast">Forecasts</a></div>
       <div class="nav__item"><a class="nav__link" href="#setup">Setup</a></div>
@@ -186,7 +236,7 @@
     <div class="wrap"><div class="hero-text grid hero__grid">
       <div class="hero__text span-5">
         <h1 id="hero-h">Solar monitor and app for Filipino homes</h1>
-        <p class="hero__lead">Solaris reads your hybrid inverter every 5 seconds, shows where each kilowatt goes and forecasts this month&rsquo;s Meralco bill. It keeps running when the internet is down.</p>
+        <p class="hero__lead">Solaris reads your hybrid inverter every 5 seconds, shows where each kilowatt goes and forecasts this month&rsquo;s Meralco bill, even offline.</p>
         <div class="btn-row"><a class="btn btn--primary" href="mailto:hello@solaris.example?subject=Solaris%20demo">Book a demo<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a><a class="btn btn--secondary" href="#app">See the app</a></div>
         <p class="hero__proof">The server and Mira, its assistant, run on a laptop in your home.</p>
       </div>
@@ -237,7 +287,7 @@
           <a class="link" href="#forecast">See the forecasts</a>
         </div>
       </div>
-      <div class="ui app fill" role="img" aria-label="The Solaris alerts list with a brownout on top, and Mira saying the battery lasts about 7 hours at 900 watts" data-ui-pause-host>
+      <div class="ui app fill" role="img" aria-label="The Solaris alerts list with a brownout on top, and Mira saying the battery lasts about 7.1 hours at 900 watts" data-ui-pause-host>
         <div class="app__pane app__pane--list">
           <div class="ui ui-panel ui-win" data-ui="window" data-open="New" data-work="Mira is reading" data-done="Explained">
             <div class="ui-win__bar">
@@ -259,16 +309,15 @@
               <div class="ui-win__main">
                 <div class="ui-win__cols" aria-hidden="true"><span>Alert</span><span>What happened</span><span>Status</span><span>Age</span></div>
                 <ul class="ui-win__rows">
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="2">BO</span><span class="ui-win__who">Brownout</span><span class="ui-win__sub">Grid is off, battery at 78%</span><span class="ui-win__st" data-st>New</span><span class="ui-win__age">2m</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="4">IT</span><span class="ui-win__who">Inverter hot</span><span class="ui-win__sub">62 &deg;C, limit set at 60 &deg;C</span><span class="ui-win__st" data-st>New</span><span class="ui-win__age">40m</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="1">HL</span><span class="ui-win__who">High use</span><span class="ui-win__sub">2.6 kW at 19:10, on the grid</span><span class="ui-win__st" data-st>New</span><span class="ui-win__age">1h</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="3">GB</span><span class="ui-win__who">Grid back</span><span class="ui-win__sub">Power back after 2 h 14 min</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">5h</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="5">BL</span><span class="ui-win__who">Battery low</span><span class="ui-win__sub">Down to 20%, the reserve</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">6h</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="2">BO</span><span class="ui-win__who">Brownout</span><span class="ui-win__sub">Grid off at 14:02</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">7h</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="4">DO</span><span class="ui-win__who">Device offline</span><span class="ui-win__sub">No readings for 3 minutes</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">1d</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="3">BF</span><span class="ui-win__who">Battery full</span><span class="ui-win__sub">100% at 11:40</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">1d</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="1">SL</span><span class="ui-win__who">Solar low</span><span class="ui-win__sub">Cloudy, 41% under usual</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">2d</span></li>
-                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="5">FC</span><span class="ui-win__who">Fault cleared</span><span class="ui-win__sub">Inverter code back to 0</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">3d</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="2">BO</span><span class="ui-win__who" lang="fil">Brownout</span><span class="ui-win__sub" lang="fil">Battery at solar na ang gamit</span><span class="ui-win__st" data-st>New</span><span class="ui-win__age">2m</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="4">MI</span><span class="ui-win__who" lang="fil">Mainit ang inverter</span><span class="ui-win__sub" lang="fil">66 &deg;C, kailangan ng hangin</span><span class="ui-win__st" data-st>New</span><span class="ui-win__age">40m</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="5">MB</span><span class="ui-win__who" lang="fil">Mababa na ang battery</span><span class="ui-win__sub" lang="fil">18% na lang ang natitira</span><span class="ui-win__st" data-st>New</span><span class="ui-win__age">3h</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="3">BK</span><span class="ui-win__who" lang="fil">Bumalik na ang kuryente</span><span class="ui-win__sub" lang="fil">Pagkatapos ng 30 minuto</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">5h</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="1">FT</span><span class="ui-win__who" lang="fil">Fault 21</span><span class="ui-win__sub" lang="fil">Sobrang init ng inverter</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">6h</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="2">BO</span><span class="ui-win__who" lang="fil">Brownout</span><span class="ui-win__sub" lang="fil">Nawalan ng kuryente, 14:02</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">7h</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="4">OD</span><span class="ui-win__who" lang="fil">Offline ang Solaris device</span><span class="ui-win__sub" lang="fil">Walang data nang 3 minuto</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">1d</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="3">BK</span><span class="ui-win__who" lang="fil">Bumalik na ang kuryente</span><span class="ui-win__sub" lang="fil">Pagkatapos ng 1 oras</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">2d</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar sx-glyph" data-tone="5">MB</span><span class="ui-win__who" lang="fil">Mababa na ang battery</span><span class="ui-win__sub" lang="fil">20% na, ang reserve</span><span class="ui-win__st is-done" data-st>Explained</span><span class="ui-win__age">3d</span></li>
                 </ul>
               </div>
             </div>
@@ -288,15 +337,15 @@
               <div class="ui-msg ui-msg--me"><span class="ui-msg__text" lang="fil">Mira, nag-brownout ba?</span></div>
               <div class="ui-msg ui-msg--bot">
                 <span class="ui-agent ui-msg__av" aria-hidden="true"></span>
-                <span class="ui-msg__col"><span class="ui-chat__answer" lang="fil">Oo, wala pang kuryente mula sa grid simula 18:40. Battery na ang gamit ng bahay, nasa <b>78%</b> pa.</span></span>
+                <span class="ui-msg__col"><span class="ui-chat__answer" lang="fil">Oo, wala pang kuryente mula sa grid simula 18:40. Battery na ang gamit ng bahay, nasa <b>64%</b> pa.</span></span>
               </div>
               <div class="ui-msg ui-msg--me" data-chat-q><span class="ui-msg__text" lang="fil">Gaano katagal ang battery?</span></div>
               <div class="ui-msg ui-msg--bot" data-chat-a>
                 <span class="ui-agent ui-msg__av" aria-hidden="true"></span>
                 <span class="ui-msg__col">
                   <span class="ui-chat__typing" aria-hidden="true"><i></i><i></i><i></i></span>
-                  <span class="ui-chat__answer" lang="fil">Sa 900 W na gamit ngayon, aabot pa ng mga <b>7 oras</b> ang battery mo. Patayin muna ang aircon para umabot hanggang umaga.</span>
-                  <span class="ui-chat__srcs"><span class="ui-chat__src"><svg class="ui-icon" viewBox="0 0 16 16"><rect x="2.5" y="5" width="10" height="6" rx="1.5"/><path d="M13.5 7v2"/></svg>Battery 78%</span><span class="ui-chat__src"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M9 2 4 9h4l-1 5 5-7H8z"/></svg>Load 900 W</span></span>
+                  <span class="ui-chat__answer" lang="fil">Sa 900 W na gamit ngayon, aabot pa ng mga <b>7.1 oras</b> ang battery mo. Patayin muna ang aircon para umabot hanggang umaga.</span>
+                  <span class="ui-chat__srcs"><span class="ui-chat__src"><svg class="ui-icon" viewBox="0 0 16 16"><rect x="2.5" y="5" width="10" height="6" rx="1.5"/><path d="M13.5 7v2"/></svg>Battery 64%</span><span class="ui-chat__src"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M9 2 4 9h4l-1 5 5-7H8z"/></svg>Load 900 W</span></span>
                 </span>
               </div>
               <div class="ui-msg ui-msg--me"><span class="ui-msg__text" lang="fil">Sige, salamat.</span></div>
@@ -376,38 +425,41 @@
       <div class="grid">
         <article class="card card--row card--open m-nolift span-6">
           <h3>Times the home battery in a brownout</h3>
-          <p>Solaris shows how long the battery lasts at the load you have on now, and what to switch off.</p>
-          <div class="panel" role="img" aria-label="Brownout alerts: about 7 hours of battery at 900 watts">
-            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:380px;--ax:32px;--ay:calc(100% - 180px);--ay-sm:calc(100% - 180px)">
-              <div class="ui ui-notify" data-ui="notify" aria-hidden="true">
-                <ul class="ui-notify__list" data-notify-list>
-                  <li class="ui-note"><span class="ui-agent ui-note__av" aria-hidden="true"></span><span class="ui-note__text"><span class="ui-note__title">About 7 hours left<time>now</time></span><span class="ui-note__body">At 900 W; turn off the aircon</span></span><span class="ui-btn ui-btn--sm ui-note__btn">Open</span></li>
-                  <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M9 2 4 9h4l-1 5 5-7H8z"/></svg></span><span class="ui-note__text"><span class="ui-note__title">Grid is off<time>2m</time></span><span class="ui-note__body">The house is on the battery, 78%</span></span></li>
-                  <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg></span><span class="ui-note__text"><span class="ui-note__title">Battery full<time>11:40</time></span><span class="ui-note__body">Charged by solar before the outage</span></span></li>
-                </ul>
+          <p>Solaris shows how long the battery lasts at the load you have on now, and Mira says what to switch off.</p>
+          <div class="panel" role="img" aria-label="The Brownout Advisor: brownout in progress, about 7.1 hours of battery left at 900 watts, battery at 64 percent">
+            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:400px;--ax:max(24px, 50% - 200px);--ay:32px;--ay-sm:16px">
+              <div class="ui sx-app" aria-hidden="true">
+                <div class="sx-bo">
+                  <div class="sx-bo__top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v7M7 6.5a7 7 0 1 0 10 0"/><path d="m4 4 16 16"/></svg>Brownout in progress</div>
+                  <b>~7.1 hrs</b>
+                  <span lang="fil">tatagal pa ang battery sa kasalukuyang gamit</span>
+                </div>
+                <div class="sx-stats">
+                  <div><small>Battery</small><b>64<i>%</i></b></div>
+                  <div><small>Home Usage</small><b>0.90<i>kW</i></b></div>
+                  <div><small>Started</small><b>18:40</b><em>Nov 12</em></div>
+                  <div><small>Duration</small><b>30<i>min</i></b><em>ongoing</em></div>
+                </div>
+                <div class="sx-advice"><b>Mira&rsquo;s advice</b><p lang="fil">Sa 900 W na gamit, aabot pa ng mga 7.1 oras ang battery mo (64%). Ilaw, electric fan, ref at charger lang muna para tumagal.</p></div>
               </div>
             </div></div>
           </div>
         </article>
         <article class="card card--row card--open m-nolift span-6">
-          <h3>Sends the app alerts you choose</h3>
-          <p>Brownout, low battery, inverter heat, an inverter fault and a device that stops sending readings.</p>
-          <div class="panel" role="img" aria-label="Alert settings: brownout, low battery at 20 percent, inverter over 60 degrees and device offline are on">
-            <div class="stage stage--fade-b"><div class="at-right" style="--ax:32px;--ay:56px">
-              <div class="ui ui-panel ui-toggles" data-ui="toggles" aria-hidden="true">
-                <div class="ui-head">
-                  <svg class="ui-icon ui-toggles__ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a3.5 3.5 0 0 1 3.5 3.5c0 3 1.5 4.5 1.5 4.5H3s1.5-1.5 1.5-4.5A3.5 3.5 0 0 1 8 2.5z"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0"/></svg>
-                  <div class="ui-title">Alerts on this phone</div>
-                  <span class="ui-spacer"></span>
-                  <div class="ui-meta" data-tg-count>4 of 5 on</div>
+          <h3>Sends app alerts the moment they happen</h3>
+          <p>Brownout, low battery, inverter heat, faults and a device going offline, each with what it means and what to do.</p>
+          <div class="panel" role="img" aria-label="The Solaris Alerts screen: a brownout, the grid coming back and a hot inverter, today">
+            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:420px;--ax:max(24px, 50% - 210px);--ay:32px;--ay-sm:16px">
+              <div class="ui sx-app" aria-hidden="true">
+                <div class="sx-group-label">Today &middot; 3</div>
+                <div class="sx-group">
+                  <div class="sx-alert"><span class="sx-alert__ic" style="--c:#d93b30"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v7M7 6.5a7 7 0 1 0 10 0"/><path d="m4 4 16 16"/></svg></span>
+                    <div><div class="sx-alert__t"><b>Brownout</b><i class="sx-dot"></i></div><p lang="fil">Nawalan ng kuryente mula sa grid. Battery at solar na ang gamit ng bahay mo.</p><div class="sx-alert__f"><span>18:40 &middot; just now</span><span>Brownout Advisor</span></div></div></div>
+                  <div class="sx-alert"><span class="sx-alert__ic" style="--c:#299d65"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v7M7 6.5a7 7 0 1 0 10 0"/></svg></span>
+                    <div><div class="sx-alert__t"><b lang="fil">Bumalik na ang kuryente</b></div><p lang="fil">Bumalik na ang grid pagkatapos ng 30 minuto. Magcha-charge ulit ang battery.</p><div class="sx-alert__f"><span>14:32</span><span>See explanation</span></div></div></div>
+                  <div class="sx-alert"><span class="sx-alert__ic" style="--c:#8f6410"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z"/><path d="M12 9v6"/></svg></span>
+                    <div><div class="sx-alert__t"><b lang="fil">Mainit ang inverter</b></div><p lang="fil">66&deg;C ang inverter. Siguraduhing may hangin sa paligid nito.</p><div class="sx-alert__f"><span>13:05</span><span>See explanation</span></div></div></div>
                 </div>
-                <ul class="ui-toggles__list">
-                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Brownout</span><span class="ui-tg__sub">With the battery time left</span></span><button class="ui-switch is-on" type="button" role="switch" aria-checked="true" aria-label="Brownout alerts" tabindex="-1"><i></i></button></li>
-                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Low battery</span><span class="ui-tg__sub">At 20%, the reserve</span></span><button class="ui-switch is-on" type="button" role="switch" aria-checked="true" aria-label="Low battery alerts" tabindex="-1"><i></i></button></li>
-                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Inverter temperature</span><span class="ui-tg__sub">Over 60 &deg;C</span></span><button class="ui-switch is-on" type="button" role="switch" aria-checked="true" aria-label="Inverter temperature alerts" tabindex="-1"><i></i></button></li>
-                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Daily recap from Mira</span><span class="ui-tg__sub">Every evening at 20:00</span></span><button class="ui-switch" type="button" role="switch" aria-checked="false" aria-label="Daily recap" tabindex="-1"><i></i></button></li>
-                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Device offline</span><span class="ui-tg__sub">No readings for 2 minutes</span></span><button class="ui-switch is-on" type="button" role="switch" aria-checked="true" aria-label="Device offline alerts" tabindex="-1"><i></i></button></li>
-                </ul>
               </div>
             </div></div>
           </div>
@@ -428,6 +480,7 @@
           <div class="faq__item"><h3>Which inverters does Solaris work with?</h3><p>Hybrid inverters with an RS485 Modbus port. A new brand needs its register map added first.</p></div>
           <div class="faq__item"><h3>Does Solaris need the internet?</h3><p>No. Everything runs on your home network. Offline, the solar forecast uses your last 14 days in place of the weather.</p></div>
           <div class="faq__item"><h3>Does Mira make up numbers?</h3><p>No. She answers from your own readings, and tests check she adds no new figures.</p></div>
+          <div class="faq__item faq__item--more"><h3>How does Solaris forecast the bill?</h3><p>From your daily grid use so far, at your Meralco rate: &#8369;15.06 per kWh unless you set another.</p></div>
           <div class="faq__item"><h3>Can I buy a Solaris today?</h3><p>Not yet. It is a working prototype by Team Visionaries of PLV, built for the IDOL Hackathon 2026.</p></div>
         </div>
       </div>
@@ -456,7 +509,7 @@
 
 </main>
 
-<footer class="footer closing" id="contact" aria-labelledby="close-h">
+<footer class="footer closing footer--dark ground-inverse" id="contact" aria-labelledby="close-h">
   <div class="wrap">
     <div class="closing__cta close--word">
       <div class="section-head--split">
@@ -471,11 +524,12 @@
           <a class="nav__logo" href="#top"><span class="mark" data-mark="ring" aria-hidden="true"></span>Solaris</a>
           <p class="footer__lede">Solar monitoring for Filipino homes.</p>
         </div>
-        <div class="span-2 start-9 footer__col"><h3>Product</h3><ul><li><a href="#app">Alerts</a></li><li><a href="#forecast">Forecasts</a></li><li><a href="#setup">Setup</a></li></ul></div>
+        <div class="span-2 start-7 footer__col"><h3>Product</h3><ul><li><a href="#top">Home</a></li><li><a href="#app">Alerts</a></li><li><a href="#forecast">Forecasts</a></li><li><a href="#setup">Setup</a></li></ul></div>
         <div class="span-2 footer__col"><h3>Help</h3><ul><li><a href="#questions">Questions</a></li><li><a href="mailto:hello@solaris.example?subject=Solaris%20question">Email the team</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Team</h3><ul><li>Team Visionaries</li><li>PLV, Valenzuela</li><li>IDOL Hackathon 2026</li></ul></div>
       </div>
       <div class="footer__legal">
-        <span>&copy; 2026 Team Visionaries</span>
+        <span>&copy; 2026 Team Visionaries &middot; Readings stay on your home network.</span>
         <div class="socials"></div>
       </div>
     </div>
