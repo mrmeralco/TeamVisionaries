@@ -110,8 +110,8 @@ class _Impact extends StatelessWidget {
             Container(
               width: 36,
               height: 36,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: R.control),
-              child: const Icon(Icons.eco_rounded, size: 20, color: C.green),
+              decoration: BoxDecoration(color: C.card, borderRadius: R.control),
+              child: Icon(Icons.eco_rounded, size: 20, color: C.green),
             ),
             const SizedBox(width: S.x3),
             Expanded(
@@ -165,7 +165,7 @@ class _Tip extends StatelessWidget {
           Container(
             width: 30,
             height: 30,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: R.control),
+            decoration: BoxDecoration(color: C.card, borderRadius: R.control),
             child: Icon(icon, size: 17, color: C.orangeText),
           ),
           const SizedBox(width: S.x3),
@@ -184,7 +184,7 @@ class _Tip extends StatelessWidget {
                     for (final e in evidence)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: S.x2, vertical: S.x1),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(R.pill)),
+                        decoration: BoxDecoration(color: C.card, borderRadius: BorderRadius.circular(R.pill)),
                         child: Text.rich(TextSpan(children: [
                           TextSpan(text: '${str(e['label'])}  ', style: ts(10.5, w: FontWeight.w600, color: C.label)),
                           TextSpan(text: str(e['value']), style: ts(10.5, w: FontWeight.w800, color: C.ink)),

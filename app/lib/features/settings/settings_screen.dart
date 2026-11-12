@@ -1,11 +1,12 @@
 // Settings: server address (the laptop's IP on the hotspot), mock toggle, "Test connection"
-// (GET /api/health), and the server-side settings (rate, battery size, name, household setup) via PUT /api/settings.
+// (GET /api/health), appearance (auto / light / dark), and the server-side settings (rate, battery size, name, household setup) via PUT /api/settings.
 // Household setup: solar (inverter) | meter_only (smart meter, no solar) | solar_and_meter. It decides where
 // every number comes from, so saving a new one refreshes every tab.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../providers/appearance_providers.dart';
 import '../../providers/data_providers.dart';
 import '../../providers/notification_providers.dart';
 import '../../providers/server_providers.dart';
@@ -162,6 +163,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (household.value != null) _fill(household.value!);
 
     final notify = ref.watch(notifyAlertsProvider);
+    final appearance = ref.watch(appearanceProvider);
     final notifier = ref.watch(systemNotifierProvider);
 
     // Figma "screen 06 - settings" language: back + link dot row, 26 px title, subtitle, outlined white cards.
@@ -264,6 +266,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ),
                   ),
+                ),
+                const SizedBox(height: S.x6),
+                const SectionTitle('Appearance'),
+                const SizedBox(height: S.x3),
+                SCard(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Wrap(spacing: 8, runSpacing: 8, children: [
+                      for (final (a, label) in const [
+                        (Appearance.auto, 'Auto'),
+                        (Appearance.light, 'Light'),
+                        (Appearance.dark, 'Dark'),
+                      ])
+                        ChoiceChip(
+                          key: Key('appearance-${a.name}'),
+                          label: Text(label),
+                          selected: appearance == a,
+                          onSelected: (_) => ref.read(appearanceProvider.notifier).set(a),
+                        ),
+                    ]),
+                    const SizedBox(height: 6),
+                    Text(
+                      switch (appearance) {
+                        Appearance.auto => 'Madilim mula 6PM hanggang 6AM, kasabay ng bahay sa gabi.',
+                        Appearance.light => 'Laging maliwanag.',
+                        Appearance.dark => 'Laging madilim.',
+                      },
+                      style: ts(11, color: C.muted),
+                    ),
+                  ]),
                 ),
                 const SizedBox(height: S.x6),
                 const SectionTitle('Household'),

@@ -14,7 +14,7 @@ import '../../core/utils/format.dart';
 import '../../providers/data_providers.dart';
 import '../common/ui.dart';
 
-const _states = {
+Map<String, (String, IconData, Color)> get _states => {
   'active': ('Someone is home', Icons.person_rounded, C.green),
   'asleep': ('Probably asleep', Icons.bedtime_rounded, C.seriesGrid),
   'away': ('Probably no one home', Icons.directions_walk_rounded, C.orangeText),
@@ -141,7 +141,7 @@ class _Now extends StatelessWidget {
           Container(
             width: 36,
             height: 36,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: R.control),
+            decoration: BoxDecoration(color: C.card, borderRadius: R.control),
             child: Icon(icon, size: 20, color: color),
           ),
           const SizedBox(width: S.x3),
@@ -164,7 +164,7 @@ class _Now extends StatelessWidget {
                   const SizedBox(height: S.x2),
                   Row(
                     children: [
-                      const Icon(Icons.warning_amber_rounded, size: 15, color: C.amber),
+                      Icon(Icons.warning_amber_rounded, size: 15, color: C.amber),
                       const SizedBox(width: S.x1),
                       Flexible(
                         child: Text(
@@ -205,8 +205,8 @@ class _NewLoad extends StatelessWidget {
           Container(
             width: 30,
             height: 30,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: R.control),
-            child: const Icon(Icons.electrical_services_rounded, size: 17, color: C.orangeText),
+            decoration: BoxDecoration(color: C.card, borderRadius: R.control),
+            child: Icon(Icons.electrical_services_rounded, size: 17, color: C.orangeText),
           ),
           const SizedBox(width: S.x3),
           Expanded(

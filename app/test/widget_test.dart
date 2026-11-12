@@ -167,7 +167,11 @@ class FakeNotifier implements SystemNotifier {
 }
 
 Future<ProviderContainer> pumpApp(WidgetTester t,
-    {StateMock? api, Size size = const Size(393, 852), FakeNotifier? notifier}) async {
+    {StateMock? api,
+    Size size = const Size(393, 852),
+    FakeNotifier? notifier,
+    bool onboarded = true,
+    Map<String, Object>? prefs}) async {
   t.view.physicalSize = size * 3;
   t.view.devicePixelRatio = 3;
   addTearDown(t.view.reset);
@@ -175,11 +179,17 @@ Future<ProviderContainer> pumpApp(WidgetTester t,
   // has its own test ('Mira idles…').
   t.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
   addTearDown(t.platformDispatcher.clearAccessibilityFeaturesTestValue);
-  SharedPreferences.setMockInitialValues({'use_mock': true});
-  final prefs = await SharedPreferences.getInstance();
+  // Daytime unless the test set the clock: the app goes dark at night, so tests mustn't follow the real clock.
+  if (identical(homeClock, manilaNow)) {
+    homeClock = () => DateTime(2026, 11, 12, 10);
+    addTearDown(() => homeClock = manilaNow);
+  }
+  await t.pumpWidget(const SizedBox.shrink()); // a fresh app each time, not the previous one updated
+  SharedPreferences.setMockInitialValues({'use_mock': true, if (onboarded) 'onboarded': true, ...?prefs});
+  final saved = await SharedPreferences.getInstance();
   await t.pumpWidget(ProviderScope(
     overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
+      sharedPreferencesProvider.overrideWithValue(saved),
       apiServiceProvider.overrideWithValue(api ?? StateMock()),
       systemNotifierProvider.overrideWithValue(notifier ?? FakeNotifier(supported: false)),
     ],

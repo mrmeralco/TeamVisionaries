@@ -27,10 +27,13 @@ void main() {
     testWidgets('Home: meter tiles and insights; no solar, battery, tips or brownout runtime', (t) async {
       await pumpApp(t, api: await _home('meter_only'), size: _tall);
       final m = example('live_meter_only')['meter'] as Map;
-      expect(find.text('Home usage'), findsOneWidget);
-      expect(find.text(kwNum(m['power_w'])), findsOneWidget);
-      expect(find.text('Voltage'), findsOneWidget);
-      expect(find.text('${(m['voltage_v'] as num).round()}'), findsOneWidget);
+      // The house without panels or battery, labelled from the meter.
+      expect(find.text('HOME'), findsOneWidget);
+      expect(find.text('${((m['power_w'] as num) / 1000).toStringAsFixed(1)} kW'), findsOneWidget);
+      expect(find.text('METER'), findsOneWidget);
+      expect(find.text('${(m['voltage_v'] as num).round()} V'), findsOneWidget);
+      // Under it, what the labels don't say.
+      expect(find.text('Current'), findsOneWidget);
       expect(find.text('Power factor'), findsOneWidget);
       for (final gone in ['SOLAR', 'BATTERY', 'Saved today', 'Brownout advisor', 'Solar tips']) {
         expect(find.text(gone), findsNothing, reason: gone);
@@ -55,7 +58,7 @@ void main() {
       expect(find.text('May brownout ngayon'), findsOneWidget);
       expect(find.text(example('brownout_meter_only')['advice'] as String), findsOneWidget);
       expect(find.text('hrs'), findsNothing);
-      expect(find.text('Off'), findsOneWidget); // the usage tile
+      expect(find.text('Off'), findsNWidgets(2)); // the HOME and METER labels on the house
     });
 
     testWidgets('Energy: use, busiest time and the typical day; no solar or self-sufficiency', (t) async {

@@ -164,7 +164,11 @@ class _PeriodSwitch extends StatelessWidget {
                     child: Container(
                       constraints: const BoxConstraints(minHeight: kMinTap),
                       alignment: Alignment.center,
-                      child: Text(label, style: ts(13, w: key == value ? FontWeight.w800 : FontWeight.w600)),
+                      // On the orange track: dark text (day and night); on the selected pill: the page's text colour.
+                      child: Text(label,
+                          style: ts(13,
+                              w: key == value ? FontWeight.w800 : FontWeight.w600,
+                              color: key == value ? C.ink : C.inkFixed)),
                     ),
                   ),
                 ),

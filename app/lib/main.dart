@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/router.dart';
 import 'core/theme/app_theme.dart';
+import 'providers/appearance_providers.dart';
 import 'providers/server_providers.dart';
 
 Future<void> main() async {
@@ -16,15 +17,21 @@ Future<void> main() async {
   ));
 }
 
-class SolarisApp extends StatefulWidget {
+class SolarisApp extends ConsumerStatefulWidget {
   const SolarisApp({super.key});
 
   @override
-  State<SolarisApp> createState() => _SolarisAppState();
+  ConsumerState<SolarisApp> createState() => _SolarisAppState();
 }
 
-class _SolarisAppState extends State<SolarisApp> {
+class _SolarisAppState extends ConsumerState<SolarisApp> {
   late final GoRouter _router = buildRouter();
+
+  @override
+  void initState() {
+    super.initState();
+    C.night = ref.read(nightProvider);
+  }
 
   @override
   void dispose() {
@@ -32,14 +39,33 @@ class _SolarisAppState extends State<SolarisApp> {
     super.dispose();
   }
 
+  /// Night flipped: the colour tokens changed, but const widgets don't rebuild on their own, so every
+  /// element is marked dirty once (state, scroll positions and routes are kept).
+  void _repaintAll() {
+    void dirty(Element e) {
+      e.markNeedsBuild();
+      e.visitChildren(dirty);
+    }
+
+    (context as Element).visitChildren(dirty);
+  }
+
   @override
-  Widget build(BuildContext context) => MaterialApp.router(
-        title: 'Solaris',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light(), // Figma design is light-only
-        routerConfig: _router,
-        builder: (context, child) => _MaxWidth(child: child ?? const SizedBox.shrink()),
-      );
+  Widget build(BuildContext context) {
+    ref.listen(nightProvider, (_, night) {
+      if (night == C.night) return;
+      setState(() => C.night = night);
+      _repaintAll();
+    });
+    return MaterialApp.router(
+      title: 'Solaris',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.current(), // light by day; dark at night (Settings > Appearance)
+      themeAnimationDuration: Duration.zero, // tokens switch at once; a lerp would mix old and new
+      routerConfig: _router,
+      builder: (context, child) => _MaxWidth(child: child ?? const SizedBox.shrink()),
+    );
+  }
 }
 
 /// On tablets and laptops (the app also builds for web) lay the phone design out at most

@@ -15,9 +15,15 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'api_service.dart';
 
 class MockApiService implements ApiService {
-  MockApiService({AssetLoader? loader}) : _load = loader ?? ((name) => rootBundle.loadString('assets/mock/$name.json'));
+  /// [saved]: settings changed in an earlier session; [onSave] keeps them (e.g. on the device), so the
+  /// demo household (setup, name) survives a reload.
+  MockApiService({AssetLoader? loader, Map<String, dynamic>? saved, this.onSave})
+      : _load = loader ?? ((name) => rootBundle.loadString('assets/mock/$name.json')) {
+    if (saved != null) _settingsOverrides.addAll(saved);
+  }
 
   final AssetLoader _load;
+  final void Function(Map<String, dynamic> overrides)? onSave;
   final _settingsOverrides = <String, dynamic>{};
 
   /// solar | meter_only | solar_and_meter: the demo household (saved through [updateSettings]).
@@ -96,6 +102,7 @@ class MockApiService implements ApiService {
   @override
   Future<Map<String, dynamic>> updateSettings(Map<String, dynamic> changes) async {
     _settingsOverrides.addAll(changes);
+    onSave?.call(Map.of(_settingsOverrides));
     return getSettings();
   }
 

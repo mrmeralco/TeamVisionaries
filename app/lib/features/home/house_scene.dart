@@ -6,6 +6,10 @@
 // number in a sentence. Tap the same part, open ground or the close button to zoom back out; tap
 // another part to fly to it.
 //
+// A smart-meter-only home (no solar): the same house without panels or battery
+// (house-hero-meter.svg), with two labels from the meter: HOME (what the house uses now) and METER (the
+// voltage, or Off in a brownout).
+//
 // Responsive: the drawing is laid out in its own units and scaled to the screen width (320 px phones
 // up to the 480 px app width); labels keep a fixed, readable size and are kept inside the drawing.
 import 'dart:math' as math;
@@ -16,6 +20,8 @@ import 'package:flutter_svg/flutter_svg.dart' show SvgPicture;
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 
+export '../../core/utils/clock.dart' show isNightAt;
+
 const kSceneW = 393.0;
 const kSceneH = 360.0;
 const _dayAsset = 'assets/images/house-hero.svg';
@@ -23,8 +29,10 @@ const _dayAsset = 'assets/images/house-hero.svg';
 /// The same drawing at night: navy sky, moon and stars, windows and porch lamp lit.
 const _nightAsset = 'assets/images/house-hero-night.svg';
 
-/// Night in the Philippines: 6 PM to 6 AM, Manila time.
-bool isNightAt(DateTime manila) => manila.hour >= 18 || manila.hour < 6;
+/// The house without solar panels or battery, day and night (meter-only homes).
+const _meterDayAsset = 'assets/images/house-hero-meter.svg';
+const _meterNightAsset = 'assets/images/house-hero-night-meter.svg';
+
 
 /// house-hero.svg draws house-scene.svg (353 × 215) at 1.5×, flush right: this maps a point of that
 /// drawing to the hero's units, so the parts can be measured on the original.
@@ -81,10 +89,13 @@ const _lawnPad = 8.0;
 
 final _hitPaths = {for (final e in _geo.entries) e.key: Path()..addPolygon(e.value.hit, true)};
 
-/// Which part of the drawing is at [p] (hero units), if any.
-Spot? spotAt(Offset p) {
+/// The parts a meter-only house labels: no panels or battery on it.
+const meterSpots = [Spot.home, Spot.grid];
+
+/// Which part of the drawing is at [p] (hero units), if any, among [spots].
+Spot? spotAt(Offset p, {List<Spot> spots = Spot.values}) {
   for (final s in _order) {
-    if (_hitPaths[s]!.contains(p)) return s;
+    if (spots.contains(s) && _hitPaths[s]!.contains(p)) return s;
   }
   return null;
 }
@@ -115,7 +126,7 @@ class SpotInfo {
 String _kw(num w) => '${(w.abs() / 1000).toStringAsFixed(1)} kW';
 
 SpotInfo spotInfo(Spot s, Map<String, dynamic> t, {bool offline = false}) {
-  const color = C.orangeText; // small text on white: 6.0:1
+  final color = C.orangeText; // small text on white: 6.0:1
   final title = switch (s) {
     Spot.solar => 'Solar',
     Spot.home => 'Home',
@@ -180,13 +191,83 @@ SpotInfo spotInfo(Spot s, Map<String, dynamic> t, {bool offline = false}) {
   }
 }
 
+/// A meter-only home's labels, from the latest meter reading (Contract B): HOME is everything the house
+/// draws from the grid now, METER the voltage. [voltageStatus] (normal | low | high, from /api/meter)
+/// says whether the voltage is in range; until it loads the label just shows the volts.
+SpotInfo meterSpotInfo(Spot s, Map<String, dynamic>? m, {String? voltageStatus}) {
+  final color = C.orangeText;
+  final title = s == Spot.grid ? 'Meter' : 'Home';
+  if (m == null || m.isEmpty) {
+    return SpotInfo(
+      title: title,
+      value: '—',
+      detail: 'Wala pang reading mula sa meter. Lalabas dito kapag naka-online na ang Solaris device.',
+      color: color,
+    );
+  }
+  final on = m['grid_on'] != false;
+  if (!on) {
+    return SpotInfo(
+      title: title,
+      value: 'Off',
+      state: 'Brownout',
+      note: 'Brownout',
+      detail: s == Spot.grid
+          ? 'Walang kuryente mula sa Meralco ngayon.'
+          : 'Walang kuryente ang bahay ngayon dahil may brownout.',
+      color: C.red,
+    );
+  }
+  if (s == Spot.home) {
+    return SpotInfo(
+      title: title,
+      value: _kw(numOr(m['power_w'])),
+      note: 'In use',
+      detail: 'Lahat ng kuryenteng ginagamit ng bahay ngayon, sukat ng meter mo. Ito ang may bayad sa bill.',
+      color: color,
+    );
+  }
+  final v = numOr(m['voltage_v']).round();
+  final (state, detail, alert) = switch (voltageStatus) {
+    'low' => ('Low voltage', 'Mababa ang boltahe. Nakakasira ito sa motor ng aircon at ref; kung madalas, i-report sa Meralco.', true),
+    'high' => ('High voltage', 'Mataas ang boltahe. Nakakasira ito sa mga appliance; kung madalas, i-report sa Meralco.', true),
+    'normal' => ('Normal', 'Ang boltahe mula sa Meralco ngayon, sukat ng meter mo. Pasok ito sa normal.', false),
+    _ => (null, 'Ang boltahe mula sa Meralco ngayon, sukat ng meter mo.', false),
+  };
+  return SpotInfo(
+    title: title,
+    value: '$v V',
+    state: state,
+    note: state,
+    detail: detail,
+    color: alert ? C.red : color,
+  );
+}
+
 /// The house with its four live labels, filling the width it's given. Transparent around the
 /// drawing: the hero's sky gradient shows through, and the lawn fades into the page below.
 class HouseScene extends StatefulWidget {
-  const HouseScene({super.key, required this.telemetry, this.offline = false, this.night = false});
+  const HouseScene({
+    super.key,
+    required this.telemetry,
+    this.offline = false,
+    this.night = false,
+    this.meterOnly = false,
+    this.meter,
+    this.voltageStatus,
+  });
 
   final Map<String, dynamic> telemetry;
   final bool offline;
+
+  /// A home without solar: the house without panels or battery, labelled from [meter].
+  final bool meterOnly;
+
+  /// The latest meter reading (live `meter`), for [meterOnly].
+  final Map<String, dynamic>? meter;
+
+  /// normal | low | high (GET /api/meter quality), for the METER label.
+  final String? voltageStatus;
 
   /// Show the night house (light labels on the navy sky).
   final bool night;
@@ -269,10 +350,12 @@ class _HouseSceneState extends State<HouseScene> with TickerProviderStateMixin {
     }
   }
 
+  List<Spot> get _spots => widget.meterOnly ? meterSpots : Spot.values;
+
   void _onTap(Offset local, Matrix4 m) {
     final inv = Matrix4.tryInvert(m);
     if (inv == null) return;
-    final s = spotAt(MatrixUtils.transformPoint(inv, local) / _u);
+    final s = spotAt(MatrixUtils.transformPoint(inv, local) / _u, spots: _spots);
     // Same part or open ground: back to the whole house. Another part: fly there.
     _go(s == null || s == _spot ? null : s);
   }
@@ -307,8 +390,17 @@ class _HouseSceneState extends State<HouseScene> with TickerProviderStateMixin {
         ? (_was == null ? const Interval(0.55, 1).transform(_c.value) : 1.0)
         : (1 - _c.value * 3).clamp(0.0, 1.0);
     final shown = _spot ?? _was;
-    final dots = {for (final s in Spot.values) s: MatrixUtils.transformPoint(m, _geo[s]!.anchor * u)};
-    final infos = {for (final s in Spot.values) s: spotInfo(s, widget.telemetry, offline: widget.offline)};
+    final spots = _spots;
+    final dots = {for (final s in spots) s: MatrixUtils.transformPoint(m, _geo[s]!.anchor * u)};
+    final infos = {
+      for (final s in spots)
+        s: widget.meterOnly
+            ? meterSpotInfo(s, widget.meter, voltageStatus: widget.voltageStatus)
+            : spotInfo(s, widget.telemetry, offline: widget.offline),
+    };
+    final asset = widget.meterOnly
+        ? (widget.night ? _meterNightAsset : _meterDayAsset)
+        : (widget.night ? _nightAsset : _dayAsset);
 
     return ClipRect(
       child: MediaQuery.withClampedTextScaling(
@@ -323,8 +415,8 @@ class _HouseSceneState extends State<HouseScene> with TickerProviderStateMixin {
                   transform: m,
                   child: ExcludeSemantics(
                     child: SvgPicture.asset(
-                      widget.night ? _nightAsset : _dayAsset,
-                      key: ValueKey(widget.night),
+                      asset,
+                      key: ValueKey(asset),
                       fit: BoxFit.fill,
                     ),
                   ),
@@ -339,12 +431,12 @@ class _HouseSceneState extends State<HouseScene> with TickerProviderStateMixin {
                   opacity: rest,
                   child: CustomMultiChildLayout(
                     delegate: _TagsLayout(
-                      dots: {for (final s in Spot.values) s: _geo[s]!.anchor * u},
+                      dots: {for (final s in spots) s: _geo[s]!.anchor * u},
                       skyLine: _skyLine * u,
                       lawnPad: _lawnPad * u,
                     ),
                     children: [
-                      for (final s in Spot.values) ...[
+                      for (final s in spots) ...[
                         LayoutId(
                           id: (s, _TagsLayout.line),
                           // The line starts on the part's dot: taps there belong to the part.
@@ -398,7 +490,7 @@ class _HouseSceneState extends State<HouseScene> with TickerProviderStateMixin {
                   child: IconButton(
                     tooltip: 'Zoom out',
                     onPressed: () => _go(null),
-                    style: IconButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.94), foregroundColor: C.ink),
+                    style: IconButton.styleFrom(backgroundColor: C.card.withValues(alpha: 0.94), foregroundColor: C.ink),
                     icon: const Icon(Icons.close_rounded, size: 20),
                   ),
                 ),
@@ -422,7 +514,7 @@ class _TagsLayout extends MultiChildLayoutDelegate {
 
   @override
   void performLayout(Size size) {
-    for (final s in Spot.values) {
+    for (final s in dots.keys) {
       final d = dots[s]!;
       final l = layoutChild((s, tag), BoxConstraints(maxWidth: size.width / 2));
       final above = _geo[s]!.above;
@@ -439,7 +531,10 @@ class _TagsLayout extends MultiChildLayoutDelegate {
 
   @override
   bool shouldRelayout(_TagsLayout old) =>
-      old.skyLine != skyLine || old.lawnPad != lawnPad || Spot.values.any((s) => old.dots[s] != dots[s]);
+      old.skyLine != skyLine ||
+      old.lawnPad != lawnPad ||
+      old.dots.length != dots.length ||
+      dots.keys.any((s) => old.dots[s] != dots[s]);
 }
 
 /// Lays out the zoomed part's label: centred above its dot on a short leader line, or below it
@@ -532,7 +627,7 @@ class _Label extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(S.x3, S.x2, S.x3, S.x2 + 2),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.96),
+        color: C.card.withValues(alpha: 0.96),
         borderRadius: R.tile,
         boxShadow: const [BoxShadow(color: Color(0x26000000), blurRadius: 10, offset: Offset(0, 3))],
       ),
@@ -572,7 +667,7 @@ class _DotsPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (final (i, s) in Spot.values.indexed) {
+    for (final (i, s) in dots.keys.indexed) {
       final on = s == selected;
       final o = on ? 1.0 : rest;
       if (o <= 0) continue;
@@ -616,5 +711,6 @@ class _DotsPainter extends CustomPainter {
       old.selected != selected ||
       old.rest != rest ||
       old.pulse != pulse ||
-      Spot.values.any((s) => old.dots[s] != dots[s]);
+      old.dots.length != dots.length ||
+      dots.keys.any((s) => old.dots[s] != dots[s]);
 }

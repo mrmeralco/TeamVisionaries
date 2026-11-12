@@ -97,7 +97,7 @@ class _Rec extends StatelessWidget {
           Container(
             width: 30,
             height: 30,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: R.control),
+            decoration: BoxDecoration(color: C.card, borderRadius: R.control),
             child: Icon(_icons[r['id']] ?? Icons.tips_and_updates_outlined, size: 17, color: C.orangeText),
           ),
           const SizedBox(width: S.x3),
@@ -105,7 +105,7 @@ class _Rec extends StatelessWidget {
           const SizedBox(width: S.x2),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: S.x2, vertical: S.x1),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(R.pill)),
+            decoration: BoxDecoration(color: C.card, borderRadius: BorderRadius.circular(R.pill)),
             child: Text(str(r['add']), style: ts(12, w: FontWeight.w800, color: C.orangeText)),
           ),
         ]),
@@ -117,7 +117,7 @@ class _Rec extends StatelessWidget {
             for (final e in evidence)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: S.x2, vertical: S.x1),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(R.pill)),
+                decoration: BoxDecoration(color: C.card, borderRadius: BorderRadius.circular(R.pill)),
                 child: Text.rich(TextSpan(children: [
                   TextSpan(text: '${str(e['label'])}  ', style: ts(10.5, w: FontWeight.w600, color: C.label)),
                   TextSpan(text: str(e['value']), style: ts(10.5, w: FontWeight.w800, color: C.ink)),

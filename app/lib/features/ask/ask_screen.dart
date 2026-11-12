@@ -130,7 +130,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
               : IconButton(
                   tooltip: 'New conversation',
                   onPressed: chat.waiting ? null : () => ref.read(chatProvider.notifier).clear(),
-                  icon: const Icon(Icons.add_comment_outlined, color: C.ink),
+                  icon: Icon(Icons.add_comment_outlined, color: C.ink),
                 ),
         ),
         const SizedBox(height: S.x2),
@@ -260,7 +260,7 @@ class _Bubble extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              color: mine ? C.brandDark : (m.isError ? Colors.white : C.miraBubble),
+              color: mine ? C.brandDark : (m.isError ? C.card : C.miraBubble),
               // The corner nearest the sender stays tight, so each bubble points at who said it.
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(mine ? R.md : R.sm / 2),
@@ -278,7 +278,7 @@ class _Bubble extends StatelessWidget {
                   for (final c in m.chips)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(R.pill)),
+                      decoration: BoxDecoration(color: C.card, borderRadius: BorderRadius.circular(R.pill)),
                       child: Text.rich(TextSpan(children: [
                         TextSpan(text: '${c['label']}  ', style: ts(11, w: FontWeight.w600, color: C.label)),
                         TextSpan(text: '${c['value']}', style: ts(11, w: FontWeight.w800, color: C.orangeText)),

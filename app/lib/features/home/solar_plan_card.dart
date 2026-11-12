@@ -1,4 +1,5 @@
-// Home (meter-only homes): "Go solar" from GET /api/solar-plan. How big a solar setup this household's own
+// "Go solar" from GET /api/solar-plan, for a home without solar. Not on Home: a meter-only home sees only
+// its use, bill and ways to save (onboarding: "Smart meter lang"). Kept for a future, opt-in "Go solar" page. How big a solar setup this household's own
 // use needs: the recommended option first (grid-tie, or hybrid with a battery when most use is at night),
 // then the other, each with panels, inverter, battery, how much of the home it covers, the bill after,
 // savings, rough cost and payback. Every number and Taglish sentence comes from the backend.
@@ -172,7 +173,7 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: S.x2, vertical: S.x1),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(R.pill)),
+    decoration: BoxDecoration(color: C.card, borderRadius: BorderRadius.circular(R.pill)),
     child: Text.rich(
       TextSpan(
         children: [

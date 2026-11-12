@@ -1,6 +1,8 @@
 // Server connection state: saved config → one ApiService (real or mock) for the whole app.
 // Changing the URL or the mock toggle rebuilds the ApiService, and everything that watches it
 // (live socket, alerts, bill, ...) reconnects / refetches on its own.
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -55,7 +57,20 @@ final serverConfigProvider =
 
 final apiServiceProvider = Provider<ApiService>((ref) {
   final cfg = ref.watch(serverConfigProvider);
-  final api = cfg.useMock ? MockApiService() : ApiService(baseUrl: cfg.baseUrl);
+  final api = cfg.useMock ? _mock(ref.read(sharedPreferencesProvider)) : ApiService(baseUrl: cfg.baseUrl);
   ref.onDispose(api.close);
   return api;
 });
+
+/// Demo mode: the settings saved in it (setup, name, rate) are kept on the device, like a real server
+/// keeps them, so onboarding's answers survive a reload.
+MockApiService _mock(SharedPreferences prefs) {
+  const key = 'mock_settings';
+  Map<String, dynamic>? saved;
+  try {
+    saved = jsonDecode(prefs.getString(key) ?? 'null') as Map<String, dynamic>?;
+  } catch (_) {
+    saved = null; // unreadable: start from the example
+  }
+  return MockApiService(saved: saved, onSave: (s) => prefs.setString(key, jsonEncode(s)));
+}

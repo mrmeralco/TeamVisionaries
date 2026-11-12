@@ -1,9 +1,15 @@
-// "Go solar" on Home (GET /api/solar-plan): a suggested solar size for a home without solar, and the
-// sponsored slots kept apart from it. Driven by docs/contracts/examples/solar_plan*.json.
+// "Go solar" (GET /api/solar-plan): a suggested solar size for a home without solar, and the sponsored slots
+// kept apart from it. Not on Home (a meter-only home sees no solar there), so the card is pumped on its own.
+// Driven by docs/contracts/examples/solar_plan*.json.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:solaris/core/theme/app_theme.dart';
+import 'package:solaris/features/home/solar_plan_card.dart';
+import 'package:solaris/providers/server_providers.dart';
 
 import 'widget_test.dart' show StateMock, example, pumpApp;
 
@@ -27,9 +33,29 @@ Future<StateMock> _home({Map<String, dynamic>? plan, bool fail = false, String s
   return api;
 }
 
+/// Just the card, in the app theme.
+Future<void> _card(WidgetTester t, {Map<String, dynamic>? plan}) async {
+  t.view.physicalSize = _tall * 3;
+  t.view.devicePixelRatio = 3;
+  addTearDown(t.view.reset);
+  SharedPreferences.setMockInitialValues({'use_mock': true});
+  final prefs = await SharedPreferences.getInstance();
+  await t.pumpWidget(ProviderScope(
+    overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      apiServiceProvider.overrideWithValue(await _home(plan: plan)),
+    ],
+    child: MaterialApp(
+      theme: AppTheme.light(),
+      home: const Scaffold(body: SingleChildScrollView(child: SolarPlanCard())),
+    ),
+  ));
+  await t.pumpAndSettle();
+}
+
 void main() {
   testWidgets('a meter-only home sees the recommended size first, with savings, cost and payback', (t) async {
-    await pumpApp(t, api: await _home(), size: _tall);
+    await _card(t);
     final ex = example('solar_plan_meter_only');
     final opts = (ex['options'] as List).cast<Map<String, dynamic>>();
     expect(find.text('Go solar'), findsOneWidget);
@@ -53,7 +79,7 @@ void main() {
   });
 
   testWidgets('sponsored slots sit below the plan, labelled, as placeholders until configured', (t) async {
-    await pumpApp(t, api: await _home(), size: _tall);
+    await _card(t);
     expect(find.text('SPONSORED'), findsOneWidget);
     expect(find.text('Ad space · Solar installer'), findsOneWidget);
     expect(find.text('Ad space · Solar financing'), findsOneWidget);
@@ -61,33 +87,34 @@ void main() {
   });
 
   testWidgets('a real sponsor shows its name and site, without the ad-space label', (t) async {
-    await pumpApp(t, size: _tall, api: await _home(plan: {
+    await _card(t, plan: {
       ...example('solar_plan_meter_only'),
       'sponsors': [
         {'id': 'acme', 'kind': 'installer', 'name': 'Acme Solar', 'tagline': 'Libreng site visit',
          'url': 'https://www.example.com/solar', 'placeholder': false},
       ],
-    }));
+    });
     expect(find.text('Acme Solar'), findsOneWidget);
     expect(find.text('www.example.com'), findsOneWidget);
     expect(find.textContaining('Ad space'), findsNothing);
   });
 
   testWidgets('not enough days yet: just the headline, no options', (t) async {
-    await pumpApp(t, size: _tall, api: await _home(plan: {
+    await _card(t, plan: {
       ...example('solar_plan_meter_only'),
       'days': 3, 'usage': null, 'options': <Object>[],
       'headline': 'Kailangan ng 7 araw ng readings para masukat ang tamang laki ng solar (mayroon pa lang 3).',
-    }));
+    });
     expect(find.textContaining('Kailangan ng 7 araw'), findsOneWidget);
     expect(find.text('RECOMMENDED'), findsNothing);
   });
 
-  testWidgets('a home with solar never sees it; a failed request hides it', (t) async {
+  testWidgets('Home never shows it: not to a meter-only home, not to a solar home', (t) async {
+    await pumpApp(t, api: await _home(), size: _tall);
+    expect(find.text('Go solar'), findsNothing);
+    expect(find.text('SPONSORED'), findsNothing);
+    expect(find.text('HOME'), findsOneWidget); // the rest of Home still shows
     await pumpApp(t, api: await _home(setup: 'solar'), size: _tall);
     expect(find.text('Go solar'), findsNothing);
-    await pumpApp(t, api: await _home(fail: true), size: _tall);
-    expect(find.text('Go solar'), findsNothing);
-    expect(find.text('Home usage'), findsOneWidget); // the rest of Home still shows
   });
 }

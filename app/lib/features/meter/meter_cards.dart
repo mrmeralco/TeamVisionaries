@@ -2,6 +2,7 @@
 // without solar. Every number comes from the backend; these widgets only lay it out.
 //   MeterNowCard       Home (solar + meter): the meter's live reading next to the inverter tiles
 //   MeterInsights      Home: Meralco level, peak hours, always-on use, voltage, the meter reading
+//                      (meter-only homes: the ways to save first, under their own title)
 //   UsagePatternCard   Energy: the typical day hour by hour, always-on use, peak, night share
 //   MeralcoLevelCard   Bill: which Meralco consumption level this month lands in, and how close the next one is
 import 'package:flutter/material.dart';
@@ -48,7 +49,7 @@ class MeterNowCard extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(S.x4, S.x3, S.x3, S.x3),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.electric_meter_rounded, size: 18, color: C.orangeText),
+          Icon(Icons.electric_meter_rounded, size: 18, color: C.orangeText),
           const SizedBox(width: S.x2),
           Expanded(child: CardTitle(meterTypeLabel(reading['meter_type']))),
           Text('Utility side', style: ts(10, w: FontWeight.w600, color: C.muted)),
@@ -96,18 +97,36 @@ class _Mini extends StatelessWidget {
       );
 }
 
+/// The /api/meter insights that are ways to save, from the household's own use: the Meralco level it can
+/// drop to (or is about to pass), its busiest hours, and what stays on all day.
+const kSavingInsights = {'tier_drop', 'tier_near', 'peak_hours', 'base_load'};
+
 /// The /api/meter insights as cards: warnings first (the backend's order).
 class MeterInsights extends ConsumerWidget {
-  const MeterInsights({super.key, this.title = 'Your electricity', this.skip = const {}});
+  const MeterInsights({
+    super.key,
+    this.title = 'Your electricity',
+    this.subtitle,
+    this.skip = const {},
+    this.only,
+  });
   final String title;
+
+  /// Under the title; default "Mula sa smart meter mo".
+  final String? subtitle;
 
   /// Insight ids shown elsewhere on the page (e.g. the meter reading next to the live tiles).
   final Set<String> skip;
 
+  /// When given, just these insight ids (e.g. [kSavingInsights]).
+  final Set<String>? only;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final info = ref.watch(meterProvider);
-    final insights = listOfMaps(info.value?['insights']).where((i) => !skip.contains(i['id'])).toList();
+    final insights = listOfMaps(info.value?['insights'])
+        .where((i) => !skip.contains(i['id']) && (only == null || only!.contains(i['id'])))
+        .toList();
     // Extra, like the solar tips: while loading or on error the page shows without it.
     if (insights.isEmpty) return const SizedBox.shrink();
     return Padding(
@@ -115,7 +134,7 @@ class MeterInsights extends ConsumerWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         SectionTitle(title),
         const SizedBox(height: 2),
-        Text('Mula sa ${meterTypeLabel(mapOf(info.value?['reading'])['meter_type']).toLowerCase()} mo',
+        Text(subtitle ?? 'Mula sa ${meterTypeLabel(mapOf(info.value?['reading'])['meter_type']).toLowerCase()} mo',
             style: ts(11, color: C.muted)),
         const SizedBox(height: S.x3),
         for (final i in insights) ...[InsightCard(i), const SizedBox(height: S.x2)],
@@ -350,7 +369,7 @@ class MeralcoLevelCard extends ConsumerWidget {
                   width: x(mtd),
                   child: Container(decoration: BoxDecoration(color: C.orangeDeep, borderRadius: BorderRadius.circular(R.pill))),
                 ),
-                Positioned(left: x(fc) - 1, top: 2, width: 2, height: 22, child: const ColoredBox(color: C.ink)),
+                Positioned(left: x(fc) - 1, top: 2, width: 2, height: 22, child: ColoredBox(color: C.ink)),
                 for (final e in _edges.skip(1))
                   Positioned(
                     left: x(e) - 14,

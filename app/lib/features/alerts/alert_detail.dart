@@ -93,7 +93,7 @@ Future<void> showAlertDetail(BuildContext context, WidgetRef ref, Map<String, dy
     useRootNavigator: true,
     isScrollControlled: true,
     showDragHandle: true,
-    backgroundColor: Colors.white,
+    backgroundColor: C.card,
     constraints: const BoxConstraints(maxWidth: kMaxAppWidth),
     builder: (sheet) => _AlertSheet(a: a, ref: ref, outer: context),
   );

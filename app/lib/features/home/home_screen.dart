@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
+import '../../core/utils/clock.dart';
+import '../../providers/appearance_providers.dart';
 import '../../providers/chat_providers.dart';
 import '../../providers/data_providers.dart';
 import '../../providers/live_providers.dart';
@@ -16,12 +18,10 @@ import '../common/ui.dart';
 import '../meter/meter_cards.dart';
 import 'house_scene.dart';
 import 'household_card.dart';
-import 'solar_plan_card.dart';
 import 'solar_tips.dart';
 
-/// The clock Home reads for the greeting and day / night (Manila time). Tests set it.
-@visibleForTesting
-DateTime Function() homeClock = manilaNow;
+export '../../core/utils/clock.dart' show homeClock;
+
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -38,7 +38,7 @@ class HomeScreen extends ConsumerWidget {
     final live = ref.watch(liveProvider);
     // Night (6 PM to 6 AM): the night house, navy sky, light text. Home rebuilds on every reading,
     // so it turns over within seconds of 6 o'clock.
-    final night = isNightAt(homeClock());
+    final night = ref.watch(nightProvider);
     final bill = ref.watch(billProvider).value;
     final summary = ref.watch(dailySummaryProvider);
     final name = str(ref.watch(serverSettingsProvider).value?['user_name']);
@@ -55,7 +55,6 @@ class HomeScreen extends ConsumerWidget {
       ref.invalidate(outlookProvider);
       ref.invalidate(tipsProvider);
       ref.invalidate(householdProvider);
-      if (!hasSolar) ref.invalidate(solarPlanProvider);
       ref.invalidate(meterProvider);
       if (!hasSolar) ref.invalidate(energyProvider(('day', 0)));
       await ref.refresh(dailySummaryProvider.future).then((_) {}, onError: (_) {});
@@ -124,21 +123,21 @@ class HomeScreen extends ConsumerWidget {
                     EnterOnce(
                       id: 'home-hero',
                       delay: const Duration(milliseconds: 80),
-                      child: hasSolar
-                          ? HouseScene(
-                              telemetry: mapOf(data?['telemetry']),
-                              offline: str(data?['state'], 'offline') == 'offline' || live.telemetry == null,
-                              night: night,
-                            )
-                          // No solar, battery or inverter to label: just the house (lit up at night).
-                          : AspectRatio(
-                              aspectRatio: kSceneW / kSceneH,
-                              child: ExcludeSemantics(child: svg(night ? 'house-hero-night' : 'house-hero')),
-                            ),
+                      child: HouseScene(
+                        telemetry: mapOf(data?['telemetry']),
+                        offline: str(data?['state'], 'offline') == 'offline' || live.telemetry == null,
+                        night: night,
+                        // No solar: the house without panels or battery, labelled from the meter.
+                        meterOnly: !hasSolar,
+                        meter: live.meter,
+                        voltageStatus: hasSolar
+                            ? null
+                            : str(mapOf(ref.watch(meterProvider).value?['quality'])['voltage_status'], ''),
+                      ),
                     ),
                     // At night the dark lawn eases into the light dashboard.
                     if (night)
-                      const SizedBox(
+                      SizedBox(
                         height: 48,
                         width: double.infinity,
                         child: DecoratedBox(
@@ -170,7 +169,7 @@ class HomeScreen extends ConsumerWidget {
               _StateBanner(live: live),
               if (inBrownout) advisor,
               if (hasSolar && live.telemetry == null) const _NoReadings(),
-              // A meter-only home has no house labels to read: its meter tiles sit under the house.
+              // A meter-only home: what the house labels don't say (current, power factor) under it.
               if (!hasSolar)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
@@ -212,7 +211,7 @@ class HomeScreen extends ConsumerWidget {
                             caption: 'See your usage',
                             onTap: () => context.go(Routes.energy),
                           ),
-                        const Divider(height: 1, thickness: 0.5, indent: 68, color: C.divider),
+                        Divider(height: 1, thickness: 0.5, indent: 68, color: C.divider),
                         _Row(
                           Icons.receipt_long_outlined,
                           'Est. monthly bill',
@@ -227,9 +226,17 @@ class HomeScreen extends ConsumerWidget {
               ),
               if (!inBrownout) advisor,
               if (hasSolar) const SolarTips(),
-              if (setup != 'solar') MeterInsights(skip: hasSolar ? const {'reading'} : const {}),
+              // No solar: nothing about solar at all. Ways to save from the home's own use lead, then the
+              // rest of what the meter says (voltage, level, reading).
+              if (!hasSolar)
+                const MeterInsights(
+                  key: Key('home-saving-tips'),
+                  title: 'Paano makatipid',
+                  subtitle: 'Batay sa gamit ng bahay mo, mula sa meter',
+                  only: kSavingInsights,
+                ),
+              if (setup != 'solar') MeterInsights(skip: hasSolar ? const {'reading'} : kSavingInsights),
               const HouseholdCard(),
-              if (!hasSolar) const SolarPlanCard(),
             ],
             const Padding(
               padding: EdgeInsets.fromLTRB(S.gutter, S.x6, S.gutter, 0),
@@ -465,7 +472,7 @@ class _BrownoutAdvisor extends ConsumerWidget {
                         style: ts(12, w: FontWeight.w700, color: C.orangeText),
                       ),
                       const SizedBox(width: S.x1),
-                      const Icon(Icons.arrow_forward_rounded, size: 14, color: C.orangeText),
+                      Icon(Icons.arrow_forward_rounded, size: 14, color: C.orangeText),
                     ],
                   ),
                 ],
@@ -501,7 +508,7 @@ class _MeterBrownout extends ConsumerWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.power_off_rounded, color: C.orangeDeep),
+                Icon(Icons.power_off_rounded, color: C.orangeDeep),
                 const SizedBox(width: S.x2),
                 Expanded(
                   child: Text(
@@ -537,7 +544,7 @@ class _MeterStats extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 12),
         child: Column(
           children: [
-            const Icon(Icons.electric_meter_rounded, color: C.orangeDeep, size: 32),
+            Icon(Icons.electric_meter_rounded, color: C.orangeDeep, size: 32),
             const SizedBox(height: 8),
             Text(
               'Wala pang reading mula sa meter.',
@@ -554,6 +561,7 @@ class _MeterStats extends StatelessWidget {
         ),
       );
     } else {
+      // Home use and voltage are on the house's labels above.
       final on = m['grid_on'] != false;
       final pf = m['pf'];
       final amps = m['current_a'];
@@ -561,14 +569,7 @@ class _MeterStats extends StatelessWidget {
         gap: S.x2,
         runGap: S.x2,
         children: [
-          _Tile(
-            'Home usage',
-            on ? kwNum(m['power_w']) : 'Off',
-            on ? 'kW' : '',
-            note: on ? 'From the grid' : 'Brownout',
-          ),
-          _Tile('Voltage', on ? numOr(m['voltage_v']).round().toString() : '0', 'V'),
-          _Tile('Current', amps is num ? amps.toStringAsFixed(1) : '—', amps is num ? 'A' : ''),
+          _Tile('Current', amps is num && on ? amps.toStringAsFixed(1) : '—', amps is num && on ? 'A' : ''),
           _Tile('Power factor', pf is num && on ? pf.toStringAsFixed(2) : '—', ''),
         ],
       );
@@ -576,9 +577,9 @@ class _MeterStats extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(S.x3),
       decoration: BoxDecoration(
-        color: C.yellow,
+        color: C.yellowSurface,
         borderRadius: R.card,
-        boxShadow: const [BoxShadow(color: C.shadow, blurRadius: 4, offset: Offset(0, 2))],
+        boxShadow: [BoxShadow(color: C.shadow, blurRadius: 4, offset: Offset(0, 2))],
       ),
       child: body,
     );
@@ -596,7 +597,7 @@ class _NoReadings extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: S.x6, horizontal: S.x3),
       child: Column(
         children: [
-          const Icon(Icons.solar_power_rounded, color: C.orangeDeep, size: 32),
+          Icon(Icons.solar_power_rounded, color: C.orangeDeep, size: 32),
           const SizedBox(height: S.x2),
           Text(
             'Wala pang reading mula sa device.',
@@ -618,21 +619,19 @@ class _NoReadings extends StatelessWidget {
 /// One row of the dashboard list, Tesla-style: icon, label, the number, a short caption, and a
 /// chevron when it opens something.
 class _Tile extends StatelessWidget {
-  const _Tile(this.label, this.value, this.unit, {this.note});
+  const _Tile(this.label, this.value, this.unit);
   final String label, value, unit;
-  final String? note;
 
   @override
   Widget build(BuildContext context) => Readout(
     label: label,
     value: value,
     unit: unit,
-    note: note,
     child: Container(
       constraints: const BoxConstraints(minHeight: 77),
       padding: const EdgeInsets.fromLTRB(S.x3, S.x3, S.x2, S.x2),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: C.card,
         borderRadius: R.tile,
         border: Border.all(color: C.tileBorder, width: 0.5),
       ),
@@ -644,11 +643,6 @@ class _Tile extends StatelessWidget {
             label,
             style: ts(11, w: FontWeight.w600, color: C.label, spacing: -0.1),
           ),
-          if (note != null)
-            Text(
-              note!,
-              style: ts(10, w: FontWeight.w700, color: C.orangeText),
-            ),
           const SizedBox(height: 8),
           Reading(value, unit, valueColor: C.orangeDeep, unitWeight: FontWeight.w700),
         ],
@@ -698,7 +692,7 @@ class _Row extends StatelessWidget {
               ],
             ),
           ),
-          if (onTap != null) const Icon(Icons.chevron_right_rounded, color: C.orangeText),
+          if (onTap != null) Icon(Icons.chevron_right_rounded, color: C.orangeText),
         ],
       ),
     );

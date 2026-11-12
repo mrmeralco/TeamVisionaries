@@ -178,7 +178,7 @@ class _Tip extends StatelessWidget {
               width: 32,
               height: 32,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: R.control),
+              decoration: BoxDecoration(color: C.card, borderRadius: R.control),
               child: svg('bulb', width: 12, height: 17),
             ),
           const SizedBox(width: S.x3),
@@ -224,7 +224,7 @@ class _TrendPill extends StatelessWidget {
         : '${_php(diff!.abs())} ${lower ? 'less' : 'more'} than last month$pct';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: S.x3, vertical: 6),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(R.pill)),
+      decoration: BoxDecoration(color: C.card, borderRadius: BorderRadius.circular(R.pill)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(lower ? Icons.trending_down_rounded : Icons.trending_up_rounded, size: 16, color: lower ? C.green : C.red),
         const SizedBox(width: 6),

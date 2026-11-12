@@ -43,59 +43,70 @@ class M {
 bool reduceMotion(BuildContext context) => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 
 /// Figma palette, adjusted where the original failed contrast.
+///
+/// Night (6 PM to 6 AM, Manila, or Settings > Appearance): the whole app goes dark to match the night
+/// house: navy page, dark cards, light text. Tokens that change are getters reading [night]; the app
+/// sets it and rebuilds every widget when it flips. Brand fills (orange, buttons) stay the same.
 class C {
+  static bool night = false;
+  static Color _n(Color day, Color dark) => night ? dark : day;
+
   // Brand
   static const orange = Color(0xFFF47721); // fills, lines, icons. As text only ≥ 24 px bold (2.8:1)
-  static const orangeDeep = Color(0xFFD45A05); // big numbers on white (4.0:1, passes for large text)
-  static const orangeText = Color(0xFFA94306); // small orange text, links, units (6.0:1 on white)
+  static Color get orangeDeep => _n(const Color(0xFFD45A05), const Color(0xFFFF9A52)); // big numbers (4.0:1 / 7:1)
+  static Color get orangeText => _n(const Color(0xFFA94306), const Color(0xFFFFB27A)); // small orange text (6.0:1 / 8:1)
   static const brandDark = Color(0xFFC2500A); // buttons and white-text surfaces (4.7:1 with white)
-  static const yellow = Color(0xFFFFC857);
-  static const cream = Color(0xFFFFF3E5);
-  static const backdrop = Color(0xFFF6E4CF); // outside the centred app on wide screens
+  static const yellow = Color(0xFFFFC857); // accent; as a card behind text use [yellowSurface]
+  static Color get yellowSurface => _n(yellow, const Color(0xFF2A3354));
+  static Color get cream => _n(const Color(0xFFFFF3E5), const Color(0xFF0F1729)); // the page
+  static Color get backdrop => _n(const Color(0xFFF6E4CF), const Color(0xFF080D19)); // outside the centred app
 
   // Text
-  static const ink = Color(0xFF292929);
-  static const muted = Color(0xFF666666); // was #818181 (3.6:1 on cream); now 5.3:1
-  static const label = Color(0xFF5C5C5C); // small labels; replaces the 39–55 % opacity labels (6.1:1+)
-  static const labelOnYellow = Color(0xFF4A4A4A); // labels and units on the yellow cards (6.1:1)
+  static Color get ink => _n(const Color(0xFF292929), const Color(0xFFF1F3F9));
+  static const inkFixed = Color(0xFF292929); // dark text on light brand fills (yellow, orange), day and night
+  static Color get muted => _n(const Color(0xFF666666), const Color(0xFFA9B2C6)); // 5.3:1 / 6.9:1
+  static Color get label => _n(const Color(0xFF5C5C5C), const Color(0xFFBAC2D3)); // small labels (6.1:1+)
+  static Color get labelOnYellow => _n(const Color(0xFF4A4A4A), const Color(0xFFC9CFDC)); // on [yellowSurface]
 
   // Navigation
-  static const navOff = Color(0xFFFED47D); // inactive nav icons (decorative: each has a text label)
-  static const navOffText = Color(0xFF8F6410); // inactive nav labels (5.3:1; Figma #FED47D was 1.4:1)
+  static Color get navOff => _n(const Color(0xFFFED47D), const Color(0xFF56628A)); // inactive icons (decorative)
+  static Color get navOffText => _n(const Color(0xFF8F6410), const Color(0xFFA9B2C6)); // inactive labels (5.3:1)
   static const navActive = Color(0x45F47721); // rgba(244,119,33,.27) active tab block
 
   // Surfaces and lines
-  static const card = Colors.white;
-  static const tileBorder = Color(0x63BE5D1B); // rgba(190,93,27,.39) hairline borders (not text)
-  static const orangeLine = Color(0xFFFF7415); // 0.5 px card outlines
-  static const peach = Color(0xFFFFC59D); // Self-Sufficiency card
-  static const yellowCard = Color(0xD1FFC857); // rgba(255,200,87,.82) Energy stat cards
-  static const pill = Color(0x70FFBE81); // rgba(255,190,129,.44) chart value pill
-  static const tipBg = Color(0x47FF9D42); // Bill tip card
-  static const inputBg = Color(0x6BFFC857); // Ask Mira input
+  static Color get card => _n(Colors.white, const Color(0xFF1A2440));
+  static Color get snack => _n(const Color(0xFF292929), const Color(0xFF2B3760)); // white text on it
+  static Color get tileBorder => _n(const Color(0x63BE5D1B), const Color(0x52FFB27A)); // hairlines (not text)
+  static Color get orangeLine => _n(const Color(0xFFFF7415), const Color(0x99FF7415)); // 0.5 px card outlines
+  static Color get peach => _n(const Color(0xFFFFC59D), const Color(0xFF3A2C3A)); // Self-Sufficiency card
+  static Color get yellowCard => _n(const Color(0xD1FFC857), const Color(0x2EFFC857)); // Energy stat cards
+  static Color get pill => _n(const Color(0x70FFBE81), const Color(0x40FFBE81)); // chart value pill
+  static Color get tipBg => _n(const Color(0x47FF9D42), const Color(0x33FF9D42)); // Bill tip card
+  static Color get inputBg => _n(const Color(0x6BFFC857), const Color(0x26FFC857)); // Ask Mira input
   static const inputBorder = Color(0x85F47721);
-  static const miraBubble = Color(0x70FFD580); // Figma "Ask Mira" greeting bubble (#FFD580 @ 44 %)
-  static const chartGrid = Color(0x40292929);
-  static const divider = Color(0x1F292929); // between alerts in a group card
-  static const shadow = Color(0x40000000);
+  static Color get miraBubble => _n(const Color(0x70FFD580), const Color(0x33FFD580)); // Mira's bubbles
+  static Color get chartGrid => _n(const Color(0x40292929), const Color(0x40FFFFFF));
+  static Color get divider => _n(const Color(0x1F292929), const Color(0x24FFFFFF)); // between rows
+  static Color get shadow => _n(const Color(0x40000000), const Color(0x66000000));
 
   // Status
-  static const green = Color(0xFF299D65);
-  static const red = Color(0xFFD93B30);
-  static const amber = Color(0xFF8F6410); // was #E59A00 (2.3:1); used for text too, so 5.3:1
+  static Color get green => _n(const Color(0xFF299D65), const Color(0xFF4FCB8D));
+  static Color get red => _n(const Color(0xFFD93B30), const Color(0xFFFF7A70));
+  static const redFill = Color(0xFFD93B30); // behind white text, day and night
+  static Color get amber => _n(const Color(0xFF8F6410), const Color(0xFFF2C46B));
 
   // Chart series (Energy): solar vs. home vs. grid.
   static const seriesSolar = orange;
-  static const seriesHome = Color(0xFF6E6E6E); // Figma "Home" grey
-  static const seriesGrid = Color(0xFF4F6FE8);
+  static Color get seriesHome => _n(const Color(0xFF6E6E6E), const Color(0xFF9AA3B5));
+  static Color get seriesGrid => _n(const Color(0xFF4F6FE8), const Color(0xFF7C95F5));
 
-  // Home hero card backgrounds per live state.
+  // Home hero card backgrounds per live state (day; at night the sky is [nightSky]).
   static const heroSunny = [Color(0xFFFED47D), Color(0xFFFFC142)];
   static const heroBrownout = [Color(0xFFFFB37A), Color(0xFFF47721)];
   static const heroFault = [Color(0xFFFFA48F), Color(0xFFE5533D)];
   static const heroOffline = [Color(0xFFE7E1D8), Color(0xFFCFC6BA)];
 
-  // Home at night (6 PM to 6 AM, Manila): navy sky, moonlit house, lit windows.
+  // Home at night: navy sky, moonlit house, lit windows.
   static const nightSky = [Color(0xFF0B1026), Color(0xFF1B2347), Color(0xFF2A3358)];
   static const nightLawn = Color(0xFF152238); // the bottom of house-hero-night.svg
   static const onNight = Colors.white; // 15:1 on the navy sky
@@ -108,21 +119,21 @@ class C {
 class AppColors {
   static const sun = C.orange;
   static const solar = C.orange;
-  static const battery = C.green;
-  static const grid = C.seriesGrid;
-  static const home = C.orangeDeep;
-  static const brownout = C.orangeDeep;
-  static const fault = C.red;
+  static Color get battery => C.green;
+  static Color get grid => C.seriesGrid;
+  static Color get home => C.orangeDeep;
+  static Color get brownout => C.orangeDeep;
+  static Color get fault => C.red;
 }
 
 /// DM Sans is a variable font: set the `wght` axis as well as fontWeight so every platform renders it.
-TextStyle ts(double size, {FontWeight w = FontWeight.w400, Color color = C.ink, double? height, double? spacing}) =>
+TextStyle ts(double size, {FontWeight w = FontWeight.w400, Color? color, double? height, double? spacing}) =>
     TextStyle(
       fontFamily: 'DMSans',
       fontSize: size,
       fontWeight: w,
       fontVariations: [FontVariation('wght', w.value.toDouble())],
-      color: color,
+      color: color ?? C.ink,
       height: height,
       letterSpacing: spacing,
     );
@@ -133,6 +144,7 @@ const gradientOrange = LinearGradient(
   end: Alignment.bottomRight,
   colors: [C.orange, C.yellow],
   stops: [0.25, 0.98],
+  // Text on it is [C.inkFixed]: dark at night too.
 );
 
 /// Deep orange, for cards with white text (Bill forecast, active brownout): 4.7:1 to 6.0:1 with white.
@@ -158,16 +170,23 @@ class AppTheme {
   static const _buttonSize = Size(kMinTap, kMinTap);
   static const _buttonPad = EdgeInsets.symmetric(horizontal: S.x4);
 
-  /// The design is light-only, so there is no dark variant.
-  static ThemeData light() => ThemeData(
+  /// The theme for the current [C.night]: built again whenever it flips.
+  static ThemeData current() => ThemeData(
         useMaterial3: true,
         fontFamily: 'DMSans',
+        brightness: C.night ? Brightness.dark : Brightness.light,
         scaffoldBackgroundColor: C.cream,
         colorScheme: ColorScheme.fromSeed(
           seedColor: C.orange,
+          brightness: C.night ? Brightness.dark : Brightness.light,
           primary: C.brandDark, // white button text on it is 4.7:1 (on #F47721 it was 2.8:1)
+          onPrimary: Colors.white,
           surface: C.cream,
+          onSurface: C.ink,
         ),
+        textSelectionTheme: TextSelectionThemeData(cursorColor: C.orangeText),
+        progressIndicatorTheme: const ProgressIndicatorThemeData(color: C.orange),
+        dividerColor: C.divider,
         materialTapTargetSize: MaterialTapTargetSize.padded,
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
@@ -181,12 +200,12 @@ class AppTheme {
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
-            foregroundColor: C.brandDark,
-            backgroundColor: Colors.white,
+            foregroundColor: C.night ? C.orangeText : C.brandDark,
+            backgroundColor: C.card,
             minimumSize: _buttonSize,
             padding: _buttonPad,
             shape: _buttonShape,
-            side: const BorderSide(color: C.brandDark),
+            side: BorderSide(color: C.night ? C.orangeText : C.brandDark),
             textStyle: _buttonText,
           ),
         ),
@@ -200,27 +219,37 @@ class AppTheme {
           ),
         ),
         chipTheme: ChipThemeData(
-          backgroundColor: Colors.white,
-          side: const BorderSide(color: C.orangeLine, width: 0.5),
+          backgroundColor: C.card,
+          selectedColor: C.night ? const Color(0xFF5A3A24) : null,
+          side: BorderSide(color: C.orangeLine, width: 0.5),
           shape: const StadiumBorder(),
           labelStyle: ts(12, w: FontWeight.w700),
         ),
         snackBarTheme: SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
-          backgroundColor: C.ink,
+          backgroundColor: C.snack,
           contentTextStyle: ts(13, color: Colors.white, height: 1.35),
           shape: RoundedRectangleBorder(borderRadius: R.tile),
         ),
-        bottomSheetTheme: const BottomSheetThemeData(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(R.lg))),
-        ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(borderRadius: R.control, borderSide: const BorderSide(color: C.tileBorder)),
-          enabledBorder: OutlineInputBorder(borderRadius: R.control, borderSide: const BorderSide(color: C.tileBorder)),
-          focusedBorder: OutlineInputBorder(borderRadius: R.control, borderSide: const BorderSide(color: C.brandDark, width: 1.5)),
+          fillColor: C.card,
+          hintStyle: ts(14, color: C.muted),
+          border: OutlineInputBorder(borderRadius: R.control, borderSide: BorderSide(color: C.tileBorder)),
+          enabledBorder: OutlineInputBorder(borderRadius: R.control, borderSide: BorderSide(color: C.tileBorder)),
+          focusedBorder: OutlineInputBorder(borderRadius: R.control, borderSide: BorderSide(color: C.orangeText, width: 1.5)),
           isDense: true,
         ),
+        switchTheme: SwitchThemeData(
+          trackOutlineColor: WidgetStatePropertyAll(C.night ? C.muted : null),
+        ),
+      ).copyWith(
+        bottomSheetTheme: BottomSheetThemeData(
+          backgroundColor: C.card,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(R.lg))),
+        ),
       );
+
+  /// Kept for tests that pump a single widget: the theme for the current [C.night].
+  static ThemeData light() => current();
 }

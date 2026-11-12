@@ -17,7 +17,7 @@ class _Kind {
   final Color color;
 }
 
-const _kinds = {
+Map<String, _Kind> get _kinds => {
   'live': _Kind('Live reading', Icons.sensors_rounded, C.green),
   'history': _Kind('Your history', Icons.history_rounded, C.seriesGrid),
   'forecast': _Kind('Forecast', Icons.trending_up_rounded, C.orangeText),
@@ -70,7 +70,7 @@ class _AnswerSourcesState extends State<AnswerSources> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.fact_check_outlined, size: 16, color: C.orangeText),
+                    Icon(Icons.fact_check_outlined, size: 16, color: C.orangeText),
                     const SizedBox(width: S.x2),
                     Flexible(
                       child: Text(
@@ -132,7 +132,7 @@ class _SourceCard extends StatelessWidget {
         // The app's tappable-card recipe: sinks slightly while pressed.
         child: PressCard(
           onTap: open,
-          side: const BorderSide(color: C.tileBorder, width: 0.6),
+          side: BorderSide(color: C.tileBorder, width: 0.6),
           padding: const EdgeInsets.fromLTRB(S.x3, S.x3, S.x2, S.x3),
           minHeight: kMinTap,
           child: Row(
@@ -179,7 +179,7 @@ class _SourceCard extends StatelessWidget {
               ),
               if (open != null) ...[
                 const SizedBox(width: S.x1),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: S.x1),
                   child: Icon(Icons.chevron_right_rounded, size: 18, color: C.muted),
                 ),
