@@ -28,6 +28,12 @@ MAX_CHIPS = 4
 
 
 # --------------------------------------------------------------- pipeline --
+def clean_id(raw) -> str:
+    """The prompt shows facts as "[bill.forecast_php] ...", and Qwen often cites them with the brackets.
+    Strip them so a correct citation isn't rejected; the guard still checks the id was actually given."""
+    return str(raw).strip().strip("[]`'\"").strip()
+
+
 def _active_topics(fs: FactSet) -> set[str]:
     by = fs.by_id()
     active = set()
@@ -67,7 +73,7 @@ async def ask(question: str, given: list[Fact], fallback_text: str) -> dict:
             attempts.append({"error": str(e)})
             break
         reply = str(out.get("reply", "")).strip()
-        ids = [str(i) for i in out.get("fact_ids") or []]
+        ids = [clean_id(i) for i in out.get("fact_ids") or []]
         answerable = bool(out.get("answerable", True))
         if not answerable:
             attempts.append({"raw": out, "guard": "out_of_scope"})
@@ -97,8 +103,10 @@ FALLBACK_IDS = {
     "usage": ("usage.peak_hours", "week.grid_kwh", "week.self_sufficiency_pct"),
     "alerts": ("alerts.unread",),
     "today": ("today.solar_kwh", "today.cost_php", "today.saved_php"),
+    "now": ("now.solar_w", "now.load_w", "now.grid_w"),
 }
-FALLBACK_ORDER = ("fault", "brownout", "bill", "savings", "yesterday", "battery", "usage", "alerts", "today")
+# "now" is last: every question includes it, so it only answers when nothing more specific was asked.
+FALLBACK_ORDER = ("fault", "brownout", "bill", "savings", "yesterday", "battery", "usage", "alerts", "today", "now")
 
 
 def fallback_reply(asked: set[str], active: set[str], fs: FactSet) -> str:

@@ -99,3 +99,33 @@ def test_cached_fallback_summary_is_served_without_calling_the_llm(monkeypatch):
     monkeypatch.setattr(llm, "complete_json", ok)
     upgraded = asyncio.run(service.daily_summary(s["device_id"], s, upgrade=True))  # background task
     assert len(calls) > n and upgraded["source"] in ("llm", "fallback")
+
+
+def test_bracketed_fact_ids_are_accepted(monkeypatch):
+    # Qwen copies the "[id]" format from the FACTS list; a correct answer must not be thrown away for that.
+    s = db.get_settings()
+    pct = service.gather(s["device_id"], s).by_id()["now.battery_pct"].values[0]
+    out, calls = run([{"answerable": True, "reply": f"{pct:g}% ang battery mo.", "fact_ids": ["[now.battery_pct]"]}],
+                     "Ilang porsyento na ang battery ko?", monkeypatch)
+    assert len(calls) == 1 and out["source"] == "llm" and out["facts_used"] == ["now.battery_pct"]
+
+
+def test_made_up_id_in_brackets_is_still_rejected(monkeypatch):
+    bad = {"answerable": True, "reply": "Ok ang lahat.", "fact_ids": ["[bill.secret_php]"]}
+    out, calls = run([bad, dict(bad)], "Ilang porsyento na ang battery ko?", monkeypatch)
+    assert len(calls) == 2 and out["source"] == "fallback"
+
+
+def test_numbers_written_in_a_fact_sentence_are_allowed():
+    # e.g. "Offline ang Sinag device. Huling data 32 minuto na ang nakaraan." had no values, so quoting 32 failed.
+    fs = service.FactSet()
+    fs.add("now.status", "now", "Kalagayan ngayon: Huling data 32 minuto na ang nakaraan.")
+    fs.add("bill.forecast_php", "bill", "Forecast: mga ₱2,070", (2069.64,))
+    by = fs.by_id()
+    assert 32 in by["now.status"].values
+    assert by["bill.forecast_php"].values == (2069.64, 2070.0)
+
+
+def test_solar_question_falls_back_to_live_numbers_not_the_bill(monkeypatch):
+    out, _ = run([llm.LLMUnavailable("down")], "Kumusta ang solar ko?", monkeypatch)
+    assert out["source"] == "fallback" and "Bill ngayong buwan" not in out["reply"]

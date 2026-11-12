@@ -11,7 +11,7 @@ All tests share one machine-readable contract: [`docs/contracts/schema.json`](do
 | Who | Tests | Where | When green |
 |---|---|---|---|
 | **Andy** (backend) | API contract, alert rules, energy/bill math, MQTT ingest: 82 tests | `server/tests/test_api_contract.py`, `test_alerts.py`, `test_energy.py`, `test_ingest.py` | Before every merge to `main` |
-| **Andy** (AI) | Hallucination guard + AI pipeline: 16 tests, then the real-model eval | `server/tests/test_guard.py`, `test_ai_pipeline.py`, `server/tools/eval_ai.py` | Guard always; eval before h14 |
+| **Andy** (AI) | Hallucination guard, AI pipeline, router: 31 tests, then the real-model eval (14/15 PASS on 2026-11-12, [next steps](server/ai/README.md#0-status-and-what-to-build-next-andy-start-here)) | `server/tests/test_guard.py`, `test_ai_pipeline.py`, `test_router.py`, `server/tools/eval_ai.py` | Guard always; eval before h14 |
 | **Aldrin + Shane** (app) | ApiService / MockApiService spec: 30 tests | [`app/test_spec/`](app/test_spec/) | Before h10 (against mocks) |
 | **Adrian + Stephen** (hardware) | Simulator over Modbus: register map, knob, brownout, fault | `tests/acceptance/test_hw_simulator_modbus.py` | Before h8 |
 | **Adrian + Andy** | **Checkpoint h10**: device → MQTT → backend → DB | `tests/acceptance/test_h10_device_to_db.py` | Hour 10 |

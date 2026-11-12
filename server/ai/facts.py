@@ -9,6 +9,7 @@ Every fact is computed by the backend from SQLite. Each one has:
 
 To teach Sinag something new: add a Fact here (and a keyword in router.py). Never let the model compute.
 """
+import re
 from dataclasses import dataclass, field
 from datetime import timedelta
 
@@ -31,13 +32,24 @@ class FactSet:
     facts: list[Fact] = field(default_factory=list)
 
     def add(self, *a, **kw) -> None:
-        self.facts.append(Fact(*a, **kw))
+        f = Fact(*a, **kw)
+        # Any number written in the sentence the model sees is grounded by definition (e.g. the
+        # "32 minuto" inside a status line), so the guard must accept it even if `values` forgot it.
+        f.values = tuple(dict.fromkeys((*f.values, *numbers_in_text(f.text))))
+        self.facts.append(f)
 
     def by_id(self) -> dict[str, Fact]:
         return {f.id: f for f in self.facts}
 
     def select(self, topics: set[str]) -> list[Fact]:
         return [f for f in self.facts if f.topic in topics]
+
+
+_NUM = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
+
+
+def numbers_in_text(text: str) -> tuple[float, ...]:
+    return tuple(float(m.replace(",", "")) for m in _NUM.findall(text))
 
 
 def peso(x: float | None) -> str:
@@ -102,13 +114,14 @@ def gather(device_id: str, settings: dict) -> FactSet:
     # ---- bill
     bill = energy.bill(device_id, settings)
     fs.add("bill.rate", "bill", f"Rate ng kuryente: ₱{rate:.2f} kada kWh", (rate,))
-    fs.add("bill.month_to_date_php", "bill", f"Bill ngayong buwan hanggang ngayon: {peso(bill['month_to_date_php'])} ({kwh(bill['month_to_date_kwh'])} mula sa grid)",
+    fs.add("bill.month_to_date_php", "bill", f"Bill ngayong buwan hanggang ngayon (nagastos na, hindi forecast): {peso(bill['month_to_date_php'])} ({kwh(bill['month_to_date_kwh'])} mula sa grid)",
            (bill["month_to_date_php"], bill["month_to_date_kwh"]), ("Bill this month", peso(bill["month_to_date_php"])))
     fs.add("bill.forecast_php", "bill", f"Forecast ng bill sa katapusan ng buwan: mga {peso(bill['forecast_php'])} "
            f"(mula {peso(bill['forecast_low_php'])} hanggang {peso(bill['forecast_high_php'])})",
            (bill["forecast_php"], bill["forecast_low_php"], bill["forecast_high_php"]), ("Forecast", peso(bill["forecast_php"])))
     days_left = bill["days_in_month"] - bill["days_elapsed"]
-    fs.add("bill.days_left", "bill", f"May {days_left} araw pa bago matapos ang buwan", (days_left,))
+    fs.add("bill.days_left", "bill", f"Ika-{bill['days_elapsed']} araw na ng buwan; {days_left} araw pa ang natitira bago ito matapos",
+           (bill["days_elapsed"], days_left))
     if bill["last_month_php"] is not None:
         fs.add("bill.last_month_php", "bill", f"Bill noong nakaraang buwan: {peso(bill['last_month_php'])}", (bill["last_month_php"],), ("Last month", peso(bill["last_month_php"])))
         p = bill["vs_last_month_pct"]

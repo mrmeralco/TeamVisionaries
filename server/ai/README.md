@@ -8,6 +8,45 @@ and add facts for the questions the demo needs.
 
 ---
 
+## 0. Status and what to build next (Andy, start here)
+
+**As of 2026-11-12** (`qwen3.5:4b`, seeded DB, device offline): `tools/eval_ai.py` **14/15 PASS**, no
+fallbacks, 4–11 s per answer. `pytest`: 153 passed (31 of them AI: `test_guard.py`, `test_ai_pipeline.py`,
+`test_router.py`).
+
+Fixed in this round (read the diff of `ai/` to see how):
+- Qwen cited ids as `"[now.battery_pct]"` (brackets copied from the FACTS list) and the guard threw away
+  correct answers. `service.clean_id` strips them; made-up ids are still rejected.
+- Numbers inside a fact sentence (e.g. "Huling data 32 minuto") were rejected because the fact had no
+  `values`. `FactSet.add` now allows every number written in the sentence.
+- Router: solar/live questions got 23 bill facts and the bill question timed out at 20 s; cost words
+  hijacked "kahapon"/"natipid" questions. Fixed (see the routing rules in section 4).
+- Prompt rules 6 and 7: answer with the exact matching fact; an offline device is not a reason to refuse.
+
+**Your next tasks, in order:**
+
+1. **"Magkano na ang bill ko ngayong buwan?" still answers with the forecast (₱2,070) instead of
+   month-to-date (₱896).** The only failing eval row. Try in this order: `qwen3.5:9b` if the laptop has
+   16 GB; route "hanggang ngayon / magkano na / so far" questions so the forecast fact is left out;
+   reorder the bill facts so month-to-date comes first.
+2. **Make the eval check the reply, not just the citation.** It once PASSed the question above because
+   the model cited `bill.month_to_date_php` while saying the forecast. In `tools/eval_ai.py`, require the
+   expected fact's chip value (or one of its `values`) to appear in `reply`.
+3. **Run the demo checklist (section 7) live.** This round was tested with the device *offline*; brownout,
+   fault and "stop Ollama" were only covered by the fake-model tests. Use `tools/fake_device.py`
+   (`b` brownout, `f` fault) and add eval cases for "May brownout ba?" *during* a brownout and
+   "May problema ba?" during fault 21.
+4. **Latency:** "Bakit mataas ang bill ko?" is ~10.6 s, the plan says under 10 s. It gets ~17 facts; trim
+   `usage`/`week` facts for bill questions or lower `num_predict`, and re-run.
+5. **Taglish quality:** grammar slips like "Hindi may active na brownout" and "Kumusta siyang naka-3664W".
+   Tune the style lines at the top of `prompts.SYSTEM` (keep the numbered rules) and format watts in
+   facts as "3.7 kW" so the model doesn't paste raw "3664W".
+6. **Guard blind spot:** a reply can quote a real number with the wrong meaning ("18 araw na ang
+   nakalipas" when 18 is days *left*). The days fact now states both numbers; watch `logs/ai.jsonl` for
+   other mix-ups and reword those facts the same way.
+
+---
+
 ## 1. The one rule: the model never knows anything on its own
 
 A small model **will** make up numbers if you let it ("₱3,500 ang bill mo!"). So it never gets the chance:
@@ -129,9 +168,15 @@ Example: "Magkano ang pinakamataas na solar ko this week?"
    (add `"pinakamataas"` to `"usage"` if needed).
 4. **Add a case** to `CASES` in `tools/eval_ai.py` and run it.
 
-Rules for facts: one idea per fact, the number already formatted the way you want it said,
-Taglish sentence, and put **every** number from the sentence in `values` (or the guard will reject the
-model for quoting it).
+Rules for facts: one idea per fact, the number already formatted the way you want it said, Taglish
+sentence. Numbers written in the sentence are allowed automatically (`FactSet.add` parses them); put the
+**unrounded** value in `values` too (e.g. `1994.6` for "₱1,995") so the guard accepts "mga ₱2,000".
+
+Routing rules (`router.py`): topics come from `KEYWORDS`. `"now"` facts are always included. Cost words in
+`WEAK_BILL` ("magkano", "mahal", "mataas", ...) only mean the bill when no other topic matched, so
+"Magkano kinuha ko sa grid kahapon?" goes to `yesterday`, not the bill. A bill question also gets `usage`
+(peak hours). A question that matches nothing gets the overview (`today`, `bill`, `savings`). Every new
+routing rule gets a row in `tests/test_router.py`.
 
 ---
 
