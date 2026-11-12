@@ -80,9 +80,13 @@ and the model is pulled.
   (₱15.06 in Oct 2026; update it each month). The whole month pays the distribution charge of its
   consumption level (up to 200, 201-300, 301-400, over 400 kWh), plus ₱23.95 fixed charges and energy
   tax above 650 kWh. **Savings** = home use not taken from the grid × rate setting.
-- **Forecast** = month-to-date kWh + weekday/weekend daily averages (last 28 days, divided by each day's
-  season factor, then multiplied by the remaining days' factor) × days left, priced with the tariff.
-  Range = ± daily std dev × √days left. The season index and Meralco tables are in `tariff.py`.
+- **Forecast** = month-to-date kWh + expected kWh for each day left, priced with the tariff. Each day comes
+  from a **SARIMA** model with a weekly cycle ([app/sarima.py](app/sarima.py)), fitted on log(1 + kWh) of
+  the last 8 weeks after dividing out the annual season index. The range is the 16th-84th percentile of
+  500 simulated months, using resampled model errors. Fewer than 4 weeks of history, no statsmodels, or
+  `FORECAST_METHOD=average` → weekday/weekend averages of the last 28 days, ± daily std dev × √days left.
+  Fitted once per day (≈1-2 s), then cached. Compare both on your own data:
+  `python tools/backtest_forecast.py`. The season index and Meralco tables are in `tariff.py`.
 - **Brownout runtime** = `batt_soc% × battery_kWh ÷ load_w` (no sun). During a brownout the advice also
   gives the time the battery runs out with the forecast sun counted.
 - **Outlook** (`/api/outlook`, [app/outlook.py](app/outlook.py)): Open-Meteo radiation forecast × this

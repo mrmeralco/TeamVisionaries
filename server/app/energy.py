@@ -8,7 +8,7 @@ import statistics
 import time
 from datetime import date, datetime, timedelta
 
-from . import config, db, tariff
+from . import config, db, sarima, tariff
 
 MAX_GAP_S = 15 * 60
 KEYS = ("pv_kwh", "load_kwh", "grid_import_kwh", "grid_export_kwh", "batt_charge_kwh", "batt_discharge_kwh")
@@ -180,6 +180,54 @@ def energy(device_id: str, period: str) -> dict:
             "points": points, "totals": tot, "self_sufficiency_pct": self_sufficiency(tot)}
 
 
+# ----------------------------------------------------------------- forecast --
+AVG_DAYS = 28  # window for the weekday/weekend average fallback
+
+
+def daily_history(device_id: str, d: date, n: int) -> list[tuple[date, float | None]]:
+    """Grid import kWh of the n finished days before d, each divided by its season factor. None = no data."""
+    out = []
+    for i in range(n, 0, -1):
+        x = d - timedelta(days=i)
+        k = day_totals(device_id, x)["grid_import_kwh"]
+        out.append((x, k / tariff.season_factor(x) if k > 0 or _has_data(device_id, x) else None))
+    return out
+
+
+def forecast_days(device_id: str, d: date, n: int, today_kwh: float = 0.0, fallback_level: float = 0.0,
+                  method: str | None = None) -> dict:
+    """Expected grid import for days d .. d+n-1, season factor applied; day d is at least `today_kwh`.
+
+    SARIMA (sarima.py) when there are 4+ weeks of history, else weekday/weekend averages of the last 28
+    days (or `fallback_level` per day with no history at all). `method` overrides FORECAST_METHOD. Returns {method, model, kwh: per day,
+    totals: SARIMA's simulated sums of the n days (None for averages), sd: daily std dev (averages only)}.
+    """
+    hist = daily_history(device_id, d, sarima.HISTORY_DAYS)
+    days = [d + timedelta(days=i) for i in range(n)]
+    f = [tariff.season_factor(x) for x in days]
+    method = method or config.FORECAST_METHOD
+    model = sarima.cached_forecast(device_id, d, [v for _, v in hist], n) if method == "sarima" else None
+    if model is not None:
+        import numpy as np
+        kwh = [float(m * fx) for m, fx in zip(model["mean"], f)]
+        sims = model["paths"] * np.array(f)[:, None]
+        kwh[0] = max(today_kwh, kwh[0])
+        sims[0] = np.maximum(sims[0], today_kwh)
+        return {"method": "sarima", "model": model["model"], "kwh": kwh, "totals": sims.sum(axis=0), "sd": None}
+
+    recent = [(x, v) for x, v in hist[-AVG_DAYS:] if v is not None]
+    wk = [v for x, v in recent if x.weekday() < 5]
+    we = [v for x, v in recent if x.weekday() >= 5]
+    allv = [v for _, v in recent]
+    avg_all = statistics.mean(allv) if allv else fallback_level
+    avg_wk = statistics.mean(wk) if wk else avg_all
+    avg_we = statistics.mean(we) if we else avg_all
+    sd = statistics.pstdev(allv) if len(allv) > 1 else avg_all * 0.2
+    kwh = [(avg_wk if x.weekday() < 5 else avg_we) * fx for x, fx in zip(days, f)]
+    kwh[0] = max(today_kwh, kwh[0])
+    return {"method": "average", "model": "weekday/weekend average", "kwh": kwh, "totals": None, "sd": sd * f[0]}
+
+
 # --------------------------------------------------------------------- bill --
 def bill(device_id: str, settings: dict) -> dict:
     rate = settings["rate_php_per_kwh"]
@@ -192,33 +240,27 @@ def bill(device_id: str, settings: dict) -> dict:
     mtd_kwh = sum(t["grid_import_kwh"] for t in month_t)
     savings_month = sum(saved_kwh(t) for t in month_t) * rate
 
-    # Forecast in kWh first, then priced with Meralco's consumption levels (tariff.py).
-    # History = last 28 finished days, each divided by its season factor so a hot April and a cool
-    # March can be averaged together; weekday and weekend are averaged separately.
-    hist = [(x, day_totals(device_id, x)["grid_import_kwh"]) for x in (d - timedelta(days=i) for i in range(1, 29))]
-    hist = [(x, k / tariff.season_factor(x)) for x, k in hist if k > 0 or _has_data(device_id, x)]
-    wk = [k for x, k in hist if x.weekday() < 5]
-    we = [k for x, k in hist if x.weekday() >= 5]
-    allk = [k for _, k in hist]
-    avg_all = statistics.mean(allk) if allk else mtd_kwh / max(1, d.day) / tariff.season_factor(d)
-    avg_wk = statistics.mean(wk) if wk else avg_all
-    avg_we = statistics.mean(we) if we else avg_all
-    sd = statistics.pstdev(allk) if len(allk) > 1 else avg_all * 0.2
-
-    def typical(x: date) -> float:
-        return (avg_wk if x.weekday() < 5 else avg_we) * tariff.season_factor(x)
-
+    # Forecast in kWh first (SARIMA, or weekday/weekend averages), then priced with Meralco's levels.
     today_kwh = month_t[-1]["grid_import_kwh"]
-    future = [first + timedelta(days=i) for i in range(d.day, n_days)]
-    fc_kwh = (mtd_kwh - today_kwh) + max(today_kwh, typical(d)) + sum(typical(x) for x in future)
-    # Each remaining day (today included) is an independent draw, so the spread grows with √days.
-    spread_kwh = max(sd * tariff.season_factor(d) * (len(future) + 1) ** 0.5, fc_kwh * 0.05)
+    fc = forecast_days(device_id, d, n_days - d.day + 1, today_kwh,
+                       fallback_level=mtd_kwh / max(1, d.day) / tariff.season_factor(d))
+    done_kwh = mtd_kwh - today_kwh  # finished days this month
+    fc_kwh = done_kwh + sum(fc["kwh"])
+    if fc["totals"] is not None:
+        # SARIMA: the range is the 16th-84th percentile of simulated months (≈ ± one std dev).
+        import numpy as np
+        p16, p84 = (done_kwh + float(v) for v in np.percentile(fc["totals"], [16, 84]))
+        lo_kwh, hi_kwh = fc_kwh - max(fc_kwh - p16, fc_kwh * 0.05), fc_kwh + max(p84 - fc_kwh, fc_kwh * 0.05)
+    else:
+        # Averages: each remaining day is an independent draw, so the spread grows with √days.
+        spread = max(fc["sd"] * len(fc["kwh"]) ** 0.5, fc_kwh * 0.05)
+        lo_kwh, hi_kwh = fc_kwh - spread, fc_kwh + spread
 
     forecast = tariff.cost(fc_kwh, rate)  # incl. fixed monthly charges
     eff_rate = tariff.rate_at(fc_kwh, rate)  # ₱/kWh at the level this month is heading for
     mtd_php = mtd_kwh * eff_rate
-    low = max(mtd_php, tariff.cost(max(mtd_kwh, fc_kwh - spread_kwh), rate))
-    high = tariff.cost(fc_kwh + spread_kwh, rate)
+    low = max(mtd_php, tariff.cost(max(mtd_kwh, lo_kwh), rate))
+    high = tariff.cost(hi_kwh, rate)
 
     # Last month: its kWh are final, so price them exactly.
     last_end = first - timedelta(days=1)
@@ -235,7 +277,7 @@ def bill(device_id: str, settings: dict) -> dict:
         cost = sum(day_totals(device_id, x)["grid_import_kwh"] for x in days) * eff_rate
         weekly.append({"week_start_ts": local_midnight(ws), "label": _label(ws, "md"), "php": round(cost, 2)})
 
-    lo_kwh, hi_kwh, _ = tariff.bracket(fc_kwh)
+    level_lo, level_hi, _ = tariff.bracket(fc_kwh)
     return {
         "month": d.strftime("%Y-%m"), "days_elapsed": d.day, "days_in_month": n_days, "rate_php_per_kwh": rate,
         "month_to_date_kwh": round(mtd_kwh, 2), "month_to_date_php": round(mtd_php, 2),
@@ -250,7 +292,9 @@ def bill(device_id: str, settings: dict) -> dict:
         # Not in Contract C (FastAPI drops them from /api/bill); used by the AI facts.
         "forecast_kwh": round(fc_kwh, 1),
         "forecast_rate_php_per_kwh": round(eff_rate, 2),
-        "forecast_bracket_kwh": (lo_kwh, hi_kwh),
+        "forecast_bracket_kwh": (level_lo, level_hi),
+        "forecast_method": fc["method"],
+        "forecast_model": fc["model"],
     }
 
 

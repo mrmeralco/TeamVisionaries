@@ -52,6 +52,10 @@ CHAT_BUDGET_S = float(os.getenv("CHAT_BUDGET_S", "25"))   # whole /api/chat incl
 LLM_KEEP_ALIVE = os.getenv("LLM_KEEP_ALIVE", "60m")
 AI_LOG = Path(os.getenv("AI_LOG", SERVER_DIR / "logs" / "ai.jsonl"))
 
+# Bill forecast of daily kWh: "sarima" (weekly SARIMA, falls back to averages with < 4 weeks of history
+# or no statsmodels) or "average" (weekday/weekend averages). Compare on your data: tools/backtest_forecast.py
+FORECAST_METHOD = os.getenv("FORECAST_METHOD", "sarima")
+
 # Solar + battery outlook. Weather: Open-Meteo (free, no key); only SITE_LAT/SITE_LON are sent.
 WEATHER_ENABLED = _bool("WEATHER_ENABLED", "1")
 WEATHER_URL = os.getenv("WEATHER_URL", "https://api.open-meteo.com/v1/forecast")

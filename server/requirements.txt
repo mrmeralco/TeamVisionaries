@@ -2,4 +2,5 @@ fastapi>=0.115
 uvicorn[standard]>=0.30
 paho-mqtt>=2.1
 httpx>=0.27
+statsmodels>=0.14  # SARIMA bill forecast (pulls in numpy, scipy, pandas)
 tzdata  # timezone data on Windows

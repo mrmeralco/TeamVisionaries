@@ -85,9 +85,10 @@ plan's table, proposed for Aldrin's approval. `GET /api/outlook` is an addition 
 Bill = grid import kWh priced with Meralco's residential schedule (pure solar household, no net-metering
 credit; `server/app/tariff.py`). `rate_php_per_kwh` is the user's setting: Meralco's monthly overall rate
 for a 200 kWh household. The whole month pays the distribution charge of its consumption level (up to 200,
-201-300, 301-400, over 400 kWh), plus fixed supply and metering charges. Forecast = month-to-date kWh + weekday/weekend daily
-averages (last 28 days, adjusted by a monthly season index) × days left, then priced. Range = ± one daily
-standard deviation × √days left. `month_to_date_php` and `weekly_costs` use the ₱/kWh of the level the
+201-300, 301-400, over 400 kWh), plus fixed supply and metering charges. Forecast = month-to-date kWh + expected kWh for each
+day left, then priced. The days come from a weekly SARIMA model (last 8 weeks, adjusted by a monthly
+season index), with the range taken from simulated months (≈ ± one std dev). With under 4 weeks of
+history it uses weekday/weekend averages instead. `month_to_date_php` and `weekly_costs` use the ₱/kWh of the level the
 forecast lands in. Savings stay at `rate_php_per_kwh`, matching `saved_today_php` in `/api/live`.
 
 ### `GET /api/brownout`
