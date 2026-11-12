@@ -1,7 +1,7 @@
 """Backtest the daily-kWh forecast: SARIMA vs weekday/weekend averages, on this DB's own history.
 
     python tools/backtest_forecast.py                       # default device, 14-day horizon, 30 cutoffs
-    python tools/backtest_forecast.py --horizon 7 --cutoffs 45 --device sinag-001
+    python tools/backtest_forecast.py --horizon 7 --cutoffs 45 --device solaris-001
 
 For each cutoff day c, both methods forecast c .. c+horizon-1 using only the days before c, and the
 forecast total is compared with the grid import that actually happened. Reports mean absolute error

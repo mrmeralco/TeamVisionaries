@@ -1,9 +1,9 @@
 // =============================================================================
-//  Sinag device (ESP32 #1) — the connector
+//  Solaris device (ESP32 #1) — the connector
 //  Modbus RTU master on one bus, polling every 5 s:
-//    inverter (slave 1, Contract A)  ->  sinag/{id}/telemetry  (Contract B)
-//    smart meter (slave 2, SDM120)   ->  sinag/{id}/meter   (meter_type "sdm120")
-//    utility meter (ANSI C12.18)     ->  sinag/{id}/meter   (meter_type "ansi-c12")
+//    inverter (slave 1, Contract A)  ->  solaris/{id}/telemetry  (Contract B)
+//    smart meter (slave 2, SDM120)   ->  solaris/{id}/meter   (meter_type "sdm120")
+//    utility meter (ANSI C12.18)     ->  solaris/{id}/meter   (meter_type "ansi-c12")
 //  Whichever device answers gets published. One that stops answering is retried
 //  every 15 s, so the simulator can be in either mode without reflashing this.
 //
@@ -490,13 +490,13 @@ void setup() {
   else {
     uint8_t mac[6];
     WiFi.macAddress(mac);
-    snprintf(deviceId, sizeof deviceId, "sinag-%02x%02x%02x", mac[3], mac[4], mac[5]);
+    snprintf(deviceId, sizeof deviceId, "solaris-%02x%02x%02x", mac[3], mac[4], mac[5]);
   }
-  snprintf(topicTelemetry, sizeof topicTelemetry, "sinag/%s/telemetry", deviceId);
-  snprintf(topicMeter,     sizeof topicMeter,     "sinag/%s/meter", deviceId);
-  snprintf(topicStatus,    sizeof topicStatus,    "sinag/%s/status", deviceId);
+  snprintf(topicTelemetry, sizeof topicTelemetry, "solaris/%s/telemetry", deviceId);
+  snprintf(topicMeter,     sizeof topicMeter,     "solaris/%s/meter", deviceId);
+  snprintf(topicStatus,    sizeof topicStatus,    "solaris/%s/status", deviceId);
 
-  Serial.printf("\n=== Sinag device %s  fw %s ===\n", deviceId, FW_VERSION);
+  Serial.printf("\n=== Solaris device %s  fw %s ===\n", deviceId, FW_VERSION);
   Serial.printf("[modbus] bus %lu 8N1, RX=%d TX=%d, %s\n", (unsigned long)P.baud, MB_RX_PIN, MB_TX_PIN,
                 RS485_DE_PIN >= 0 ? "RS485 transceiver" : "direct UART (no RS485)");
   if (invLink.enabled)   Serial.printf("[modbus] inverter \"%s\" slave %d fn %d -> %s\n", P.name, P.slaveId, P.function, topicTelemetry);

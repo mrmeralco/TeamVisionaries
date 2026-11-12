@@ -1,6 +1,6 @@
 # Contract A2: smart meter Modbus register map (SDM120-style)
 
-Simulator in **meter mode** (or a real Eastron SDM120) ↔ Sinag device.
+Simulator in **meter mode** (or a real Eastron SDM120) ↔ Solaris device.
 
 - Modbus RTU, **slave ID 2**, **9600 baud, 8N1**
 - **Input registers** (function 0x04)

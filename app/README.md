@@ -1,7 +1,7 @@
-# Sinag Flutter app
+# Solaris Flutter app
 
 Owners: **Aldrin** (dev) + **Shane** (UI/UX). Flutter 3.44, targets **web + Android**
-(`ph.sinag.sinag`). Screens follow the Figma "MOBILE" frames (HTML export with colours, spacing, DM Sans
+(`ph.solaris.solaris`). Screens follow the Figma "MOBILE" frames (HTML export with colours, spacing, DM Sans
 and the images/icons in `assets/images/`), on top of the server connection below.
 
 ## Run
@@ -15,14 +15,14 @@ flutter run -d chrome
 ```
 
 ```bash
-flutter run -d <android-device> --dart-define=SINAG_SERVER=http://192.168.43.100:8000
+flutter run -d <android-device> --dart-define=SOLARIS_SERVER=http://192.168.43.100:8000
 ```
 
 ```bash
-flutter run -d chrome --dart-define=SINAG_MOCK=true
+flutter run -d chrome --dart-define=SOLARIS_MOCK=true
 ```
 
-Default server: `SINAG_SERVER` if given, else on web the page's host on port 8000, else on Android
+Default server: `SOLARIS_SERVER` if given, else on web the page's host on port 8000, else on Android
 `http://10.0.2.2:8000` (emulator → your machine). On a real phone, type the laptop IP in
 Settings (gear icon); it's saved on the device. Settings also has **Test connection** (`/api/health`)
 and a **mock data** toggle (no server needed). Android allows plain `http://` (hotspot LAN).
@@ -83,7 +83,7 @@ Two ways to develop before the real backend is ready:
    cd server && pip install -r requirements.txt
    ```
    ```bash
-   SINAG_MOCK=1 uvicorn app.main:app --host 0.0.0.0 --port 8000
+   SOLARIS_MOCK=1 uvicorn app.main:app --host 0.0.0.0 --port 8000
    ```
    Then point the app at `http://<that-laptop-ip>:8000`. Every endpoint, including `/ws/live`
    (pushes a reading every 5 s), returns the example JSON.
@@ -91,7 +91,7 @@ Two ways to develop before the real backend is ready:
 
 ## Plan notes (from the architecture doc)
 
-- Bottom nav: Home, Energy, Bill, Ask Sinag, Alerts + Settings. Brownout Advisor screen from Home/Alerts.
+- Bottom nav: Home, Energy, Bill, Ask Mira, Alerts + Settings. Brownout Advisor screen from Home/Alerts.
 - One `ApiService` wraps every Contract C call; `MockApiService` behind one flag.
 - Packages: `http`, `web_socket_channel`, `provider` or `riverpod`, `fl_chart`.
 - Home listens to `/ws/live`; Alerts badge updates on `{"type": "alert"}` messages.

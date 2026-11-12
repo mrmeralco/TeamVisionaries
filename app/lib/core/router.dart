@@ -1,4 +1,4 @@
-// Routes (from the plan): bottom nav Home, Energy, Bill, Ask Sinag, Alerts; Settings and the
+// Routes (from the plan): bottom nav Home, Energy, Bill, Ask Mira, Alerts; Settings and the
 // Brownout Advisor open on top. Each tab keeps its own navigation stack.
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';

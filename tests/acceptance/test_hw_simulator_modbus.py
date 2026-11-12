@@ -1,6 +1,6 @@
 """HARDWARE (Adrian + Stephen): read the inverter simulator directly over a USB-RS485 dongle.
 
-    SINAG_SERIAL=/dev/cu.usbserial-XXXX pytest tests/acceptance -m hardware -s
+    SOLARIS_SERIAL=/dev/cu.usbserial-XXXX pytest tests/acceptance -m hardware -s
 
 Same job as Modbus Poll / QModMaster in the plan, but it also checks Contract A and the simulator logic.
 Wire: dongle A -> sim A, B -> B, GND -> GND. Simulator in INVERTER mode. Nothing else polling the bus.
@@ -11,9 +11,9 @@ import time
 import pytest
 
 pytestmark = pytest.mark.hardware
-PORT = os.getenv("SINAG_SERIAL")
+PORT = os.getenv("SOLARIS_SERIAL")
 if not PORT:
-    pytest.skip("set SINAG_SERIAL=/dev/cu.usbserial-... to run hardware tests", allow_module_level=True)
+    pytest.skip("set SOLARIS_SERIAL=/dev/cu.usbserial-... to run hardware tests", allow_module_level=True)
 
 pymodbus = pytest.importorskip("pymodbus", reason="pip install pymodbus pyserial")
 from pymodbus.client import ModbusSerialClient  # noqa: E402

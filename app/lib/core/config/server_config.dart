@@ -1,10 +1,10 @@
-// Where the app finds the Sinag server, saved on the device.
+// Where the app finds the Solaris server, saved on the device.
 //
 // Defaults, in order:
-//   1. --dart-define=SINAG_SERVER=http://192.168.43.100:8000
+//   1. --dart-define=SOLARIS_SERVER=http://192.168.43.100:8000
 //   2. Web: the host that served the page, port 8000 (server laptop serves or runs `flutter run -d chrome`)
 //   3. Android emulator: http://10.0.2.2:8000 (the dev machine). A real phone types the laptop IP in Settings.
-// Mock mode (no server, answers from assets/mock/): --dart-define=SINAG_MOCK=true or the Settings toggle.
+// Mock mode (no server, answers from assets/mock/): --dart-define=SOLARIS_MOCK=true or the Settings toggle.
 import 'package:flutter/foundation.dart';
 
 class ServerConfig {
@@ -13,8 +13,8 @@ class ServerConfig {
   final String baseUrl;
   final bool useMock;
 
-  static const _defineUrl = String.fromEnvironment('SINAG_SERVER');
-  static const _defineMock = bool.fromEnvironment('SINAG_MOCK');
+  static const _defineUrl = String.fromEnvironment('SOLARIS_SERVER');
+  static const _defineMock = bool.fromEnvironment('SOLARIS_MOCK');
 
   static ServerConfig get defaults => ServerConfig(baseUrl: defaultBaseUrl(), useMock: _defineMock);
 

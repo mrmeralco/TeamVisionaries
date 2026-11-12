@@ -1,12 +1,12 @@
 #pragma once
 // =============================================================================
-//  Brand profiles — map an inverter's own Modbus registers to Sinag's fields.
+//  Brand profiles — map an inverter's own Modbus registers to Solaris's fields.
 //
 //  Every profile fills the same 8 fields (Contract A / Contract B). For each
 //  field give: the register address, a scale (value = raw * scale), and whether
 //  the register is signed int16. reg = -1 means "this inverter doesn't have it".
 //
-//  To add a real inverter later: copy PROFILE_SINAG_SIM, change the numbers
+//  To add a real inverter later: copy PROFILE_SOLARIS_SIM, change the numbers
 //  from the brand's Modbus manual, and point PROFILE in config.h at it.
 // =============================================================================
 #include <stdint.h>
@@ -32,9 +32,9 @@ struct BrandProfile {
   FieldMap    f[F_COUNT];
 };
 
-// Sinag inverter simulator — Contract A, 1:1.
-static const BrandProfile PROFILE_SINAG_SIM = {
-  "sinag-sim", 1, 9600, 3, 0.5f,
+// Solaris inverter simulator — Contract A, 1:1.
+static const BrandProfile PROFILE_SOLARIS_SIM = {
+  "solaris-sim", 1, 9600, 3, 0.5f,
   {
     /* pv_w       */ { 0, 1.0f, false },
     /* load_w     */ { 1, 1.0f, false },
@@ -49,7 +49,7 @@ static const BrandProfile PROFILE_SINAG_SIM = {
 
 // =============================================================================
 //  Smart meter profiles (float32 registers, two per value).
-//  Fields are published on sinag/{device_id}/meter.
+//  Fields are published on solaris/{device_id}/meter.
 // =============================================================================
 enum MeterField : uint8_t { M_VOLTAGE, M_CURRENT, M_POWER, M_APPARENT, M_REACTIVE, M_PF, M_FREQ, M_IMPORT, M_EXPORT, M_COUNT };
 
@@ -67,7 +67,7 @@ struct MeterProfile {
   int32_t     reg[M_COUNT];      // first register of each float32, -1 = not available
 };
 
-// Eastron SDM120 (also what the Sinag simulator emulates in METER mode).
+// Eastron SDM120 (also what the Solaris simulator emulates in METER mode).
 // Real SDM120s ship at slave 1 / 2400 baud: set them to slave 2 / 9600 on the meter's menu.
 static const MeterProfile METER_SDM120 = {
   "sdm120", 2, 9600, 4, false,

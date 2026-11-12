@@ -1,4 +1,4 @@
-# Sinag server (FastAPI + MQTT ingest + local AI)
+# Solaris server (FastAPI + MQTT ingest + local AI)
 
 Owners: **Andy** (`app/` and `ai/`; AI guide: [ai/README.md](ai/README.md)). Implements Contract C
 ([docs/contracts/C-api.md](../docs/contracts/C-api.md)) on top of Contract B MQTT.
@@ -13,7 +13,7 @@ server/
 │   ├── energy.py   live status line, kWh series, bill + forecast, brownout runtime
 │   ├── db.py       SQLite tables: telemetry, meter, device_status, alerts, outages, settings
 │   ├── hub.py      WebSocket fan-out
-│   ├── mock.py     SINAG_MOCK=1 serves docs/contracts/examples/*.json
+│   ├── mock.py     SOLARIS_MOCK=1 serves docs/contracts/examples/*.json
 │   └── config.py   env vars (see .env.example)
 ├── ai/             local AI, Qwen 3.5 on Ollama (Andy). Read ai/README.md
 │   ├── facts.py    every number the AI may say, computed from SQLite
@@ -52,7 +52,7 @@ ollama pull qwen3.5:4b        # 3.3 GB, do it before the event
 Fastest start for the app team (no broker, no DB, no LLM):
 
 ```bash
-SINAG_MOCK=1 uvicorn app.main:app --host 0.0.0.0 --port 8000
+SOLARIS_MOCK=1 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 Real mode, 3 terminals:
@@ -66,7 +66,7 @@ python tools/seed_history.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 
 ```
 
 ```bash
-python tools/fake_device.py          # or the real Sinag device pointed at this laptop's IP
+python tools/fake_device.py          # or the real Solaris device pointed at this laptop's IP
 ```
 
 Open `http://localhost:8000/docs` to try every endpoint. `GET /api/health` shows whether the LLM is reachable

@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 /// Folder with schema.json and examples/. Tests run from app/, so the default is ../docs/contracts.
-final contractsDir = Platform.environment['SINAG_CONTRACTS'] ?? '../docs/contracts';
+final contractsDir = Platform.environment['SOLARIS_CONTRACTS'] ?? '../docs/contracts';
 
 final Map<String, dynamic> _schema =
     jsonDecode(File('$contractsDir/schema.json').readAsStringSync()) as Map<String, dynamic>;

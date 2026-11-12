@@ -119,7 +119,7 @@ class _Body extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Payo ni Sinag', style: ts(13, w: FontWeight.w700)),
+              Text('Payo ni Mira', style: ts(13, w: FontWeight.w700)),
               const SizedBox(height: 8),
               Text(b['advice'] as String, style: ts(12, height: 1.45)),
             ],

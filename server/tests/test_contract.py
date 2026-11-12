@@ -148,7 +148,7 @@ def test_real_settings_put_returns_full_object(client):
 
 
 def test_real_alerts_read(client):
-    a = db.insert_alert("sinag-001", 1794446366, "high_temp", "warning", "Test", "Test alert")
+    a = db.insert_alert("solaris-001", 1794446366, "high_temp", "warning", "Test", "Test alert")
     r = client.post(f"/api/alerts/{a['id']}/read")
     assert r.status_code == 200
     assert_exact(S.Alert, r.json())

@@ -15,7 +15,7 @@ import httpx
 
 from app import config
 
-log = logging.getLogger("sinag.llm")
+log = logging.getLogger("solaris.llm")
 
 
 class LLMUnavailable(Exception):
@@ -41,7 +41,7 @@ async def complete_json(system: str, messages: list[dict], schema: dict, max_tok
                 r = await client.post(f"{config.LLM_BASE_URL.rstrip('/')}/chat/completions",
                                       headers={"Authorization": f"Bearer {config.LLM_API_KEY}"}, json={
                     "model": config.LLM_MODEL, "messages": msgs, "temperature": 0, "max_tokens": max_tokens,
-                    "response_format": {"type": "json_schema", "json_schema": {"name": "sinag_reply", "schema": schema, "strict": True}},
+                    "response_format": {"type": "json_schema", "json_schema": {"name": "solaris_reply", "schema": schema, "strict": True}},
                 })
                 r.raise_for_status()
                 text = r.json()["choices"][0]["message"]["content"]

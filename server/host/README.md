@@ -1,10 +1,10 @@
-# Hosting Sinag (server laptop)
+# Hosting Solaris (server laptop)
 
 One laptop runs everything the ESP32 and the app talk to:
 
 | Service | Port | What it does |
 |---|---|---|
-| Mosquitto | 1883 | MQTT broker. The Sinag device publishes here |
+| Mosquitto | 1883 | MQTT broker. The Solaris device publishes here |
 | FastAPI | 8000 | Stores readings in SQLite, serves the REST/WebSocket API to the app |
 | Ollama | 11434 (local only) | Taglish AI model (`qwen3.5:4b`) |
 
@@ -30,10 +30,10 @@ bash server/host/setup-mac.sh        # once (--skip-ai to skip the model)
 bash server/host/start-mac.sh        # every time
 ```
 
-## Pointing the Sinag device at the host
+## Pointing the Solaris device at the host
 
 The start script prints this laptop's name and IP. Put them in
-`firmware/sinag-device/config.h` together with the hotspot name and password, then reflash:
+`firmware/solaris-device/config.h` together with the hotspot name and password, then reflash:
 
 ```c
 #define WIFI_SSID       "team hotspot name"
@@ -56,8 +56,8 @@ time, so write it on the sticky note.
 - `http://<ip>:8000/api/health`: `"ok": true`, and `"llm_reachable": true` once Ollama has the model.
 - `http://<ip>:8000/api/live`: latest reading from the device; `"state"` should not be `"offline"`.
 - Watch raw MQTT traffic:
-  - Windows: `"C:\Program Files\mosquitto\mosquitto_sub.exe" -t "sinag/#" -v`
-  - macOS: `mosquitto_sub -t "sinag/#" -v`
+  - Windows: `"C:\Program Files\mosquitto\mosquitto_sub.exe" -t "solaris/#" -v`
+  - macOS: `mosquitto_sub -t "solaris/#" -v`
 - No hardware yet? `server\.venv\Scripts\python tools\fake_device.py` (Windows) or
   `server/.venv/bin/python tools/fake_device.py` (macOS) publishes fake readings.
 

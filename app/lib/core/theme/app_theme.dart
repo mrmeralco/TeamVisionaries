@@ -1,4 +1,4 @@
-// Design tokens from the Figma "MOBILE" frames (HTML export: Sinag_HTML/styles.css, 393 × 852).
+// Design tokens from the Figma "MOBILE" frames (HTML export: Solaris_HTML/styles.css, 393 × 852).
 // Font: DM Sans, bundled in assets/fonts/ (the demo runs offline).
 import 'package:flutter/material.dart';
 

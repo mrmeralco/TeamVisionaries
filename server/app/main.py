@@ -1,7 +1,7 @@
-"""Sinag backend: FastAPI app implementing Contract C (docs/contracts/C-api.md).
+"""Solaris backend: FastAPI app implementing Contract C (docs/contracts/C-api.md).
 
 Run from server/:   uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-Mock mode:          SINAG_MOCK=1 uvicorn app.main:app --host 0.0.0.0 --port 8000
+Mock mode:          SOLARIS_MOCK=1 uvicorn app.main:app --host 0.0.0.0 --port 8000
 """
 import asyncio
 import contextlib
@@ -18,7 +18,7 @@ from . import config, db, energy, hub, ingest, mock, outlook, weather
 from . import schemas as S  # Contract C response shapes
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-log = logging.getLogger("sinag")
+log = logging.getLogger("solaris")
 
 
 async def _background() -> None:
@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
     ingest.stop()
 
 
-app = FastAPI(title="Sinag API", version="0.1.0", lifespan=lifespan,
+app = FastAPI(title="Solaris API", version="0.1.0", lifespan=lifespan,
               description="Contract C: backend → Flutter app. See docs/contracts/C-api.md")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 

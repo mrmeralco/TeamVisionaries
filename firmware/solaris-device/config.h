@@ -1,5 +1,5 @@
 #pragma once
-// ======================= Sinag device (connector) — config ===================
+// ======================= Solaris device (connector) — config ===================
 // ESP32 #1. Edit these, then upload.
 
 // ---- Wi-Fi (team hotspot) and MQTT broker (Mosquitto on the server laptop)
@@ -12,7 +12,7 @@
 #define MDNS_TIMEOUT_MS 1500               // how long to wait for the laptop to answer its .local name
 #define MQTT_USER     ""                   // empty = no auth
 #define MQTT_PASS     ""
-#define DEVICE_ID     "sinag-001"          // empty "" = derive from MAC (sinag-a1b2c3)
+#define DEVICE_ID     "solaris-001"          // empty "" = derive from MAC (solaris-a1b2c3)
 
 // ---- Timing
 #define POLL_MS       5000                 // Modbus poll + telemetry publish
@@ -31,13 +31,13 @@
 //      answers gets published. A device that stops answering is retried every
 //      ABSENT_RETRY_MS so a missing one doesn't slow the other down.
 #define INVERTER_ENABLED  1
-#define PROFILE           PROFILE_SINAG_SIM     // inverter -> sinag/{id}/telemetry
+#define PROFILE           PROFILE_SOLARIS_SIM     // inverter -> solaris/{id}/telemetry
 #define METER_ENABLED     1
-#define METER_PROFILE     METER_SDM120          // smart meter -> sinag/{id}/meter
+#define METER_PROFILE     METER_SDM120          // smart meter -> solaris/{id}/meter
 #define METER_ANSI_ENABLED 1                    // utility meter (Meralco/Aclara-style), ANSI C12.18
 #define C12_USER_ID       2
-#define C12_USER          "SINAG"               // up to 10 chars
-#define C12_PASSWORD      "SINAG-DEMO"          // up to 20 chars; must match the simulator. A real meter's belongs to the utility
+#define C12_USER          "SOLARIS"               // up to 10 chars
+#define C12_PASSWORD      "SOLARIS-DEMO"          // up to 20 chars; must match the simulator. A real meter's belongs to the utility
 #define ABSENT_RETRY_MS   15000
 
 // ---- Status LED (on-board LED is GPIO 2 on most ESP32 DevKits)

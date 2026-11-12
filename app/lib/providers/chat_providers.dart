@@ -1,4 +1,4 @@
-// Ask Sinag: POST /api/chat. Keeps the conversation for the app session.
+// Ask Mira: POST /api/chat. Keeps the conversation for the app session.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'server_providers.dart';
@@ -9,7 +9,7 @@ class ChatMessage {
         chips = const [],
         source = null,
         isError = false;
-  const ChatMessage.sinag(this.text, {this.chips = const [], this.source})
+  const ChatMessage.solaris(this.text, {this.chips = const [], this.source})
       : fromUser = false,
         isError = false;
   const ChatMessage.error(this.text)
@@ -48,13 +48,13 @@ class ChatNotifier extends Notifier<ChatState> {
     ChatMessage reply;
     try {
       final res = await ref.read(apiServiceProvider).chat(message);
-      reply = ChatMessage.sinag(
+      reply = ChatMessage.solaris(
         res['reply'] as String? ?? '',
         chips: ((res['chips'] as List?) ?? const []).cast<Map<String, dynamic>>(),
         source: res['source'] as String?,
       );
     } catch (_) {
-      reply = const ChatMessage.error('Hindi ma-reach ang Sinag server. Subukan ulit.');
+      reply = const ChatMessage.error('Hindi ma-reach ang Solaris server. Subukan ulit.');
     }
     if (!ref.mounted) return;
     state = ChatState(messages: [...state.messages, reply]);

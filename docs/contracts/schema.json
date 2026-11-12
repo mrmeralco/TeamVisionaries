@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://sinag.local/contracts/schema.json",
-  "title": "Sinag contracts B (MQTT) and C (REST + WebSocket)",
+  "$id": "https://solaris.local/contracts/schema.json",
+  "title": "Solaris contracts B (MQTT) and C (REST + WebSocket)",
   "description": "Machine-checkable version of B-mqtt.md and C-api.md. Tests in server/tests, tests/acceptance and app/test_spec validate against these. Change this file together with the .md files.",
   "$defs": {
     "ts": { "type": "integer", "minimum": 0 },
@@ -10,7 +10,7 @@
     "kwh": { "type": "number", "minimum": 0 },
 
     "telemetry": {
-      "description": "Contract B: sinag/{device_id}/telemetry. Also the `telemetry` object in /api/live.",
+      "description": "Contract B: solaris/{device_id}/telemetry. Also the `telemetry` object in /api/live.",
       "type": "object",
       "required": ["ts", "pv_w", "load_w", "grid_w", "batt_soc", "batt_w", "grid_on", "inv_temp_c", "fault_code"],
       "properties": {
@@ -26,7 +26,7 @@
       }
     },
     "meter": {
-      "description": "Contract B: sinag/{device_id}/meter",
+      "description": "Contract B: solaris/{device_id}/meter",
       "type": "object",
       "required": ["ts", "meter_type", "voltage_v", "power_w", "import_kwh", "export_kwh", "grid_on"],
       "properties": {
@@ -45,7 +45,7 @@
       }
     },
     "status": {
-      "description": "Contract B: sinag/{device_id}/status (retained). The last will is just {\"online\": false}.",
+      "description": "Contract B: solaris/{device_id}/status (retained). The last will is just {\"online\": false}.",
       "type": "object",
       "required": ["online"],
       "properties": {

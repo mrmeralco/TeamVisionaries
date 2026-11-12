@@ -1,4 +1,4 @@
-// Ask Sinag (Figma "Ask Sinag"): POST /api/chat. Answer + chips; spinner while the local LLM thinks (~10 s).
+// Ask Mira (Figma "Ask Mira"): POST /api/chat. Answer + chips; spinner while the local LLM thinks (~10 s).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,8 +19,8 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     'Ilang porsyento na ang battery ko?',
     'Kailan ko dapat gamitin ang washing machine?',
   ];
-  static const _welcome = ChatMessage.sinag(
-      'Hi! Ako si Sinag. Tanungin mo ako tungkol sa solar, battery, o bill mo, sa Taglish o English.');
+  static const _welcome = ChatMessage.solaris(
+      'Hi! Ako si Mira. Tanungin mo ako tungkol sa solar, battery, o bill mo, sa Taglish o English.');
 
   final _input = TextEditingController();
   final _scroll = ScrollController();
@@ -52,7 +52,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
     final messages = [_welcome, ...chat.messages];
 
     return Column(children: [
-      const SafeArea(bottom: false, child: PageHeader('Ask Sinag', 'Get answers about your solar energy.')),
+      const SafeArea(bottom: false, child: PageHeader('Ask Mira', 'Get answers about your solar energy.')),
       const SizedBox(height: 16),
       Expanded(
         child: ListView(
@@ -142,7 +142,7 @@ class _Bubble extends StatelessWidget {
       child: Column(
         crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          Text(mine ? 'You' : 'Sinag', style: ts(9, color: const Color(0xFFADADAD), spacing: -0.18)),
+          Text(mine ? 'You' : 'Mira', style: ts(9, color: const Color(0xFFADADAD), spacing: -0.18)),
           const SizedBox(height: 5),
           ConstrainedBox(
             constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.75),
@@ -191,7 +191,7 @@ class _Typing extends StatelessWidget {
         child: Row(children: [
           const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
           const SizedBox(width: 8),
-          Text('Nag-iisip si Sinag… (hanggang ~10 s)', style: ts(10, color: C.muted)),
+          Text('Nag-iisip si Mira… (hanggang ~10 s)', style: ts(10, color: C.muted)),
         ]),
       );
 }

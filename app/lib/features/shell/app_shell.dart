@@ -90,7 +90,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       if (alert == null || alert['id'] == prev?['id']) return;
       final notifier = ref.read(systemNotifierProvider);
       if (notifier.appHidden && ref.read(notifyAlertsProvider)) {
-        notifier.show('Sinag: ${alert['title']}', '${alert['message']}', tag: 'alert-${alert['id']}');
+        notifier.show('Solaris: ${alert['title']}', '${alert['message']}', tag: 'alert-${alert['id']}');
       } else {
         _snack('${alert['title']}: ${alert['message']}', critical: alert['severity'] == 'critical');
       }
@@ -99,7 +99,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     return Scaffold(
       backgroundColor: C.cream,
       body: shell,
-      bottomNavigationBar: SinagNavBar(
+      bottomNavigationBar: SolarisNavBar(
         index: shell.currentIndex,
         badge: unread,
         onTap: (i) => shell.goBranch(i, initialLocation: i == shell.currentIndex),

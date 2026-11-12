@@ -1,9 +1,9 @@
-# Sinag firmware
+# Solaris firmware
 
 | Folder | Board | What it does |
 |---|---|---|
 | `inverter-sim/` | ESP32 #2 | Simulator with two modes. **Inverter** = hybrid solar inverter, slave 1 (Contract A). **Smart meter** = SDM120-style kWh meter, slave 2 (Contract A2). LCD, 1 knob, 1 button, live web dashboard |
-| `sinag-device/` | ESP32 #1 | The connector. Modbus RTU **master** that polls the inverter and the meter every 5 s and publishes each one that answers over MQTT (Contract B) |
+| `solaris-device/` | ESP32 #1 | The connector. Modbus RTU **master** that polls the inverter and the meter every 5 s and publishes each one that answers over MQTT (Contract B) |
 
 ## Wiring (no RS485 modules yet: direct UART)
 
@@ -11,7 +11,7 @@ Modbus RTU is just bytes on a serial line. Until the MAX3485 modules arrive, wir
 the two ESP32s straight to each other: **TX goes to the other board's RX, and the grounds are shared.**
 
 ```
- ESP32 #2  inverter-sim               ESP32 #1  sinag-device
+ ESP32 #2  inverter-sim               ESP32 #1  solaris-device
  ──────────────────────               ──────────────────────
  GPIO25 (TX)   ─────────────────────► GPIO26 (RX)
  GPIO26 (RX)   ◄───────────────────── GPIO25 (TX)
@@ -132,29 +132,29 @@ An alert (`!! BROWNOUT !!` / `!LOW VOLTAGE!`) shows every other slot, as in inve
 
 ### Web dashboard
 
-On boot the LCD shows the IP address. Open `http://<that IP>/` or `http://sinag-sim.local/`.
+On boot the LCD shows the IP address. Open `http://<that IP>/` or `http://solaris-sim.local/`.
 If the hotspot isn't reachable within 15 s, the simulator makes its own Wi-Fi network
-**Sinag-Sim** (password `sinag1234`) at `http://192.168.4.1`. It keeps looking for the hotspot
-every 30 s (`WIFI_RETRY_MS`; phones on Sinag-Sim may blip for a moment then) and closes
-Sinag-Sim once it joins, so switching the hotspot on late needs no reboot.
+**Solaris-Sim** (password `solaris1234`) at `http://192.168.4.1`. It keeps looking for the hotspot
+every 30 s (`WIFI_RETRY_MS`; phones on Solaris-Sim may blip for a moment then) and closes
+Solaris-Sim once it joins, so switching the hotspot on late needs no reboot.
 
 The page has a mode switch at the top (Hybrid inverter / Smart meter). It shows
 live values for the current mode, and the active register map is shown decoded and
-raw, exactly as the Sinag device reads it. Modbus link stats include the last
+raw, exactly as the Solaris device reads it. Modbus link stats include the last
 request/response bytes. Controls mirror the panel: sun/load/voltage sliders, knob
 target, brownout, fault or low voltage, sim speed, and set SoC or set meter
 reading. JSON is at `/api/state`. Controls are at `POST /api/control` (`mode`,
 `sun`, `load`, `volt`, `knob`, `brownout`, `fault`, `sag`, `speed`, `soc`, `imp`, `exp`).
 
-## Using the Sinag device
+## Using the Solaris device
 
-1. In `sinag-device/config.h`, set `WIFI_SSID`, `WIFI_PASS`, `DEVICE_ID`, and the server laptop:
+1. In `solaris-device/config.h`, set `WIFI_SSID`, `WIFI_PASS`, `DEVICE_ID`, and the server laptop:
    `MQTT_MDNS_HOST` (its computer name, found as `<name>.local` whatever IP the hotspot gives it)
    and `MQTT_HOST` (its IP, used if the name doesn't answer). The host start script prints both.
 2. Upload it and open Serial Monitor at 115200. Each poll prints the JSON it published:
    ```
-   [pub] OK  sinag/sinag-001/telemetry {"ts":1731300000,"pv_w":3000,...}    ← inverter mode
-   [pub] OK  sinag/sinag-001/meter {"ts":1731300000,"voltage_v":230.1,...}   ← meter mode
+   [pub] OK  solaris/solaris-001/telemetry {"ts":1731300000,"pv_w":3000,...}    ← inverter mode
+   [pub] OK  solaris/solaris-001/meter {"ts":1731300000,"voltage_v":230.1,...}   ← meter mode
    ```
    The device polls both slave 1 (inverter) and slave 2 (meter). It publishes whichever
    one answers, so you never reflash it when you switch the simulator's mode. A
@@ -164,7 +164,7 @@ reading. JSON is at `/api/state`. Controls are at `POST /api/control` (`mode`,
    `INVERTER_ENABLED` or `METER_ENABLED` to 0 in `config.h`.
 3. On the laptop:
    ```bash
-   mosquitto_sub -h localhost -t "sinag/#" -v
+   mosquitto_sub -h localhost -t "solaris/#" -v
    ```
 
 The device polls Modbus even without Wi-Fi, so you can test the ESP32↔ESP32 link
@@ -180,7 +180,7 @@ Self-protection:
   stops until reboot (`[c12] ... STOPPED`), so the device never retries its way into a meter lockout.
   Fix `C12_PASSWORD` in both `config.h` files and reflash.
 
-Real hardware: add a profile in `sinag-device/profiles.h` and point `PROFILE`
+Real hardware: add a profile in `solaris-device/profiles.h` and point `PROFILE`
 (inverter) or `METER_PROFILE` (meter) in `config.h` at it. For an inverter, give the
 register, scale and sign of each field. For a meter, give the float32 start register
 of each field and its word order. A real Eastron SDM120 works with the built-in
@@ -200,7 +200,7 @@ arduino-cli compile --fqbn esp32:esp32:esp32 -u -p /dev/cu.usbserial-XXXX invert
 ```
 
 ```bash
-arduino-cli compile --fqbn esp32:esp32:esp32 -u -p /dev/cu.usbserial-YYYY sinag-device
+arduino-cli compile --fqbn esp32:esp32:esp32 -u -p /dev/cu.usbserial-YYYY solaris-device
 ```
 
 If a board boot-loops with `csum err` / `TG0WDT_SYS_RESET` in the serial log

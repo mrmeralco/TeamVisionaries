@@ -82,7 +82,7 @@ class TopBar extends StatelessWidget {
   );
 }
 
-/// Title + subtitle, as on the Energy / Bill / Ask Sinag / Alerts frames.
+/// Title + subtitle, as on the Energy / Bill / Ask Mira / Alerts frames.
 class PageHeader extends StatelessWidget {
   const PageHeader(this.title, this.sub, {super.key, this.trailing});
   final String title;
@@ -239,7 +239,7 @@ class ErrorBox extends StatelessWidget {
           const Icon(Icons.wifi_off_rounded, color: C.orange, size: 32),
           const SizedBox(height: 8),
           Text(
-            message ?? 'Hindi maabot ang Sinag server.',
+            message ?? 'Hindi maabot ang Solaris server.',
             style: ts(13, w: FontWeight.w600),
             textAlign: TextAlign.center,
           ),
@@ -268,13 +268,13 @@ const navItems = [
   ('Home', 'home'),
   ('Energy', 'energy'),
   ('Bill', 'bill'),
-  ('Ask Sinag', 'chat'),
+  ('Ask Mira', 'chat'),
   ('Alerts', 'alerts'),
 ];
 
 /// Figma bottom bar: SVG icons on/off, orange indicator over the active tab, unread badge on Alerts.
-class SinagNavBar extends StatelessWidget {
-  const SinagNavBar({super.key, required this.index, required this.onTap, this.badge = 0});
+class SolarisNavBar extends StatelessWidget {
+  const SolarisNavBar({super.key, required this.index, required this.onTap, this.badge = 0});
   final int index;
   final ValueChanged<int> onTap;
   final int badge;

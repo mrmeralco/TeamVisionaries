@@ -1,4 +1,4 @@
-# Sinag ☀️
+# Solaris ☀️
 
 **Team Visionaries · IDOL Hackathon 2026 · Pamantasan ng Lungsod ng Valenzuela**
 
@@ -7,7 +7,7 @@ server stores the data and explains it in Taglish with a local LLM, and a Flutte
 100 % local and offline, even the AI.
 
 ```
-simulator / real inverter ─RS485 Modbus─▶ Sinag device (ESP32) ─MQTT─▶ backend (FastAPI) ─▶ SQLite
+simulator / real inverter ─RS485 Modbus─▶ Solaris device (ESP32) ─MQTT─▶ backend (FastAPI) ─▶ SQLite
                                                                           │   └─▶ Ollama (local LLM)
                                                                           └─REST + WebSocket─▶ Flutter app
 ```
@@ -16,7 +16,7 @@ simulator / real inverter ─RS485 Modbus─▶ Sinag device (ESP32) ─MQTT─�
 
 | Folder | What | Owner |
 |---|---|---|
-| [`firmware/sinag-device/`](firmware/) | ESP32 #1: Modbus master, publishes MQTT | Adrian |
+| [`firmware/solaris-device/`](firmware/) | ESP32 #1: Modbus master, publishes MQTT | Adrian |
 | [`firmware/inverter-sim/`](firmware/) | ESP32 #2: inverter / smart meter / Meralco meter simulator | Adrian + Stephen |
 | [`server/app/`](server/) | FastAPI: ingest, alerts, bill, forecast, REST + WS | Andy |
 | [`server/ai/`](server/ai/) | Grounded Taglish AI, Qwen 3.5 on Ollama ([guide](server/ai/README.md)) | Andy |
@@ -48,7 +48,7 @@ cd server && python3 -m venv .venv && source .venv/bin/activate && pip install -
 ```
 
 ```bash
-SINAG_MOCK=1 uvicorn app.main:app --host 0.0.0.0 --port 8000
+SOLARIS_MOCK=1 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 API docs at `http://<laptop-ip>:8000/docs`. Real mode, firmware and app setup: see each folder's README.

@@ -22,7 +22,7 @@ from app import config, db, energy
 from . import answers, guard, llm, prompts, router
 from .facts import Fact, FactSet, gather
 
-log = logging.getLogger("sinag.ai")
+log = logging.getLogger("solaris.ai")
 
 DEFAULT_CHIPS = ("bill.month_to_date_php", "bill.forecast_php", "today.saved_php", "now.battery_pct")
 MAX_CHIPS = 4

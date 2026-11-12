@@ -1,5 +1,5 @@
 // MockApiService: same methods as ApiService, answers from assets/mock/*.json
-// (copies of docs/contracts/examples). Turn it on in Settings or with --dart-define=SINAG_MOCK=true.
+// (copies of docs/contracts/examples). Turn it on in Settings or with --dart-define=SOLARIS_MOCK=true.
 //
 // pubspec.yaml:
 //   flutter:

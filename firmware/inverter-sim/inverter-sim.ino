@@ -1,5 +1,5 @@
 // =============================================================================
-//  Sinag — Simulator (ESP32 #2). Three personalities, one box:
+//  Solaris — Simulator (ESP32 #2). Three personalities, one box:
 //
 //    INVERTER mode  Hybrid solar inverter, Modbus RTU slave ID 1, Contract A map
 //    METER mode     Customer submeter (Eastron SDM120-style), Modbus slave ID 2,
@@ -299,7 +299,7 @@ static size_t c12Table(uint16_t id, uint8_t *t) {
       memcpy(t, "ACL ", 4);                    // MANUFACTURER
       memcpy(t + 4, "I210+c  ", 8);            // ED_MODEL
       t[12] = 1; t[13] = 0; t[14] = 2; t[15] = 0;   // HW ver/rev, FW ver/rev
-      memcpy(t + 16, "SINAG-SIM-000001", 16);  // MFG_SERIAL_NUMBER
+      memcpy(t + 16, "SOLARIS-SIM-000001", 16);  // MFG_SERIAL_NUMBER
       return 32;
     }
     case 23: {  // ST-23 CURRENT_REG_DATA: demand resets + summations in Wh
@@ -730,7 +730,7 @@ static void sendState() {
   jcat("\"meter\":{\"v\":%.1f,\"i\":%.2f,\"p\":%.0f,\"va\":%.0f,\"var\":%.0f,\"pf\":%.2f,\"hz\":%.2f,\"imp\":%.2f,\"exp\":%.2f,\"load_w\":%d,\"pv_w\":%d},",
        S.mV, S.mI, S.mP, S.mVA, S.mVAR, S.mPF, S.mHz, S.impKwh, S.expKwh, S.loadW, S.pvW);
 
-  // register table of the active map, exactly as the Sinag device reads it
+  // register table of the active map, exactly as the Solaris device reads it
   jcat("\"table\":[");
   if (isAnsi()) {
     uint8_t t[64];
@@ -854,9 +854,9 @@ static void wifiLoop() {
 void setup() {
   Serial.begin(115200);
   delay(200);
-  Serial.println("\n=== Sinag simulator " FW_VERSION " ===");
+  Serial.println("\n=== Solaris simulator " FW_VERSION " ===");
 
-  prefs.begin("sinag-sim", false);
+  prefs.begin("solaris-sim", false);
   uint8_t savedMode = prefs.getUChar("mode", MODE_INVERTER);
   S.mode   = savedMode < NUM_MODES ? (Mode)savedMode : MODE_INVERTER;
   S.impKwh = prefs.getDouble("imp", METER_START_KWH);
@@ -882,7 +882,7 @@ void setup() {
   } else {
     Serial.println("[lcd] not found on I2C — check SDA/SCL/power (running without it)");
   }
-  flash(isAnsi() ? "Sinag C12 Meter" : isMeter() ? "Sinag Meter Sim" : "Sinag Inverter", "Simulator " FW_VERSION, 2000);
+  flash(isAnsi() ? "Solaris C12 Meter" : isMeter() ? "Solaris Meter Sim" : "Solaris Inverter", "Simulator " FW_VERSION, 2000);
 
   for (int i = 0; i < 8; i++) readPot();
   lockKnob();                                   // don't let the knob jump the defaults at boot

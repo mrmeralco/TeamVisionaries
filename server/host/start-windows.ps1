@@ -1,4 +1,4 @@
-# Start the Sinag host on Windows: Mosquitto on :1883 + FastAPI on :8000. Ctrl+C stops both.
+# Start the Solaris host on Windows: Mosquitto on :1883 + FastAPI on :8000. Ctrl+C stops both.
 # Run via start-windows.bat (no admin needed).
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")   # -> server\
@@ -21,11 +21,11 @@ $ip = (Get-NetIPAddress -AddressFamily IPv4 |
        Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" -and $_.PrefixOrigin -ne "WellKnown" } |
        Select-Object -First 1).IPAddress
 Write-Host ""
-Write-Host "  Sinag host is up"
+Write-Host "  Solaris host is up"
 Write-Host "  -----------------------------------------------"
 Write-Host "  MQTT broker   ${ip}:1883     (log: server\logs\mosquitto.log)"
 Write-Host "  API + docs    http://${ip}:8000/docs"
-Write-Host "  Firmware      in firmware\sinag-device\config.h set"
+Write-Host "  Firmware      in firmware\solaris-device\config.h set"
 Write-Host "                MQTT_MDNS_HOST `"$env:COMPUTERNAME`"  (finds this laptop on any IP)"
 Write-Host "                MQTT_HOST `"$ip`"  (fallback)"
 Write-Host "  Ctrl+C to stop"

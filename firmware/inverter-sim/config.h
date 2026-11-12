@@ -1,16 +1,16 @@
 #pragma once
-// ===================== Sinag inverter simulator — config =====================
+// ===================== Solaris inverter simulator — config =====================
 // ESP32 #2. Edit these, then upload.
 
 // ---- Wi-Fi (the team hotspot). If it can't connect in 15 s, the simulator
-//      starts its own AP "Sinag-Sim" (password below) at http://192.168.4.1 and
+//      starts its own AP "Solaris-Sim" (password below) at http://192.168.4.1 and
 //      keeps looking for the hotspot every WIFI_RETRY_MS. Once it joins, the AP closes.
 #define WIFI_SSID       "YOUR_HOTSPOT_SSID"
 #define WIFI_PASS       "YOUR_HOTSPOT_PASSWORD"
 #define WIFI_RETRY_MS   30000              // hotspot retry while in AP mode (AP clients blip briefly)
-#define AP_SSID         "Sinag-Sim"
-#define AP_PASS         "sinag1234"        // min 8 chars
-#define MDNS_NAME       "sinag-sim"        // -> http://sinag-sim.local
+#define AP_SSID         "Solaris-Sim"
+#define AP_PASS         "solaris1234"        // min 8 chars
+#define MDNS_NAME       "solaris-sim"        // -> http://solaris-sim.local
 
 // ---- Modbus link (Contract A). UART2.
 //      Today (no RS485 modules): wire ESP32-to-ESP32 directly, TX->RX crossed.
@@ -22,7 +22,7 @@
 #define RS485_DE_PIN    -1                 // -1 = direct UART (no transceiver)
 
 // ---- MERALCO mode (ANSI C12.18). A real meter's password belongs to the utility.
-#define C12_PASSWORD     "SINAG-DEMO"       // up to 20 chars; must match sinag-device/config.h
+#define C12_PASSWORD     "SOLARIS-DEMO"       // up to 20 chars; must match solaris-device/config.h
 #define C12_MAX_BAD_PW   3                  // wrong passwords in a row before lockout
 #define C12_LOCKOUT_S    60                 // logons refused (BSY) for this long
 

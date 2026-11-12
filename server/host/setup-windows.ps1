@@ -1,4 +1,4 @@
-# One-time setup of the Sinag host on Windows 10/11: Mosquitto broker, Python env, .env,
+# One-time setup of the Solaris host on Windows 10/11: Mosquitto broker, Python env, .env,
 # firewall rules, demo history, AI model. Run via setup-windows.bat (asks for admin).
 #   setup-windows.bat            everything
 #   setup-windows.bat -SkipAI    no Ollama model download (3.3 GB)
@@ -26,7 +26,7 @@ if (Get-Service mosquitto -ErrorAction SilentlyContinue) {
 
 Write-Host "== Firewall: allow ESP32 and phones to reach 1883 (MQTT) and 8000 (API)"
 foreach ($p in 1883, 8000) {
-  $name = "Sinag $p"
+  $name = "Solaris $p"
   if (-not (Get-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue)) {
     New-NetFirewallRule -DisplayName $name -Direction Inbound -Protocol TCP -LocalPort $p `
       -Action Allow -Profile Private,Public | Out-Null
@@ -48,7 +48,7 @@ Write-Host "== server\.env"
 if (-not (Test-Path ".env")) { Copy-Item ".env.example" ".env" }
 
 Write-Host "== Demo history (45 days)"
-if (-not (Test-Path "sinag.db")) { .\.venv\Scripts\python.exe tools\seed_history.py }
+if (-not (Test-Path "solaris.db")) { .\.venv\Scripts\python.exe tools\seed_history.py }
 
 if (-not $SkipAI) {
   Write-Host "== AI model (Ollama)"

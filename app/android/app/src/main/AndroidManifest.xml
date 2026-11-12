@@ -1,8 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- The app talks to the Sinag server over plain HTTP/WS on the hotspot LAN (http://<laptop-ip>:8000). -->
+    <!-- The app talks to the Solaris server over plain HTTP/WS on the hotspot LAN (http://<laptop-ip>:8000). -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="Sinag"
+        android:label="Solaris"
         android:usesCleartextTraffic="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

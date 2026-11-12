@@ -3,7 +3,7 @@
     "type": "telemetry",
     "data": {
       "device": {
-        "id": "sinag-001",
+        "id": "solaris-001",
         "online": true,
         "rssi": -55,
         "fw": "0.3.0",
@@ -41,7 +41,7 @@
   {
     "type": "status",
     "data": {
-      "id": "sinag-001",
+      "id": "solaris-001",
       "online": false,
       "rssi": -55,
       "fw": "0.3.0",

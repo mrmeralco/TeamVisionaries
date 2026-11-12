@@ -1,6 +1,6 @@
-# Sinag AI: implementation guide
+# Solaris AI: implementation guide
 
-**Owner: Andy.** This folder is the "Ask Sinag" chat (`POST /api/chat`) and the daily recap
+**Owner: Andy.** This folder is the "Ask Mira" chat (`POST /api/chat`) and the daily recap
 (`GET /api/summary/daily`). It runs **Qwen 3.5 locally on Ollama**, so it works with no internet.
 
 The hybrid pipeline already works end to end. Your job is to get Qwen 3.5 running on the server laptop, tune it,
@@ -201,7 +201,7 @@ failure; check the logged `strategy` and `attempts` to distinguish them. Open `l
 
 ---
 
-## 4. How to add something Sinag can answer
+## 4. How to add something Mira can answer
 
 Example: "Magkano ang pinakamataas na solar ko this week?"
 
@@ -249,7 +249,7 @@ Don't loosen `guard.py` to make a test pass. If the guard rejects a reply, the r
 
 | File | You'll edit it when ... |
 |---|---|
-| `facts.py` | adding or rewording what Sinag knows |
+| `facts.py` | adding or rewording what Solaris knows |
 | `router.py` | a question isn't getting the right facts |
 | `prompts.py` | changing tone, Taglish style, recap format |
 | `guard.py` | rarely; e.g. allowing a new number format |

@@ -1,4 +1,4 @@
-"""SINAG_MOCK=1: serve docs/contracts/examples/*.json so the app can be built with no broker or DB.
+"""SOLARIS_MOCK=1: serve docs/contracts/examples/*.json so the app can be built with no broker or DB.
 
 /ws/live in mock mode pushes the example telemetry every 5 s with small random changes.
 """

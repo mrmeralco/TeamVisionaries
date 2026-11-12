@@ -12,18 +12,18 @@ Future<void> main() async {
   final prefs = await SharedPreferences.getInstance();
   runApp(ProviderScope(
     overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-    child: const SinagApp(),
+    child: const SolarisApp(),
   ));
 }
 
-class SinagApp extends StatefulWidget {
-  const SinagApp({super.key});
+class SolarisApp extends StatefulWidget {
+  const SolarisApp({super.key});
 
   @override
-  State<SinagApp> createState() => _SinagAppState();
+  State<SolarisApp> createState() => _SolarisAppState();
 }
 
-class _SinagAppState extends State<SinagApp> {
+class _SolarisAppState extends State<SolarisApp> {
   late final GoRouter _router = buildRouter();
 
   @override
@@ -34,7 +34,7 @@ class _SinagAppState extends State<SinagApp> {
 
   @override
   Widget build(BuildContext context) => MaterialApp.router(
-        title: 'Sinag',
+        title: 'Solaris',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(), // Figma design is light-only
         routerConfig: _router,

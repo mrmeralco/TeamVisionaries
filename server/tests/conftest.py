@@ -8,11 +8,11 @@ from pathlib import Path
 import pytest
 
 SERVER = Path(__file__).resolve().parent.parent
-_tmp = tempfile.mkdtemp(prefix="sinag-test-")
-os.environ.update({"SINAG_DB": f"{_tmp}/test.db", "MQTT_ENABLED": "0", "AI_LOG": f"{_tmp}/ai.jsonl",
-                   "SINAG_MOCK": "0", "LLM_ENABLED": "0", "WEATHER_ENABLED": "0"})
+_tmp = tempfile.mkdtemp(prefix="solaris-test-")
+os.environ.update({"SOLARIS_DB": f"{_tmp}/test.db", "MQTT_ENABLED": "0", "AI_LOG": f"{_tmp}/ai.jsonl",
+                   "SOLARIS_MOCK": "0", "LLM_ENABLED": "0", "WEATHER_ENABLED": "0"})
 sys.path.insert(0, str(SERVER))
-sys.path.insert(0, str(SERVER.parent / "tests"))  # sinag_contract.py
+sys.path.insert(0, str(SERVER.parent / "tests"))  # solaris_contract.py
 subprocess.run([sys.executable, str(SERVER / "tools" / "seed_history.py"), "--days", "40"], check=True, env=os.environ,
                stdout=subprocess.DEVNULL)
 

@@ -9,15 +9,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sinag/core/utils/format.dart';
-import 'package:sinag/main.dart';
-import 'package:sinag/providers/data_providers.dart';
-import 'package:sinag/providers/notification_providers.dart';
-import 'package:sinag/providers/server_providers.dart';
-import 'package:sinag/services/system_notifier.dart';
-import 'package:sinag/services/mock_api_service.dart';
+import 'package:solaris/core/utils/format.dart';
+import 'package:solaris/main.dart';
+import 'package:solaris/providers/data_providers.dart';
+import 'package:solaris/providers/notification_providers.dart';
+import 'package:solaris/providers/server_providers.dart';
+import 'package:solaris/services/system_notifier.dart';
+import 'package:solaris/services/mock_api_service.dart';
 
-final contracts = Platform.environment['SINAG_CONTRACTS'] ?? '../docs/contracts';
+final contracts = Platform.environment['SOLARIS_CONTRACTS'] ?? '../docs/contracts';
 Map<String, dynamic> example(String name) =>
     jsonDecode(File('$contracts/examples/$name.json').readAsStringSync()) as Map<String, dynamic>;
 
@@ -91,10 +91,10 @@ Future<ProviderContainer> pumpApp(WidgetTester t,
       apiServiceProvider.overrideWithValue(api ?? StateMock()),
       systemNotifierProvider.overrideWithValue(notifier ?? FakeNotifier(supported: false)),
     ],
-    child: const SinagApp(),
+    child: const SolarisApp(),
   ));
   await t.pumpAndSettle();
-  return ProviderScope.containerOf(t.element(find.byType(SinagApp)));
+  return ProviderScope.containerOf(t.element(find.byType(SolarisApp)));
 }
 
 Future<void> tab(WidgetTester t, String label) async {
@@ -149,7 +149,7 @@ void main() {
         ..['state'] = 'offline'
         ..['device'] = {...example('live')['device'] as Map<String, dynamic>, 'online': false};
       await pumpApp(t, api: StateMock(live: live));
-      expect(find.text('Offline ang Sinag device'), findsOneWidget);
+      expect(find.text('Offline ang Solaris device'), findsOneWidget);
     });
 
     testWidgets('empty: telemetry null shows a friendly empty state', (t) async {
@@ -174,9 +174,9 @@ void main() {
     // Scroll the recap clear of the bottom nav bar, then tap the link.
     await t.drag(find.byType(Scrollable).first, const Offset(0, -400));
     await t.pumpAndSettle();
-    await t.tap(find.text('Ask Sinag about yesterday'));
+    await t.tap(find.text('Ask Mira about yesterday'));
     await t.pumpAndSettle();
-    expect(find.text('Get answers about your solar energy.'), findsOneWidget); // on Ask Sinag now
+    expect(find.text('Get answers about your solar energy.'), findsOneWidget); // on Ask Mira now
     expect(api.chats, 1);
     expect(find.text(example('chat')['reply'] as String), findsOneWidget);
   });
@@ -224,7 +224,7 @@ void main() {
       n.hidden = true;
       api.push({'type': 'alert', 'data': newAlert(99)});
       await t.pumpAndSettle();
-      expect(n.shown, ['Sinag: Brownout']);
+      expect(n.shown, ['Solaris: Brownout']);
       expect(find.byType(SnackBar), findsNothing);
     });
 
@@ -289,10 +289,10 @@ void main() {
     }
   });
 
-  testWidgets('Ask Sinag: sends the question, shows reply + chips', (t) async {
+  testWidgets('Ask Mira: sends the question, shows reply + chips', (t) async {
     final api = StateMock();
     await pumpApp(t, api: api);
-    await tab(t, 'Ask Sinag');
+    await tab(t, 'Ask Mira');
     await t.enterText(find.byType(TextField), 'Bakit mataas ang bill ko?');
     await t.tap(find.text('SEND'));
     await t.pumpAndSettle();
@@ -332,7 +332,7 @@ void main() {
 
   testWidgets('every tab fits a small phone (320 × 640) without overflow', (t) async {
     await pumpApp(t, size: const Size(320, 640));
-    for (final l in ['Energy', 'Bill', 'Ask Sinag', 'Alerts', 'Home']) {
+    for (final l in ['Energy', 'Bill', 'Ask Mira', 'Alerts', 'Home']) {
       await tab(t, l);
       expect(t.takeException(), isNull, reason: l);
     }

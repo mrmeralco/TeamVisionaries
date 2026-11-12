@@ -117,7 +117,7 @@ def test_made_up_id_in_brackets_is_still_rejected(monkeypatch):
 
 
 def test_numbers_written_in_a_fact_sentence_are_allowed():
-    # e.g. "Offline ang Sinag device. Huling data 32 minuto na ang nakaraan." had no values, so quoting 32 failed.
+    # e.g. "Offline ang Solaris device. Huling data 32 minuto na ang nakaraan." had no values, so quoting 32 failed.
     fs = service.FactSet()
     fs.add("now.status", "now", "Kalagayan ngayon: Huling data 32 minuto na ang nakaraan.")
     fs.add("bill.forecast_php", "bill", "Forecast: mga ₱2,070", (2069.64,))

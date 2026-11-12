@@ -8,7 +8,7 @@ import time
 
 import pytest
 from support import HUMAN_WAIT_S, wait_for
-from sinag_contract import validate
+from solaris_contract import validate
 
 pytestmark = pytest.mark.h14
 

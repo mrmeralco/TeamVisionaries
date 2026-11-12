@@ -114,10 +114,10 @@ def state_and_line(device: dict, t: dict | None, settings: dict) -> tuple[str, s
     from ai.faults import explain_fault
 
     if t is None:
-        return "offline", "Wala pang natatanggap na data mula sa Sinag device."
+        return "offline", "Wala pang natatanggap na data mula sa Solaris device."
     if not device["online"]:
         mins = max(1, round((time.time() - t["ts"]) / 60))
-        return "offline", f"Offline ang Sinag device. Huling data {mins} minuto na ang nakaraan."
+        return "offline", f"Offline ang Solaris device. Huling data {mins} minuto na ang nakaraan."
     if t["fault_code"]:
         return "fault", f"May problema ang inverter (fault {t['fault_code']}): {explain_fault(t['fault_code'])['title']}."
     if not t["grid_on"]:

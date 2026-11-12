@@ -13,7 +13,7 @@ import httpx
 
 from . import config
 
-log = logging.getLogger("sinag.weather")
+log = logging.getLogger("solaris.weather")
 
 STALE_S = 6 * 3600
 

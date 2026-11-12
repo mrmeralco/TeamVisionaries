@@ -68,7 +68,7 @@ def _sync_outage(device_id: str, t: dict) -> None:
 
 def device_online_changed(device_id: str, online: bool, ts: int) -> dict:
     if online:
-        return db.insert_alert(device_id, ts, "device_online", "info", "Konektado na ang Sinag device",
+        return db.insert_alert(device_id, ts, "device_online", "info", "Konektado na ang Solaris device",
                                "Tumatanggap na ulit ng data mula sa inverter.")
-    return db.insert_alert(device_id, ts, "device_offline", "warning", "Offline ang Sinag device",
+    return db.insert_alert(device_id, ts, "device_offline", "warning", "Offline ang Solaris device",
                            "Walang natatanggap na data. Tingnan kung naka-on ang device at ang Wi-Fi.")

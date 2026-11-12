@@ -3,7 +3,7 @@
 const char INDEX_HTML[] PROGMEM = R"HTML(<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sinag Simulator</title>
+<title>Solaris Simulator</title>
 <style>
 :root{--bg:#17110d;--card:#221a14;--line:#3a2c22;--ink:#f6ece3;--mute:#a8968a;--sun:#f5a524;--acc:#e8590c;
 --ok:#3ccf7a;--bad:#ff5d5d;--warn:#ffb020;--batt:#4dabf7;--grid:#b197fc}
@@ -54,7 +54,7 @@ footer{margin-top:14px;font-size:12px;color:var(--mute);text-align:center}
 .hide{display:none!important}
 </style></head><body><div class="wrap">
 <header>
-  <h1><b>Sinag</b> · <span id="title">Simulator</span></h1>
+  <h1><b>Solaris</b> · <span id="title">Simulator</span></h1>
   <div class="pills"><span id="pLink" class="pill">Modbus: —</span><span id="pGrid" class="pill">Grid: —</span><span id="pFault" class="pill">—</span><span id="pWeb" class="pill">Web: —</span></div>
 </header>
 
@@ -95,7 +95,7 @@ footer{margin-top:14px;font-size:12px;color:var(--mute);text-align:center}
 </div>
 
 <div class="card" style="margin-top:12px">
-  <h2>Link to Sinag device</h2>
+  <h2>Link to Solaris device</h2>
   <div class="stats">
     <div><span class="k">Requests</span><b id="mReq">0</b></div>
     <div><span class="k">Last poll</span><b id="mAge">—</b></div>
@@ -120,7 +120,7 @@ function tile(i,k,v,unit,sub,pct,color){$("t"+i+"k").textContent=k;$("t"+i+"v").
 function setSlider(id,val,label){if(!drag[id])$(id).value=val;$(id+"O").textContent=label}
 function render(s){
   S=s;const c=s.ctl,m=s.mb,meter=s.mode!="inverter",ansi=s.mode=="meralco";
-  $("title").textContent=ansi?"Meralco Smart Meter Simulator":meter?"Submeter Simulator":"Inverter Simulator";document.title="Sinag "+(ansi?"Meralco":meter?"Meter":"Inverter")+" Sim";
+  $("title").textContent=ansi?"Meralco Smart Meter Simulator":meter?"Submeter Simulator":"Inverter Simulator";document.title="Solaris "+(ansi?"Meralco":meter?"Meter":"Inverter")+" Sim";
   ["inverter","meter","meralco"].forEach(k=>$("m_"+k).className=s.mode==k?"on":"");
   $("modeSub").textContent=ansi?"Aclara I-210+c-style utility meter · ANSI C12.18 packets · C12.19 tables":meter?"SDM120-style customer submeter · Modbus slave "+m.slave_id+" · float32 registers":"Hybrid solar inverter · Modbus slave "+m.slave_id+" · Contract A map";
   if(meter){const e=s.meter;
@@ -157,7 +157,7 @@ function render(s){
   $("mReq").textContent=m.requests;$("mCrc").textContent=m.crc_errors;$("mExc").textContent=m.exceptions;
   $("mAge").textContent=m.never?"never":m.last_age_s+" s ago";$("mRx").textContent=m.last_rx||"—";$("mTx").textContent=m.last_tx||"—";
   $("mHint").textContent=m.never?(m.crc_errors?"Bytes arrive but CRC fails — check baud (9600) and GND.":"No requests yet — check TX↔RX are crossed and GND is shared."+(m.rs485?" With RS485, try swapping A/B.":"")):
-    (m.linked?"Sinag device is reading "+(ansi?"the C12.19 tables":"slave "+m.slave_id)+(m.rs485?" over RS485.":" over direct UART."):"Polls stopped — is the Sinag device running?");
+    (m.linked?"Solaris device is reading "+(ansi?"the C12.19 tables":"slave "+m.slave_id)+(m.rs485?" over RS485.":" over direct UART."):"Polls stopped — is the Solaris device running?");
   const sys=s.sys;$("foot").textContent=`fw ${sys.fw} · ${sys.ap?"AP mode":"Wi-Fi "+sys.rssi+" dBm"} · ${sys.ip} · up ${Math.floor(sys.uptime_s/60)} min · ${m.baud} 8N1`;
 }
 async function poll(){try{const r=await fetch("/api/state",{cache:"no-store"});render(await r.json());pill("pWeb","Web: live","ok")}catch(e){pill("pWeb","Web: offline","bad")}}

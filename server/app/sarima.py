@@ -16,7 +16,7 @@ import logging
 import warnings
 from datetime import date
 
-log = logging.getLogger("sinag.sarima")
+log = logging.getLogger("solaris.sarima")
 
 HISTORY_DAYS = 56   # 8 weekly cycles; the first bill of a day integrates every one of these days
 MIN_DAYS = 28        # 4 weekly cycles

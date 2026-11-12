@@ -26,10 +26,10 @@ def _bool(name: str, default: str = "0") -> bool:
 
 
 # Serve docs/contracts/examples/*.json instead of real data (no broker or DB needed).
-MOCK = _bool("SINAG_MOCK")
+MOCK = _bool("SOLARIS_MOCK")
 
-DB_PATH = Path(os.getenv("SINAG_DB", SERVER_DIR / "sinag.db"))
-TZ = ZoneInfo(os.getenv("SINAG_TZ", "Asia/Manila"))
+DB_PATH = Path(os.getenv("SOLARIS_DB", SERVER_DIR / "solaris.db"))
+TZ = ZoneInfo(os.getenv("SOLARIS_TZ", "Asia/Manila"))
 EXAMPLES_DIR = REPO_DIR / "docs" / "contracts" / "examples"
 
 MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
@@ -70,5 +70,5 @@ DEFAULT_SETTINGS = {
     "rate_php_per_kwh": float(os.getenv("DEFAULT_RATE", "15.06")),  # Meralco overall rate, Oct 2026
     "battery_kwh": float(os.getenv("DEFAULT_BATTERY_KWH", "10.0")),
     "user_name": os.getenv("DEFAULT_USER_NAME", "Juan"),
-    "device_id": os.getenv("DEFAULT_DEVICE_ID", "sinag-001"),
+    "device_id": os.getenv("DEFAULT_DEVICE_ID", "solaris-001"),
 }

@@ -7,7 +7,7 @@ Every fact is computed by the backend from SQLite. Each one has:
   values  every number the model may quote from this fact (the guard checks the reply against these)
   chip    optional (label, value) shown as a data chip in the app when the model cites this fact
 
-To teach Sinag something new: add a Fact here (and a keyword in router.py). Never let the model compute.
+To teach Mira something new: add a Fact here (and a keyword in router.py). Never let the model compute.
 """
 import re
 from dataclasses import dataclass, field
@@ -89,7 +89,7 @@ def gather(device_id: str, settings: dict) -> FactSet:
 
     # ---- now
     fs.add("now.status", "now", f"Kalagayan ngayon: {live['status_line']}")
-    fs.add("now.online", "now", "Online ang Sinag device." if live["device"]["online"] else "OFFLINE ang Sinag device; luma na ang live data.")
+    fs.add("now.online", "now", "Online ang Solaris device." if live["device"]["online"] else "OFFLINE ang Solaris device; luma na ang live data.")
     if t:
         fs.add("now.solar_w", "now", f"Solar ngayon: {power(t['pv_w'])}", (t["pv_w"],), ("Solar now", power(t['pv_w'])))
         fs.add("now.load_w", "now", f"Gamit ng bahay ngayon: {power(t['load_w'])}", (t["load_w"],), ("Home use", power(t['load_w'])))

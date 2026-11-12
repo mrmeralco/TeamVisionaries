@@ -1,13 +1,13 @@
 """DEMO FLOWS (Stephen runs these 5+ times after the hour-18 feature freeze).
 
-Each test is one thing the panel will see. With SINAG_SOURCE=real it tells the simulator operator
+Each test is one thing the panel will see. With SOLARIS_SOURCE=real it tells the simulator operator
 what to press, exactly like the live demo.
 """
 import time
 
 import pytest
 from support import DEVICE_ID, HUMAN_WAIT_S, wait_for
-from sinag_contract import validate
+from solaris_contract import validate
 
 pytestmark = pytest.mark.demo
 
@@ -62,7 +62,7 @@ def test_low_battery_alert(api, ws, operator):
     operator.publish(batt_soc=70)
 
 
-def test_ask_sinag_bill_question(api):
+def test_ask_mira_bill_question(api):
     """Plan, workstream 3: 'Bakit mataas ang bill ko?' returns a correct Taglish answer in under 10 s using live data."""
     t0 = time.monotonic()
     r = api.post("/api/chat", json={"message": "Bakit mataas ang bill ko?"})
@@ -76,7 +76,7 @@ def test_ask_sinag_bill_question(api):
         or body["facts_used"], f"reply doesn't use the bill data: {body['reply']}"
 
 
-def test_ask_sinag_refuses_off_topic(api):
+def test_ask_mira_refuses_off_topic(api):
     body = api.post("/api/chat", json={"message": "Sino ang nanalo sa NBA finals?"}).json()
     if body["source"] == "llm":
         assert body["facts_used"] == [] and "hindi ko pa alam" in body["reply"].lower()
@@ -90,14 +90,14 @@ def test_daily_summary_is_ready(api):
 
 
 def test_device_offline_flow(api, ws, operator, mqtt_client):
-    """Unplug the Sinag device -> 'offline' alert and Home shows offline; plug back -> online again."""
+    """Unplug the Solaris device -> 'offline' alert and Home shows offline; plug back -> online again."""
     if not operator.fake:
-        pytest.skip("on hardware: unplug the Sinag device, wait ~30 s, check the app shows Offline, plug back in")
+        pytest.skip("on hardware: unplug the Solaris device, wait ~30 s, check the app shows Offline, plug back in")
     import json
     since = int(time.time()) - 2
-    mqtt_client.publish(f"sinag/{DEVICE_ID}/status", json.dumps({"online": False}), qos=1, retain=True)
+    mqtt_client.publish(f"solaris/{DEVICE_ID}/status", json.dumps({"online": False}), qos=1, retain=True)
     wait_for(lambda: _alert(ws, "device_offline", since), 10, what="a 'device_offline' alert")
     assert api.get("/api/live").json()["device"]["online"] is False
-    mqtt_client.publish(f"sinag/{DEVICE_ID}/status", json.dumps({"online": True, "fw": "acceptance"}), qos=1, retain=True)
+    mqtt_client.publish(f"solaris/{DEVICE_ID}/status", json.dumps({"online": True, "fw": "acceptance"}), qos=1, retain=True)
     operator.publish()
     wait_for(lambda: api.get("/api/live").json()["device"]["online"], 10, what="device back online")

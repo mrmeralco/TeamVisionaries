@@ -6,7 +6,7 @@ If one of these fails after you change the backend, you broke the Flutter app.
 import json
 
 import pytest
-from sinag_contract import validate
+from solaris_contract import validate
 
 from app import config
 
@@ -99,7 +99,7 @@ def test_rate_change_changes_the_bill(client):
 
 def test_alert_read_flow(client):
     from app import db
-    a = db.insert_alert("sinag-001", 1, "low_battery", "warning", "t", "m")
+    a = db.insert_alert("solaris-001", 1, "low_battery", "warning", "t", "m")
     assert client.get("/api/alerts").json()["unread"] >= 1
     r = client.post(f"/api/alerts/{a['id']}/read")
     validate("alert", r.json())

@@ -49,12 +49,12 @@ def main():
     broker_port, api_port, dead_port = port(), port(), port()
     processes = []
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    with tempfile.TemporaryDirectory(prefix="sinag-live-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="solaris-live-") as tmp:
         tmp = Path(tmp)
         conf = tmp / "mosquitto.conf"
         conf.write_text(f"listener {broker_port} 127.0.0.1\nallow_anonymous true\npersistence false\n")
-        env = dict(os.environ, SINAG_DB=str(tmp / "test.db"), MQTT_HOST="127.0.0.1",
-                   MQTT_PORT=str(broker_port), MQTT_ENABLED="1", SINAG_MOCK="0", PYTHONUTF8="1",
+        env = dict(os.environ, SOLARIS_DB=str(tmp / "test.db"), MQTT_HOST="127.0.0.1",
+                   MQTT_PORT=str(broker_port), MQTT_ENABLED="1", SOLARIS_MOCK="0", PYTHONUTF8="1",
                    LLM_ENABLED="1", LLM_PROVIDER="ollama", OFFLINE_AFTER_S="5",
                    AI_LOG=str(tmp / "ai.jsonl"))
         if args.model:
@@ -81,7 +81,7 @@ def main():
                         payload.update(changes)
                         payload["ts"] = int(time.time())
                         # Retain on this disposable broker so startup subscription timing cannot drop a sample.
-                        client.publish("sinag/sinag-001/telemetry", json.dumps(payload), qos=1, retain=True).wait_for_publish()
+                        client.publish("solaris/solaris-001/telemetry", json.dumps(payload), qos=1, retain=True).wait_for_publish()
                         wait(lambda: (api.get("/api/live").json().get("telemetry") or {}).get("pv_w") == payload["pv_w"])
                     def chat(question):
                         response = api.post("/api/chat", json={"message": question})

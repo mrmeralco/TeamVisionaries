@@ -1,6 +1,6 @@
 """Validate any payload against docs/contracts/schema.json.
 
-    from sinag_contract import validate
+    from solaris_contract import validate
     validate("live", response.json())     # raises AssertionError listing every mismatch
 """
 import json

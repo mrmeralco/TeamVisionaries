@@ -4,8 +4,8 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:sinag/services/api_service.dart';
-import 'package:sinag/services/mock_api_service.dart';
+import 'package:solaris/services/api_service.dart';
+import 'package:solaris/services/mock_api_service.dart';
 
 import 'spec/contract_schema.dart';
 

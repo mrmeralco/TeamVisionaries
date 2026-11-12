@@ -166,7 +166,7 @@ class _Hero extends StatelessWidget {
     final state = live?['state'] as String? ?? 'offline';
     final t = live?['telemetry'] as Map?;
     final sunny = ((t?['pv_w'] as num?) ?? 0) > 0;
-    final text = live?['status_line'] as String? ?? 'Kumokonekta sa Sinag… Ilang saglit lang.';
+    final text = live?['status_line'] as String? ?? 'Kumokonekta sa Solaris… Ilang saglit lang.';
     final colors = switch (state) {
       'brownout' => const [Color(0xFFFFB37A), Color(0xFFF47721)],
       'fault' => const [Color(0xFFFFA48F), Color(0xFFE5533D)],
@@ -256,7 +256,7 @@ class _StateBanner extends StatelessWidget {
       'offline' => (
         Icons.cloud_off_rounded,
         C.muted,
-        'Offline ang Sinag device',
+        'Offline ang Solaris device',
         lastSeen is int ? 'Huling reading: ${formatAgo(lastSeen)}' : 'Wala pang natatanggap na reading',
         null,
       ),
@@ -327,7 +327,7 @@ class _Stats extends StatelessWidget {
             const SizedBox(height: 8),
             Text('Wala pang reading mula sa device.', style: ts(12, w: FontWeight.w700)),
             Text(
-              'Lalabas dito ang solar, battery at grid kapag naka-on na ang Sinag device.',
+              'Lalabas dito ang solar, battery at grid kapag naka-on na ang Solaris device.',
               style: ts(10, color: C.muted),
               textAlign: TextAlign.center,
             ),
@@ -461,7 +461,7 @@ class _Money extends StatelessWidget {
   );
 }
 
-/// Figma 35:422: AI recap with sparkle icon; numbers in bold; "Ask Sinag about yesterday →".
+/// Figma 35:422: AI recap with sparkle icon; numbers in bold; "Ask Mira about yesterday →".
 class _Summary extends StatelessWidget {
   const _Summary(this.s, {required this.onAsk});
   final Map<String, dynamic> s;
@@ -507,7 +507,7 @@ class _Summary extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Ask Sinag about yesterday',
+                        'Ask Mira about yesterday',
                         style: ts(7, w: FontWeight.w600, color: C.orange, height: 13 / 7),
                       ),
                       const SizedBox(width: 6),
@@ -524,7 +524,7 @@ class _Summary extends StatelessWidget {
   );
 }
 
-/// Inverter + Sinag device status (presentation slide 5): inverter temperature, fault code, Wi-Fi signal.
+/// Inverter + Solaris device status (presentation slide 5): inverter temperature, fault code, Wi-Fi signal.
 /// Temperature colours follow the server's high-temp alert (on above 60 °C, warning from 55 °C).
 class _DeviceHealth extends StatelessWidget {
   const _DeviceHealth({required this.telemetry, this.device});
@@ -581,7 +581,7 @@ class _DeviceHealth extends StatelessWidget {
           fault == 0 ? 'Walang problema' : 'Fault $fault',
           onTap: fault == 0 ? null : () => context.go(Routes.alerts),
         ),
-        item(Icons.wifi_rounded, signalColor, 'Sinag device', signal),
+        item(Icons.wifi_rounded, signalColor, 'Solaris device', signal),
       ]),
     );
   }

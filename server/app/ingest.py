@@ -1,4 +1,4 @@
-"""MQTT subscriber: sinag/+/telemetry | meter | status  ->  validate  ->  SQLite  ->  alerts  ->  /ws/live.
+"""MQTT subscriber: solaris/+/telemetry | meter | status  ->  validate  ->  SQLite  ->  alerts  ->  /ws/live.
 
 Runs paho-mqtt's network loop in its own thread and reconnects on its own if the broker restarts.
 """
@@ -10,7 +10,7 @@ import paho.mqtt.client as mqtt
 
 from . import alerts, config, db, energy, hub
 
-log = logging.getLogger("sinag.ingest")
+log = logging.getLogger("solaris.ingest")
 _client: mqtt.Client | None = None
 # device_id -> online as last announced. Unknown devices (just after startup) raise no alerts.
 _online: dict[str, bool] = {}
@@ -33,7 +33,7 @@ def validate_telemetry(p: dict) -> dict:
 
 def handle_message(topic: str, payload: bytes) -> None:
     parts = topic.split("/")
-    if len(parts) != 3 or parts[0] != "sinag":
+    if len(parts) != 3 or parts[0] != "solaris":
         return
     device_id, kind = parts[1], parts[2]
     try:
@@ -81,7 +81,7 @@ def check_stale() -> None:
 
 def _on_connect(client, userdata, flags, reason_code, properties):
     log.info("MQTT connected to %s:%s (%s)", config.MQTT_HOST, config.MQTT_PORT, reason_code)
-    client.subscribe("sinag/+/+")
+    client.subscribe("solaris/+/+")
 
 
 def _on_message(client, userdata, msg):
@@ -96,7 +96,7 @@ def start() -> None:
     if not config.MQTT_ENABLED:
         log.info("MQTT disabled (MQTT_ENABLED=0)")
         return
-    _client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="sinag-backend")
+    _client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="solaris-backend")
     _client.on_connect = _on_connect
     _client.on_message = _on_message
     _client.reconnect_delay_set(1, 10)
