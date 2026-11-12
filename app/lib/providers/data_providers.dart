@@ -17,6 +17,9 @@ final energyProvider = FutureProvider.family<Json, (String, int)>(
 /// GET /api/bill
 final billProvider = FutureProvider<Json>((ref) => ref.watch(apiServiceProvider).getBill());
 
+/// GET /api/bill/projection (this month + up to 3 estimated months)
+final billProjectionProvider = FutureProvider<Json>((ref) => ref.watch(apiServiceProvider).getBillProjection());
+
 /// GET /api/brownout
 final brownoutProvider = FutureProvider<Json>((ref) => ref.watch(apiServiceProvider).getBrownout());
 

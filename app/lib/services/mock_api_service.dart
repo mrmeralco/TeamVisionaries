@@ -41,6 +41,8 @@ class MockApiService implements ApiService {
   @override
   Future<Map<String, dynamic>> getBill() => _json('bill');
   @override
+  Future<Map<String, dynamic>> getBillProjection() => _json('bill_projection');
+  @override
   Future<Map<String, dynamic>> getBrownout() => _json('brownout');
   @override
   Future<Map<String, dynamic>> getOutlook() => _json('outlook');

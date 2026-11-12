@@ -31,6 +31,9 @@ class ApiService {
   Future<Map<String, dynamic>> getEnergy(String period, {int back = 0}) =>
       _get('/api/energy?period=$period${back > 0 ? '&back=$back' : ''}');
   Future<Map<String, dynamic>> getBill() => _get('/api/bill');
+
+  /// This month's forecast + up to 3 estimated months (wider ranges further out).
+  Future<Map<String, dynamic>> getBillProjection() => _get('/api/bill/projection');
   Future<Map<String, dynamic>> getBrownout() => _get('/api/brownout');
 
   /// 48 h solar forecast, battery projection and brownout runtime with the sun counted.

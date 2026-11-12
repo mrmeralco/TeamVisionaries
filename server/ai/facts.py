@@ -15,7 +15,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import timedelta
 
-from app import db, energy, outlook, upgrade
+from app import db, energy, outlook, projection, upgrade
 
 from .faults import explain_fault
 from .prompts import when
@@ -157,7 +157,7 @@ def gather(device_id: str, settings: dict) -> FactSet:
                f"({kwh(bill['month_to_date_kwh'])} mula sa grid).")
     fs.add("bill.forecast_php", "bill", f"Forecast ng bill sa katapusan ng buwan: mga {peso(bill['forecast_php'])} "
            f"(mula {peso(bill['forecast_low_php'])} hanggang {peso(bill['forecast_high_php'])})",
-           (bill["forecast_php"], bill["forecast_low_php"], bill["forecast_high_php"]), ("Forecast", peso(bill["forecast_php"])),
+           (bill["forecast_php"], bill["forecast_low_php"], bill["forecast_high_php"]), ("Bill forecast", peso(bill["forecast_php"])),
            say=f"Mga {peso(bill['forecast_php'])} ang inaasahang bill mo sa katapusan ng buwan"
                + ("." if peso(bill["forecast_low_php"]) == peso(bill["forecast_high_php"])
                   else f" (puwedeng {peso(bill['forecast_low_php'])} hanggang {peso(bill['forecast_high_php'])})."))
@@ -260,6 +260,36 @@ def gather(device_id: str, settings: dict) -> FactSet:
                say=f"May {db.unread_count()} alert kang hindi pa nababasa. Pinakabago: {titles}.")
     else:
         fs.add("alerts.unread", "alerts", "Walang bagong alert.", say="Wala kang bagong alert.")
+
+    # ---- bill in the next months (app/projection.py, cached per day). Only this month is a forecast.
+    try:
+        proj = projection.project(device_id, settings)
+    except Exception:                       # extra; never let it break chat
+        proj = None
+    if proj:
+        months = [m for m in proj["months"] if m["kind"] == "projection"]
+        last = months[-1]["label"] if months else None
+        reach = (f"hanggang {last} lang ({projection.MAX_MONTHS} buwan pagkatapos ng buwang ito)" if last
+                 else f"wala pa (kailangan ng {projection.MIN_DAYS} araw ng data)")
+        why = ("nagbabago ang panahon (araw at ulan), ang gamit sa bahay at ang rate ng Meralco bawat buwan, "
+               "kaya lumalapad ang range bawat buwan")
+        fs.add("projection.limits", "projection",
+               f"Limitasyon ng projection: ang buwang ito lang ang forecast. Ang mga susunod na buwan ay projection "
+               f"lang (tantiya), hindi kasing-maaasahan ng forecast, dahil {why}. Kaya ng Solaris: {reach}. Lampas doon, "
+               "masyadong malapad na ang range kaya hindi na ito ibinibigay.",
+               say=f"Ang buwang ito lang ang forecast; ang mga susunod na buwan ay tantiya lang at hindi gaanong maaasahan, "
+                   f"dahil nagbabago ang panahon, gamit at rate ng Meralco. Kaya kong i-project {reach}; lampas doon, "
+                   "masyadong malapad na ang range.")
+        for m in months:
+            k = m["months_ahead"]
+            fs.add(f"projection.m{k}", "projection",
+                   f"Projection (tantiya lang, hindi sigurado) ng bill sa {m['label']}: mga {peso(m['bill_php'])} "
+                   f"(puwedeng {peso(m['low_php'])} hanggang {peso(m['high_php'])}, ±{m['range_pct']}%), kung pareho ang "
+                   f"gamit mo nitong huling {proj['basis_days']} araw; mga {m['solar_kwh']:.0f} kWh na solar at "
+                   f"{m['load_kwh']:.0f} kWh na gamit sa buwang iyon, sa rate ngayon",
+                   (m["bill_php"], m["low_php"], m["high_php"]), (m["label"], peso(m["bill_php"])),
+                   say=f"Tantiya lang: mga {peso(m['bill_php'])} ang bill sa {m['label']} (puwedeng {peso(m['low_php'])} "
+                       f"hanggang {peso(m['high_php'])}), kung pareho ang gamit mo at ang rate ngayon.")
 
     # ---- system check: does the setup still fit this household? (app/upgrade.py, cached)
     try:

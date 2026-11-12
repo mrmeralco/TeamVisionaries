@@ -149,6 +149,32 @@ class Outlook(BaseModel):
     hours: list[OutlookHour] = Field(min_length=48, max_length=48)
 
 
+# ------------------------------------------------------ /api/bill/projection --
+class ProjectionMonth(BaseModel):
+    month: str = Field(description='"2026-12"')
+    label: str = Field(description='"Disyembre 2026"')
+    months_ahead: int = Field(ge=0, description="0 = this month")
+    kind: Literal["forecast", "projection"] = Field(description="forecast = this month only; projection = rougher estimate")
+    grid_kwh: float
+    low_kwh: float | None = Field(description="null for this month (its range is in pesos only)")
+    high_kwh: float | None
+    bill_php: float
+    low_php: float
+    high_php: float
+    load_kwh: float | None = Field(description="Projected home use; null for this month")
+    solar_kwh: float | None = Field(description="Projected solar; null for this month")
+    range_pct: int | None = Field(description="+- share of the projection range; grows each month; null for this month")
+
+
+class Projection(BaseModel):
+    generated_ts: int
+    enough_data: bool = Field(description="false until 14 days of history: only this month's forecast")
+    basis_days: int = Field(description="Days of history the projection is based on")
+    rate_php_per_kwh: float = Field(description="Today's rate, assumed for every month")
+    max_months: int = Field(description="Months after this one that are ever projected (3)")
+    months: list[ProjectionMonth] = Field(min_length=1, description="This month first")
+
+
 # ------------------------------------------------------------- /api/upgrade --
 class UpgradeSystem(BaseModel):
     pv_kwp: float = Field(description="Installed solar (PV_KWP)")

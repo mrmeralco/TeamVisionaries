@@ -272,6 +272,7 @@ Don't loosen `guard.py` to make a test pass. If the guard rejects a reply, the r
 | `router.py` | a question isn't getting the right facts |
 | `prompts.py` | changing tone, Taglish style, recap format |
 | `style.py` | the model keeps a wording habit the prompt can't fix (word swaps only, never numbers) |
+| `../app/projection.py` | bill for the next months: only this month is a forecast; up to 3 months are projections (Mira must say they're estimates); beyond 3 Mira explains why not (`projection.limits`, guard `projection_problems`) |
 | `sources.py` | a new fact needs a label, period or app screen in the answer's "Where this answer comes from" list (`tests/test_ai_sources.py` fails until it has one) |
 | `guard.py` | rarely; e.g. allowing a new number format |
 | `service.py` | changing the flow (retry count, fallback text, chips) |

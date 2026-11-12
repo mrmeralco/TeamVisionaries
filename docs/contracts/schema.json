@@ -159,6 +159,35 @@
         "outages_this_month": { "type": "integer", "minimum": 0 }
       }
     },
+    "bill_projection": {
+      "description": "GET /api/bill/projection: this month's forecast + up to 3 projected months (server/app/projection.py)",
+      "type": "object",
+      "required": ["generated_ts", "enough_data", "basis_days", "rate_php_per_kwh", "max_months", "months"],
+      "properties": {
+        "generated_ts": { "type": "integer" },
+        "enough_data": { "type": "boolean" },
+        "basis_days": { "type": "integer", "minimum": 0 },
+        "rate_php_per_kwh": { "type": "number" },
+        "max_months": { "type": "integer", "minimum": 0 },
+        "months": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["month", "label", "months_ahead", "kind", "grid_kwh", "low_kwh", "high_kwh", "bill_php", "low_php",
+                         "high_php", "load_kwh", "solar_kwh", "range_pct"],
+            "properties": {
+              "month": { "type": "string" }, "label": { "type": "string" },
+              "months_ahead": { "type": "integer", "minimum": 0 },
+              "kind": { "enum": ["forecast", "projection"] },
+              "grid_kwh": { "type": "number" }, "low_kwh": { "type": ["number", "null"] }, "high_kwh": { "type": ["number", "null"] },
+              "bill_php": { "type": "number" }, "low_php": { "type": "number" }, "high_php": { "type": "number" },
+              "load_kwh": { "type": ["number", "null"] }, "solar_kwh": { "type": ["number", "null"] },
+              "range_pct": { "type": ["integer", "null"] }
+            }
+          }
+        }
+      }
+    },
     "upgrade": {
       "description": "GET /api/upgrade: does the solar setup still fit this household's use (server/app/upgrade.py)",
       "type": "object",

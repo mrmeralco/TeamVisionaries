@@ -24,7 +24,6 @@ from .facts import Fact, FactSet, gather
 
 log = logging.getLogger("solaris.ai")
 
-DEFAULT_CHIPS = ("bill.month_to_date_php", "bill.forecast_php", "today.saved_php", "now.battery_pct")
 MAX_CHIPS = 4
 
 
@@ -47,7 +46,9 @@ def _active_topics(fs: FactSet) -> set[str]:
 
 def _chips(cited: list[str], fs: FactSet) -> list[dict]:
     by = fs.by_id()
-    ids = [i for i in cited if i in by and by[i].chip] or [i for i in DEFAULT_CHIPS if i in by]
+    # Only numbers the answer actually used. No default chips: under "hindi ko alam" or "hindi ko kaya lampas
+    # 3 buwan", this month's bill and battery looked like the answer to the question.
+    ids = [i for i in cited if i in by and by[i].chip]
     return [{"label": by[i].chip[0], "value": by[i].chip[1]} for i in ids[:MAX_CHIPS] if by[i].chip]
 
 
@@ -118,6 +119,7 @@ FALLBACK_IDS = {
     "usage": ("usage.peak_hours", "week.grid_kwh", "week.self_sufficiency_pct"),
     "alerts": ("alerts.unread",),
     "upgrade": ("upgrade.verdict", "upgrade.battery", "upgrade.solar", "upgrade.inverter", "upgrade.usage"),
+    "projection": ("projection.m1", "projection.m2", "projection.m3", "projection.limits"),
     "today": ("today.solar_kwh", "today.cost_php", "today.saved_php"),
     "now": ("now.solar_w", "now.load_w", "now.grid_w"),
 }
@@ -166,6 +168,21 @@ async def chat(device_id: str, settings: dict, message: str) -> dict:
         if offline and offline.text.startswith("OFFLINE"):
             fallback += " " + offline.spoken
             fallback_ids.append("now.online")
+    if router.is_projection(message) and "projection.limits" in fs.by_id():
+        # Rule-based answer for a later month: that month's projection + the caveat, or past the limit,
+        # why it can't be projected + the furthest month that can.
+        by = fs.by_id()
+        k = router.months_ahead(message)
+        if k is not None and f"projection.m{k}" in by:
+            fallback_ids = [f"projection.m{k}", "projection.limits"]
+        elif k is not None:
+            furthest = max((i for i in by if i.startswith("projection.m")), default=None)
+            fallback_ids = ["projection.limits"] + ([furthest] if furthest else [])
+        else:
+            fallback_ids = [i for i in ("projection.m1", "projection.m2", "projection.m3", "projection.limits") if i in by]
+        urgent = [f"{t}.active" for t in ("fault", "brownout") if t in active]
+        fallback_ids = urgent + fallback_ids
+        fallback = answers.join_spoken([by[i].spoken for i in fallback_ids])
     r = answers.direct_answer(message, given)
     if r is None:
         r = await ask(message, given, fallback, fallback_ids=fallback_ids)

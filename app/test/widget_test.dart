@@ -76,6 +76,14 @@ class BadNewsChat extends StateMock {
   }
 }
 
+/// GET /api/bill/projection returns [result].
+class ProjectionMock extends StateMock {
+  ProjectionMock(this.result);
+  final Map<String, dynamic> result;
+  @override
+  Future<Map<String, dynamic>> getBillProjection() async => result;
+}
+
 /// GET /api/upgrade returns [result], or fails when it's null.
 class UpgradeMock extends StateMock {
   UpgradeMock(this.result);
@@ -383,6 +391,37 @@ void main() {
     await t.tap(find.byTooltip('Later'));
     await t.pumpAndSettle();
     expect(find.text('Yesterday'), findsNothing);
+  });
+
+  testWidgets('Bill: coming months show this month as the forecast and later months as widening estimates', (t) async {
+    await pumpApp(t, size: const Size(393, 3200));
+    await tab(t, 'Bill');
+    final p = example('bill_projection');
+    final months = (p['months'] as List).cast<Map<String, dynamic>>();
+    expect(find.text('Coming months'), findsOneWidget);
+    expect(find.textContaining('Only this month is a forecast'), findsOneWidget);
+    for (final m in months) {
+      expect(find.text(m['label'] as String), findsOneWidget);
+      expect(find.text(formatPhp(m['bill_php'] as num, whole: true)), findsWidgets);
+      expect(find.text('Likely ${formatPhp(m['low_php'] as num, whole: true)} – ${formatPhp(m['high_php'] as num, whole: true)}'),
+          findsOneWidget);
+    }
+    expect(find.text('Forecast'), findsOneWidget);
+    for (final m in months.skip(1)) {
+      expect(find.text('Estimate ±${m['range_pct']}%'), findsOneWidget);
+    }
+    expect(find.textContaining('Further ahead is too uncertain to show'), findsOneWidget);
+  });
+
+  testWidgets('Bill: coming months without enough history show only this month', (t) async {
+    final p = example('bill_projection');
+    await pumpApp(t,
+        api: ProjectionMock({...p, 'enough_data': false, 'months': [(p['months'] as List).first]}),
+        size: const Size(393, 3200));
+    await tab(t, 'Bill');
+    expect(find.text('Forecast'), findsOneWidget);
+    expect(find.textContaining('Estimate ±'), findsNothing);
+    expect(find.textContaining('Needs about 2 weeks of readings'), findsOneWidget);
   });
 
   testWidgets('Bill: system check shows each recommendation with the household numbers behind it', (t) async {

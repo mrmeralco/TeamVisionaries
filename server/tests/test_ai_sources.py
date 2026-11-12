@@ -129,3 +129,14 @@ def test_refusing_an_upgrade_question_falls_back_to_the_system_check(monkeypatch
     out = ask("Dapat ko bang dagdagan ang panels ko?", [refuse, dict(refuse)], monkeypatch)
     assert out["source"] == "fallback" and out["sources"][0]["id"] == "upgrade.verdict"
     assert not out["reply"].startswith("Pasensya")
+
+
+def test_chips_only_show_numbers_the_answer_used(monkeypatch):
+    """No default chips: a refusal shows none, and an answer shows only its cited facts' chips."""
+    refusal = ask("Sino ang presidente?", [{"answerable": False, "reply": "", "fact_ids": []}], monkeypatch)
+    assert refusal["chips"] == []
+    fs = facts().by_id()
+    out = ask("Ipaliwanag ang battery percentage ko", [{"answerable": True, "fact_ids": ["now.battery_pct", "now.online"],
+              "reply": f"Offline ang device. {fs['now.battery_pct'].values[0]:g}% ang battery mo."}], monkeypatch)
+    assert [c["label"] for c in out["chips"]] == ["Battery"]
+    assert fs["bill.forecast_php"].chip[0] == "Bill forecast"       # never just "Forecast"

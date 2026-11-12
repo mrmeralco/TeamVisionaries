@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ai import llm, prompts
 from ai import service as ai
 
-from . import config, db, energy, hub, ingest, mock, outlook, upgrade, weather
+from . import config, db, energy, hub, ingest, mock, outlook, projection, upgrade, weather
 from . import schemas as S  # Contract C response shapes
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -110,6 +110,14 @@ def get_outlook():
     if config.MOCK:
         return mock.load("outlook")
     return outlook.outlook(_dev(), _settings())
+
+
+@app.get("/api/bill/projection", response_model=S.Projection)
+def get_bill_projection():
+    """This month's forecast + up to 3 projected months (app/projection.py). Later months are rougher."""
+    if config.MOCK:
+        return mock.load("bill_projection")
+    return projection.project(_dev(), _settings())
 
 
 @app.get("/api/upgrade", response_model=S.Upgrade)

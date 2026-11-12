@@ -21,6 +21,7 @@ Conventions:
 | `GET /api/bill` | Month-to-date ₱, forecast ₱ + range, vs last month, savings, weekly costs | Bill, Home | [bill.json](examples/bill.json) |
 | `GET /api/brownout` | Status, start time, battery runtime estimate, advice | Brownout Advisor | [brownout.json](examples/brownout.json) |
 | `GET /api/outlook` | Solar forecast (weather), battery projection 48 h, brownout runtime with sun, advice | Brownout Advisor, Home | [outlook.json](examples/outlook.json) |
+| `GET /api/bill/projection` | This month's bill forecast + up to 3 projected months (rougher, widening range) | Bill & Savings, Ask Mira | [bill_projection.json](examples/bill_projection.json) |
 | `GET /api/upgrade` | System check: does the solar/battery/inverter still fit the household's use? Recommendations + rough payback | Bill & Savings | [upgrade.json](examples/upgrade.json) |
 | `GET /api/alerts` | Alert list, unread count | Alerts | [alerts.json](examples/alerts.json) |
 | `POST /api/alerts/{id}/read` | Marks one alert read, returns it | Alerts | — |
@@ -136,6 +137,36 @@ Solar = forecast radiation (Open-Meteo) × this house's kWh per kWh/m², fitted 
 average for that hour of the day (weekday/weekend, last 28 days). The battery is simulated hour by hour:
 with the grid on it drains to `reserve_pct`, in a brownout to `cutoff_pct`. `hours[0]` is the current hour.
 
+
+### `GET /api/bill/projection`
+
+This month's forecast (same numbers as `/api/bill`) plus up to **3** calendar months after it. Only this
+month is a forecast; later months are **projections** ("if use stays like the last few weeks", adjusted for
+the season) and their range widens each month. Nothing is projected beyond 3 months: the range would be
+too wide to use. Cached per day.
+
+```jsonc
+{
+  "generated_ts": 1762912800, "enough_data": true,   // false until 14 days of history: months = [this month]
+  "basis_days": 28, "rate_php_per_kwh": 15.06,       // today's rate, assumed for every month
+  "max_months": 3,
+  "months": [
+    { "month": "2026-11", "label": "Nobyembre 2026", "months_ahead": 0, "kind": "forecast",
+      "grid_kwh": 157.9, "low_kwh": null, "high_kwh": null,
+      "bill_php": 2382.52, "low_php": 2106.9, "high_php": 2657.1,
+      "load_kwh": null, "solar_kwh": null, "range_pct": null },
+    { "month": "2026-12", "label": "Disyembre 2026", "months_ahead": 1, "kind": "projection",
+      "grid_kwh": 181.4, "low_kwh": 120.3, "high_kwh": 242.5,      // +-range_pct
+      "bill_php": 2733.58, "low_php": 1821.4, "high_php": 3730.9,  // Meralco tiers at today's rate
+      "load_kwh": 509.5, "solar_kwh": 450.9, "range_pct": 34 }
+  ]
+}
+```
+
+Projection: this home's typical hourly day, load scaled by an air-con season index and solar by Manila's
+monthly sunshine (dry season sunny, rainy season and December less), simulated with the battery, then
+corrected by the ratio of simulated to metered grid use over the last 14 days. Range = this home's weekly
+variation + 10 % per month ahead (max 60 %).
 
 ### `GET /api/upgrade`
 

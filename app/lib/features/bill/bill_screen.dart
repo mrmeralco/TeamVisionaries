@@ -9,6 +9,7 @@ import '../../core/utils/format.dart';
 import '../../providers/data_providers.dart';
 import '../common/charts.dart';
 import '../common/ui.dart';
+import 'coming_months.dart';
 import 'system_check.dart';
 
 String _php(Object? v) => formatPhp(numOr(v), whole: true);
@@ -24,6 +25,7 @@ class BillScreen extends ConsumerWidget {
       onRefresh: () async {
         ref.invalidate(outlookProvider);
         ref.invalidate(upgradeProvider);
+        ref.invalidate(billProjectionProvider);
         await ref.refresh(billProvider.future).then((_) {}, onError: (_) {});
       },
       child: ListView(padding: EdgeInsets.zero, children: [
@@ -32,7 +34,10 @@ class BillScreen extends ConsumerWidget {
           value: bill,
           onRetry: () => ref.invalidate(billProvider),
           // The system check is extra: if it fails or isn't ready, the bill still shows without it.
-          data: (b) => _BillBody(b, advice: advice, upgrade: ref.watch(upgradeProvider).value),
+          data: (b) => _BillBody(b,
+              advice: advice,
+              upgrade: ref.watch(upgradeProvider).value,
+              projection: ref.watch(billProjectionProvider).value),
         ),
       ]),
     );
@@ -40,10 +45,11 @@ class BillScreen extends ConsumerWidget {
 }
 
 class _BillBody extends StatelessWidget {
-  const _BillBody(this.b, {required this.advice, this.upgrade});
+  const _BillBody(this.b, {required this.advice, this.upgrade, this.projection});
   final Map<String, dynamic> b;
   final String advice;
   final Map<String, dynamic>? upgrade; // GET /api/upgrade; null = not loaded or failed
+  final Map<String, dynamic>? projection; // GET /api/bill/projection; null = not loaded or failed
 
   @override
   Widget build(BuildContext context) {
@@ -120,6 +126,10 @@ class _BillBody extends StatelessWidget {
               ),
           ]),
         ),
+        if (projection != null) ...[
+          const SizedBox(height: S.x3),
+          ComingMonthsCard(projection!),
+        ],
         const SizedBox(height: S.x3),
         _Tip(advice: advice),
         if (upgrade != null) ...[

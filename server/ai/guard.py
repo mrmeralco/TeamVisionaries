@@ -12,7 +12,11 @@ import re
 from dataclasses import dataclass, field
 
 from .facts import Fact
-from .router import bill_intent, is_upgrade
+from .router import bill_intent, is_projection, is_upgrade, months_ahead
+
+# A projection answer must say it's an estimate.
+HEDGE = re.compile(r"tantiya|projection|hindi (?:pa )?sigurado|hindi gaanong maaasahan|maaaring magbago|"
+                   r"puwedeng magbago|estimate|rough|not (?:be )?certain|approximate", re.I)
 from . import semantics
 
 MAX_WORDS = 110
@@ -83,6 +87,28 @@ def bill_problems(reply: str, fact_ids: list[str], given: list[Fact], question: 
     return problems
 
 
+def projection_problems(reply: str, fact_ids: list[str], given: list[Fact], question: str) -> list[str]:
+    """Bill in a later month: cite that month's projection and say it's an estimate; past the limit, say
+    it can't be done (projection.limits) and quote no amount as if it were that month's bill."""
+    if not is_projection(question) or not any(f.id == "projection.limits" for f in given):
+        return []
+    k = months_ahead(question)
+    have = {f.id for f in given}
+    problems = []
+    if k is not None and f"projection.m{k}" not in have:          # beyond what's projected
+        if "projection.limits" not in fact_ids:
+            problems.append("beyond the projection limit: explain with projection.limits that it can't be projected")
+    else:
+        wanted = f"projection.m{k}" if k else None
+        if wanted and wanted not in fact_ids:
+            problems.append(f"answer must cite {wanted}, the projection for the month asked")
+        if not wanted and not any(i.startswith("projection.m") for i in fact_ids):
+            problems.append("answer must cite the projection facts (projection.m*)")
+        if not HEDGE.search(reply):
+            problems.append("say the projection is only an estimate (tantiya lang, hindi sigurado)")
+    return problems
+
+
 def check(reply: str, fact_ids: list[str], answerable: bool, given: list[Fact], question: str) -> GuardResult:
     problems: list[str] = []
     ids = {f.id for f in given}
@@ -104,6 +130,7 @@ def check(reply: str, fact_ids: list[str], answerable: bool, given: list[Fact], 
         problems.append(f"numbers not in FACTS: {unknown}")
 
     problems.extend(bill_problems(reply, fact_ids, given, question))
+    problems.extend(projection_problems(reply, fact_ids, given, question))
     if is_upgrade(question) and any(f.id.startswith("upgrade.") for f in given) and not any(
             i.startswith("upgrade.") for i in fact_ids):
         problems.append("upgrade question: answer from the system check facts (upgrade.*) and cite them")
@@ -124,7 +151,7 @@ def check(reply: str, fact_ids: list[str], answerable: bool, given: list[Fact], 
         if re.search(rf"\b(?:walang|no)\s+(?:active\s+)?{keyword}\b", reply.lower()):
             problems.append(f"denies active {keyword}")
     m = question.lower()
-    live_question = not is_upgrade(question) and any(w in m for w in ("solar", "battery", "baterya", "grid")) and not any(
+    live_question = not is_upgrade(question) and not is_projection(question) and any(w in m for w in ("solar", "battery", "baterya", "grid")) and not any(
         w in m for w in ("kahapon", "yesterday", "oras", "peak", "week", "linggo", "natipid", "savings"))
     offline = any(f.id == "now.online" and f.text.startswith("OFFLINE") for f in given)
     if live_question and offline and not any(w in reply.lower() for w in ("offline", "luma", "huling data")):
