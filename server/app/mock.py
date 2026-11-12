@@ -10,6 +10,8 @@ import time
 
 from . import config, hub
 
+PUSH_EVERY_S = 5.0
+
 
 def load(name: str):
     return json.loads((config.EXAMPLES_DIR / f"{name}.json").read_text())
@@ -18,7 +20,7 @@ def load(name: str):
 async def ws_loop() -> None:
     live = load("live")
     while True:
-        await asyncio.sleep(5)
+        await asyncio.sleep(PUSH_EVERY_S)
         m = copy.deepcopy(live)
         t = m["telemetry"]
         t["ts"] = m["device"]["last_seen_ts"] = int(time.time())

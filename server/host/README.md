@@ -1,0 +1,68 @@
+# Hosting Sinag (server laptop)
+
+One laptop runs everything the ESP32 and the app talk to:
+
+| Service | Port | What it does |
+|---|---|---|
+| Mosquitto | 1883 | MQTT broker. The Sinag device publishes here |
+| FastAPI | 8000 | Stores readings in SQLite, serves the REST/WebSocket API to the app |
+| Ollama | 11434 (local only) | Taglish AI model (`qwen3.5:4b`) |
+
+## Windows (Andy's laptop, the demo host)
+
+1. Install Git, clone the repo, open the `server\host` folder in File Explorer.
+2. Double-click **`setup-windows.bat`** and accept the admin prompt. It installs Mosquitto, Python 3.12
+   and Ollama with `winget`, creates `server\.venv`, copies `.env`, seeds 45 days of demo history,
+   opens ports 1883 and 8000 in Windows Firewall, and downloads the AI model (3.3 GB).
+   Run it **before the event**, on good internet. `setup-windows.bat -SkipAI` skips the model.
+3. Double-click **`start-windows.bat`** every time. It starts the broker and the API, and prints
+   this laptop's IP. Close the window or press Ctrl+C to stop both.
+
+Setup only needs to run once; running it again is safe.
+
+## macOS
+
+```bash
+bash server/host/setup-mac.sh        # once (--skip-ai to skip the model)
+```
+
+```bash
+bash server/host/start-mac.sh        # every time
+```
+
+## Pointing the Sinag device at the host
+
+The start script prints a line like `MQTT broker 192.168.43.100:1883`. Put that IP in
+`firmware/sinag-device/config.h` together with the hotspot name and password, then reflash:
+
+```c
+#define WIFI_SSID  "team hotspot name"
+#define WIFI_PASS  "hotspot password"
+#define MQTT_HOST  "192.168.43.100"
+```
+
+The ESP32 only does 2.4 GHz Wi-Fi, so the hotspot must have 2.4 GHz on. The host laptop and the
+ESP32 must be on the same hotspot. Tip: the hotspot usually gives the laptop the same IP every
+time, so write it on the sticky note.
+
+## Checking it works
+
+- `http://<ip>:8000/api/health`: `"ok": true`, and `"llm_reachable": true` once Ollama has the model.
+- `http://<ip>:8000/api/live`: latest reading from the device; `"state"` should not be `"offline"`.
+- Watch raw MQTT traffic:
+  - Windows: `"C:\Program Files\mosquitto\mosquitto_sub.exe" -t "sinag/#" -v`
+  - macOS: `mosquitto_sub -t "sinag/#" -v`
+- No hardware yet? `server\.venv\Scripts\python tools\fake_device.py` (Windows) or
+  `server/.venv/bin/python tools/fake_device.py` (macOS) publishes fake readings.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| ESP32 LED slow blink (no broker) | Wrong `MQTT_HOST`, laptop not on the hotspot, or firewall. Re-run setup (it adds the firewall rules); check Windows set the hotspot network as *Private* or *Public*, both are allowed |
+| ESP32 LED fast blink (no Wi-Fi) | Wrong SSID/password, or hotspot is 5 GHz only |
+| `Port 1883 already in use` | Another Mosquitto is running. On Windows: `sc stop mosquitto` (admin) |
+| `llm_reachable: false` | Start Ollama, or `ollama pull qwen3.5:4b`. The app still works with rule-based replies |
+| Demo data looks wrong after testing | `python tools/seed_history.py --reset` |
+
+Logs: `server/logs/mosquitto.log`; the API logs in the start window.

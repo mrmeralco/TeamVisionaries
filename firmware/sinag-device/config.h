@@ -19,8 +19,8 @@
 // ---- Modbus link. UART2.
 //      Today (no RS485 modules): wire ESP32-to-ESP32 directly, TX->RX crossed.
 //      Later with MAX3485: set RS485_DE_PIN to the pin tied to DE+RE.
-#define MB_RX_PIN     16
-#define MB_TX_PIN     17
+#define MB_RX_PIN     26
+#define MB_TX_PIN     25
 #define RS485_DE_PIN  -1                   // -1 = direct UART (no transceiver)
 
 // ---- What's on the bus (see profiles.h). Both are polled each cycle; whichever

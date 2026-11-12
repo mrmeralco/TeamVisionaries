@@ -3,6 +3,11 @@
 Owners: **Aldrin** (dev) + **Shane** (UI/UX). This folder is reserved for the Flutter project.
 Run `flutter create --org ph.sinag --project-name sinag .` here (or move your existing project in).
 
+## Tests to build against
+
+[test_spec/](test_spec/): 30 spec tests for `ApiService` / `MockApiService`, plus a reference implementation that
+passes them. Screen checklist: [TESTING.md](../TESTING.md#flutter-screens-by-eye).
+
 ## What the app talks to
 
 Everything is in [docs/contracts/C-api.md](../docs/contracts/C-api.md). Sample responses for every

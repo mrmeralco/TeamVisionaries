@@ -32,6 +32,15 @@ simulator / real inverter ─RS485 Modbus─▶ Sinag device (ESP32) ─MQTT─�
 - Checkpoints: **h2** contracts · **h8** each piece works alone · **h10** knob turn appears in DB ·
   **h14** knob turn updates the app · **h18 feature freeze** · h18–22 bug fixes + 5 demo runs · h22–24 pitch.
 
+## Tests
+
+[TESTING.md](TESTING.md) says which tests each member builds against and when they must be green
+(checkpoints h10, h14, the hour-18 freeze).
+
+```bash
+cd server && python -m pytest -q
+```
+
 ## Quick start
 
 ```bash
