@@ -268,8 +268,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           contentPadding: const EdgeInsets.fromLTRB(S.x4, S.x2, S.x4, 0),
                           value: cfg.useMock,
                           onChanged: (v) => ref.read(serverConfigProvider.notifier).setUseMock(v),
-                          title: Text('Demo data (no server)', style: ts(13, w: FontWeight.w700)),
-                          subtitle: Text('Answers from the contract example files', style: ts(11, color: C.muted)),
+                          title: Text('Demo data', style: ts(13, w: FontWeight.w700)),
+                          subtitle: Text('Sample readings; Mira connects to the laptop AI', style: ts(11, color: C.muted)),
                         ),
                       ),
                       Padding(
@@ -283,14 +283,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               hint: '192.168.43.100:8000',
                               type: TextInputType.url,
                               error: _urlError,
-                              enabled: !cfg.useMock,
+                              enabled: true,
                               onSubmitted: (_) => _saveUrl(),
                             ),
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
                               children: [
-                                FilledButton(onPressed: cfg.useMock ? null : _saveUrl, child: const Text('Save address')),
+                                FilledButton(onPressed: _saveUrl, child: const Text('Save address')),
                                 OutlinedButton.icon(
                                   onPressed: _testing ? null : _test,
                                   icon: _testing

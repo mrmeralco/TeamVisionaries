@@ -22,8 +22,9 @@ fi
 [[ -x .venv/bin/python ]] || { echo "Python env missing. Run: bash server/host/setup-mac.sh"; exit 1; }
 [[ $UPDATE == 1 ]] && { step "Python packages"; .venv/bin/pip install -q -r requirements.txt; }
 [[ -f .env ]] || { cp .env.example .env; warn "created server/.env from .env.example"; }
-grep -qE '^\s*SOLARIS_MOCK\s*=\s*1' .env && warn "SOLARIS_MOCK=1 in server/.env: the app shows example data, not the device."
-[[ -f solaris.db ]] || { step "No database yet: seeding 45 days of demo history"; .venv/bin/python tools/seed_history.py; }
+grep -qE '^\s*SOLARIS_MOCK\s*=\s*1' .env && step "Mock data enabled; Mira still uses local Ollama and seeded history"
+DB_PATH=$(.venv/bin/python -c 'from app.config import DB_PATH; print(DB_PATH)')
+[[ -f "$DB_PATH" ]] || { step "No database yet: seeding 45 days of demo history"; .venv/bin/python tools/seed_history.py --meter; }
 
 APK="$REPO/landing/downloads/solaris.apk"
 if [[ -f "$APK" ]]; then step "APK found: landing/downloads/solaris.apk ($(( $(wc -c < "$APK") / 1048576 )) MB)"

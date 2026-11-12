@@ -1,4 +1,6 @@
-"""SOLARIS_MOCK=1: serve docs/contracts/examples/*.json so the app can be built with no broker or DB.
+"""SOLARIS_MOCK=1: serve sample dashboard readings without a broker.
+
+Chat and daily summaries use the normal AI pipeline with seeded SQLite history and local Ollama.
 
 /ws/live in mock mode pushes the example telemetry every 5 s with small random changes.
 
@@ -61,6 +63,12 @@ def load(name: str):
     variant = config.EXAMPLES_DIR / f"{name}_{_setup}.json"
     path = variant if _setup != "solar" and variant.exists() else config.EXAMPLES_DIR / f"{name}.json"
     data = json.loads(path.read_text())
+    if name == "live":
+        now = int(time.time())
+        data["device"].update(online=True, last_seen_ts=now)
+        for reading in (data.get("telemetry"), data.get("meter")):
+            if reading is not None:
+                reading["ts"] = now
     return {**data, **_saved, "setup": _setup} if name == "settings" else data
 
 

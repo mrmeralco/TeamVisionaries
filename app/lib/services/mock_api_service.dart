@@ -1,5 +1,6 @@
 // MockApiService: same methods as ApiService, answers from assets/mock/*.json
-// (copies of docs/contracts/examples). Turn it on in Settings or with --dart-define=SOLARIS_MOCK=true.
+// (copies of docs/contracts/examples). Enabled by default. The app supplies a remote AI client;
+// standalone test fixtures can omit it to load sample AI responses.
 // Household setup: saving {"setup": "meter_only"} (or solar_and_meter) in Settings switches the demo to
 // `<name>_<setup>.json` wherever that file exists, like the backend's mock mode.
 //
@@ -17,12 +18,13 @@ import 'api_service.dart';
 class MockApiService implements ApiService {
   /// [saved]: settings changed in an earlier session; [onSave] keeps them (e.g. on the device), so the
   /// demo household (setup, name) survives a reload.
-  MockApiService({AssetLoader? loader, Map<String, dynamic>? saved, this.onSave})
+  MockApiService({AssetLoader? loader, Map<String, dynamic>? saved, this.onSave, this.ai})
       : _load = loader ?? ((name) => rootBundle.loadString('assets/mock/$name.json')) {
     if (saved != null) _settingsOverrides.addAll(saved);
   }
 
   final AssetLoader _load;
+  final ApiService? ai;
   final void Function(Map<String, dynamic> overrides)? onSave;
   final _settingsOverrides = <String, dynamic>{};
 
@@ -94,9 +96,19 @@ class MockApiService implements ApiService {
   @override
   Future<Map<String, dynamic>> markAllAlertsRead() async => {'unread': 0};
   @override
-  Future<Map<String, dynamic>> chat(String message) => _json('chat');
+  Future<Map<String, dynamic>> chat(String message) async {
+    final ai = this.ai;
+    if (ai == null) return _json('chat');
+    await ai.updateSettings(_settingsOverrides);
+    return ai.chat(message);
+  }
   @override
-  Future<Map<String, dynamic>> getDailySummary() => _json('summary_daily');
+  Future<Map<String, dynamic>> getDailySummary() async {
+    final ai = this.ai;
+    if (ai == null) return _json('summary_daily');
+    await ai.updateSettings(_settingsOverrides);
+    return ai.getDailySummary();
+  }
   @override
   Future<Map<String, dynamic>> getSettings() async => {...await _json('settings'), ..._settingsOverrides, 'setup': setup};
   @override
@@ -110,10 +122,12 @@ class MockApiService implements ApiService {
   }
 
   @override
-  Future<Map<String, dynamic>> health() async => {'ok': true, 'mock': true, 'llm': null, 'llm_reachable': false};
+  Future<Map<String, dynamic>> health() async => ai != null
+      ? ai!.health()
+      : {'ok': true, 'mock': true, 'llm': null, 'llm_reachable': false};
 
   @override
-  void close() {}
+  void close() { ai?.close(); }
 
   @override
   Uri liveSocketUri() => Uri.parse('ws://mock/ws/live');

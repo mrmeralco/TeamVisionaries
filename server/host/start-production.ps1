@@ -34,9 +34,10 @@ if ($Update) { Step "Python packages"; & $Py -m pip install -q -r requirements.t
 if (-not (Test-Path ".env")) { Copy-Item ".env.example" ".env"; Warn "created server\.env from .env.example" }
 
 if (Select-String -Path ".env" -Pattern '^\s*SOLARIS_MOCK\s*=\s*1' -Quiet) {
-  Warn "SOLARIS_MOCK=1 in server\.env: the app will show example data, not the device. Set it to 0 for the real demo."
+  Step "Mock data enabled; Mira still uses local Ollama and seeded history"
 }
-if (-not (Test-Path "solaris.db")) { Step "No database yet: seeding 45 days of demo history"; & $Py tools\seed_history.py }
+$dbPath = & $Py -c "from app.config import DB_PATH; print(DB_PATH)"
+if (-not (Test-Path $dbPath)) { Step "No database yet: seeding 45 days of demo history"; & $Py tools\seed_history.py --meter }
 
 $apk = Join-Path $Repo "landing\downloads\solaris.apk"
 if (Test-Path $apk) {

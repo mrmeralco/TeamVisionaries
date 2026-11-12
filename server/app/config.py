@@ -25,11 +25,11 @@ def _bool(name: str, default: str = "0") -> bool:
     return os.getenv(name, default).lower() in ("1", "true", "yes", "on")
 
 
-# Serve docs/contracts/examples/*.json instead of real data (no broker or DB needed).
-MOCK = _bool("SOLARIS_MOCK")
+# Demo endpoints use example data; AI still uses the laptop's seeded SQLite history.
+MOCK = _bool("SOLARIS_MOCK", "1")
 
-DB_PATH = Path(os.getenv("SOLARIS_DB", SERVER_DIR / "solaris.db"))
-# Mock mode has no DB: the settings saved in it (setup, name, rate) are kept here, so a restart keeps them.
+DB_PATH = Path(os.getenv("SOLARIS_DB", SERVER_DIR / ("mock.db" if MOCK else "solaris.db")))
+# Mock settings (setup, name, rate) are persisted separately from seeded AI history.
 MOCK_SETTINGS_PATH = Path(os.getenv("SOLARIS_MOCK_SETTINGS", SERVER_DIR / "mock_settings.json"))
 TZ = ZoneInfo(os.getenv("SOLARIS_TZ", "Asia/Manila"))
 EXAMPLES_DIR = REPO_DIR / "docs" / "contracts" / "examples"
@@ -49,7 +49,7 @@ OFFLINE_AFTER_S = int(os.getenv("OFFLINE_AFTER_S", "30"))
 LLM_ENABLED = _bool("LLM_ENABLED", "1")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
-LLM_MODEL = os.getenv("LLM_MODEL", "qwen3.5:4b")
+LLM_MODEL = os.getenv("LLM_MODEL", "qwen3.5:9b")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_TIMEOUT_S = float(os.getenv("LLM_TIMEOUT_S", "20"))   # per LLM call

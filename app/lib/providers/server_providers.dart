@@ -57,14 +57,15 @@ final serverConfigProvider =
 
 final apiServiceProvider = Provider<ApiService>((ref) {
   final cfg = ref.watch(serverConfigProvider);
-  final api = cfg.useMock ? _mock(ref.read(sharedPreferencesProvider)) : ApiService(baseUrl: cfg.baseUrl);
+  final remote = ApiService(baseUrl: cfg.baseUrl);
+  final api = cfg.useMock ? _mock(ref.read(sharedPreferencesProvider), remote) : remote;
   ref.onDispose(api.close);
   return api;
 });
 
 /// Demo mode: the settings saved in it (setup, name, rate) are kept on the device, like a real server
 /// keeps them, so onboarding's answers survive a reload.
-MockApiService _mock(SharedPreferences prefs) {
+MockApiService _mock(SharedPreferences prefs, ApiService ai) {
   const key = 'mock_settings';
   Map<String, dynamic>? saved;
   try {
@@ -72,5 +73,5 @@ MockApiService _mock(SharedPreferences prefs) {
   } catch (_) {
     saved = null; // unreadable: start from the example
   }
-  return MockApiService(saved: saved, onSave: (s) => prefs.setString(key, jsonEncode(s)));
+  return MockApiService(ai: ai, saved: saved, onSave: (s) => prefs.setString(key, jsonEncode(s)));
 }

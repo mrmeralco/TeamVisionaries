@@ -1,6 +1,6 @@
 """FACTS: the only things the AI is allowed to say.
 
-Every fact is computed by the backend from SQLite. Each one has:
+Facts come from SQLite history and, in mock mode, the app's simulated current readings. Each one has:
   id      stable name the model must cite in `fact_ids` (e.g. "bill.forecast_php")
   topic   used by the router to pick which facts go into the prompt
   text    one Taglish line shown to the model, with the number already formatted
@@ -15,7 +15,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import timedelta
 
-from app import db, energy, household, meter, outlook, projection, solar_plan, upgrade
+from app import config, db, energy, household, meter, mock, outlook, projection, solar_plan, upgrade
 
 from .faults import explain_fault
 from .prompts import when
@@ -104,7 +104,7 @@ def gather(device_id: str, settings: dict) -> FactSet:
     fs = FactSet()
     rate = settings["rate_php_per_kwh"]
     solar = energy.has_solar(settings)
-    live = energy.live(device_id, settings)
+    live = mock.load("live") if config.MOCK else energy.live(device_id, settings)
     t = live["telemetry"]
     mr = live["meter"]
     fs.measured_ts = t["ts"] if t else (mr["ts"] if mr else None)
@@ -253,7 +253,7 @@ def gather(device_id: str, settings: dict) -> FactSet:
 
     # ---- smart meter (app/meter.py): Meralco level, always-on use, voltage, the meter's register
     if mr:
-        _meter_facts(fs, meter.info(device_id, settings))
+        _meter_facts(fs, mock.load("meter") if config.MOCK else meter.info(device_id, settings))
     if solar:   # a meter-only home has no sun, battery or inverter to talk about
         _outlook_facts(fs, device_id, settings)
         _fault_fact(fs, t)
@@ -266,7 +266,7 @@ def gather(device_id: str, settings: dict) -> FactSet:
 
     # ---- household profile: routine, is anyone home, new appliance-sized loads (app/household.py)
     try:
-        hh = household.household(device_id, settings)
+        hh = mock.load("household") if config.MOCK else household.household(device_id, settings)
     except Exception:                       # extra, like the system check; never let it break chat
         hh = None
     if hh:
@@ -309,7 +309,7 @@ def gather(device_id: str, settings: dict) -> FactSet:
 
 def _outlook_facts(fs: FactSet, device_id: str, settings: dict) -> None:
     # ---- solar + battery outlook (weather forecast; see app/outlook.py)
-    o = outlook.outlook(device_id, settings)
+    o = mock.load("outlook") if config.MOCK else outlook.outlook(device_id, settings)
     ob, obo = o["battery"], o["brownout"]
     src = "weather forecast" if o["source"] == "weather" else "nakaraang 14 araw (walang weather forecast ngayon)"
     typ = f" (karaniwan: {kwh(o['solar_typical_kwh'])})" if o["solar_typical_kwh"] else ""

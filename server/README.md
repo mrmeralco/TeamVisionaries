@@ -3,6 +3,15 @@
 Owners: **Andy** (`app/` and `ai/`; AI guide: [ai/README.md](ai/README.md)). Implements Contract C
 ([docs/contracts/C-api.md](../docs/contracts/C-api.md)) on top of Contract B MQTT.
 
+Mock mode is the default (`SOLARIS_MOCK=1`). Sample dashboard readings work without hardware;
+Mira chat and daily summaries still use local Ollama `qwen3.5:9b` and SQLite history in
+`server/mock.db`. The live database `solaris.db` is kept separate. Before the first mock run,
+run `.\.venv\Scripts\python.exe tools/seed_history.py --meter` from `server/` (the production
+launcher does this if the database is missing). Set `SOLARIS_MOCK=0` for hardware data.
+Set the laptop address in the app's Settings even with Demo data enabled: AI requires that
+connection. AI treats the mock device as online and uses the dashboard's sample readings for current
+conditions, with fresh timestamps. Bills and historical trends still use the seeded history.
+
 ```
 server/
 ├── app/            FastAPI app (Andy)
@@ -13,7 +22,7 @@ server/
 │   ├── energy.py   live status line, kWh series, bill + forecast, brownout runtime
 │   ├── db.py       SQLite tables: telemetry, meter, device_status, alerts, outages, settings
 │   ├── hub.py      WebSocket fan-out
-│   ├── mock.py     SOLARIS_MOCK=1 serves docs/contracts/examples/*.json
+│   ├── mock.py     SOLARIS_MOCK=1 serves sample readings; AI still uses Ollama + seeded history
 │   └── config.py   env vars (see .env.example)
 ├── ai/             local AI, Qwen 3.5 on Ollama (Andy). Read ai/README.md
 │   ├── facts.py    every number the AI may say, computed from SQLite

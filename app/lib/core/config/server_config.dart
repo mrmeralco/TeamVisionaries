@@ -5,7 +5,7 @@
 //   2. Web built with --dart-define=SOLARIS_SAME_ORIGIN=true (the copy the server hosts at /app/): the page's own origin
 //   3. Web: the host that served the page, port 8000 (`flutter run -d chrome` on the dev machine)
 //   4. Android emulator: http://10.0.2.2:8000 (the dev machine). A real phone types the laptop IP in Settings.
-// Mock mode (no server, answers from assets/mock/): --dart-define=SOLARIS_MOCK=true or the Settings toggle.
+// Mock data is the default; AI chat still connects to the laptop server.
 import 'package:flutter/foundation.dart';
 
 class ServerConfig {
@@ -15,7 +15,7 @@ class ServerConfig {
   final bool useMock;
 
   static const _defineUrl = String.fromEnvironment('SOLARIS_SERVER');
-  static const _defineMock = bool.fromEnvironment('SOLARIS_MOCK');
+  static const _defineMock = bool.fromEnvironment('SOLARIS_MOCK', defaultValue: true);
   static const _sameOrigin = bool.fromEnvironment('SOLARIS_SAME_ORIGIN');
 
   static ServerConfig get defaults => ServerConfig(baseUrl: defaultBaseUrl(), useMock: _defineMock);

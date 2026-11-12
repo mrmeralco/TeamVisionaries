@@ -66,17 +66,17 @@ async def _background() -> None:
 async def lifespan(app: FastAPI):
     hub.bind_loop(asyncio.get_running_loop())
     tasks = []
+    db.conn()
     if config.MOCK:
         log.info("MOCK MODE: serving %s", config.EXAMPLES_DIR)
         tasks.append(asyncio.create_task(mock.ws_loop()))
     else:
-        db.conn()
         ingest.start()
         tasks.append(asyncio.create_task(_watchdog()))
         if config.MERALCO_RATE_ENABLED:
             tasks.append(asyncio.create_task(_rates()))
         tasks.append(asyncio.create_task(_background()))
-        tasks.append(asyncio.create_task(llm.warmup(prompts.SYSTEM)))
+    tasks.append(asyncio.create_task(llm.warmup(prompts.SYSTEM)))
     yield
     for t in tasks:
         t.cancel()
@@ -230,16 +230,14 @@ def read_all_alerts():
 
 @app.post("/api/chat", response_model=S.Chat)
 async def post_chat(body: S.ChatIn):
-    if config.MOCK:
-        return mock.load("chat")
-    return await ai.chat(_dev(), _settings(), body.message)
+    settings = mock.load("settings") if config.MOCK else _settings()
+    return await ai.chat(settings["device_id"], settings, body.message)
 
 
 @app.get("/api/summary/daily", response_model=S.DailySummary)
 async def get_summary(refresh: bool = False):
-    if config.MOCK:
-        return mock.load("summary_daily")
-    return await ai.daily_summary(_dev(), _settings(), force=refresh)
+    settings = mock.load("settings") if config.MOCK else _settings()
+    return await ai.daily_summary(settings["device_id"], settings, force=refresh)
 
 
 @app.get("/api/settings", response_model=S.Settings)
