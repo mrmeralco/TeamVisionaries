@@ -1,10 +1,11 @@
 // First run, with Mira: she bounces in and talks the household through Solaris in a speech bubble.
 //   0  Hello            who Mira is
 //   1  How it works     the device reads the home, Mira turns numbers into advice, alerts
-//   2  How to use it    the four tabs, the house's dots, the Mira button
-//   3  Your name        what Mira calls you (user_name)
-//   4  Your home        solar (with or without a smart meter too) or a smart meter only (setup)
-// Steps 0–2 can be skipped. The name and setup are saved together (PUT /api/settings) at the end; the
+//   2  How to use it    the four tabs and what is on each, the house's dots, the Mira button
+//   3  More help        Brownout Advisor (+ 48-hour outlook), system check, notifications, Settings
+//   4  Your name        what Mira calls you (user_name)
+//   5  Your home        solar (with or without a smart meter too) or a smart meter only (setup)
+// Steps 0–3 can be skipped. The name and setup are saved together (PUT /api/settings) at the end; the
 // setup decides what every tab shows: a meter-only home never sees solar, battery or brownout-runtime
 // numbers, only its use, its bill and ways to save. Both can be changed later in Settings.
 import 'package:flutter/material.dart';
@@ -19,9 +20,9 @@ import '../common/ui.dart';
 
 enum _Home { solar, meter }
 
-const _steps = 5;
-const _nameStep = 3;
-const _setupStep = 4;
+const _steps = 6;
+const _nameStep = 4;
+const _setupStep = 5;
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -79,8 +80,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         0 => 'Hi! Ako si Mira, ang energy assistant mo. Ako ang bahala sa pagbabantay ng kuryente ng bahay mo, '
             'para ikaw ay makatipid at handa sa brownout.',
         1 => 'Ganito tayo magtutulungan:',
-        2 => 'Madali lang gamitin ang Solaris. Ito ang makikita mo:',
-        3 => 'Bago tayo magsimula, ano ang pangalan mo? Para alam ko kung paano kita babatiin.',
+        2 => 'Madali lang gamitin ang Solaris. Ito ang makikita mo sa ibaba:',
+        3 => 'May iba pa akong maitutulong:',
+        4 => 'Bago tayo magsimula, ano ang pangalan mo? Para alam ko kung paano kita babatiin.',
         _ => _error != null
             ? 'Naku, hindi ko na-save. Tingnan natin ang koneksyon sa server.'
             : 'Salamat, $_who! Huling tanong: ano ang meron sa bahay mo?',
@@ -94,8 +96,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   (String, VoidCallback?) get _primary => switch (_step) {
         0 => ('Kumusta, Mira!', () => _go(1)),
-        1 || 2 => ('Sige, tuloy', () => _go(_step + 1)),
-        3 => ('Tuloy', _who.isEmpty ? null : () => _go(4)),
+        1 || 2 || 3 => ('Sige, tuloy', () => _go(_step + 1)),
+        4 => ('Tuloy', _who.isEmpty ? null : () => _go(_setupStep)),
         _ => (_saving ? 'Sine-save…' : 'Simulan na', _home == null || _saving ? null : _finish),
       };
 
@@ -170,17 +172,60 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             ),
           ]),
         2 => const _Points([
-            (Icons.home_rounded, 'Home', 'Ang bahay mo ngayon. Pindutin ang mga tuldok sa bahay para sa detalye.'),
-            (Icons.bar_chart_rounded, 'Energy', 'Gamit mo kada araw, linggo at buwan.'),
-            (Icons.receipt_long_rounded, 'Bill', 'Tantiya ng bill ngayong buwan at paano ito mapapababa.'),
-            (Icons.notifications_rounded, 'Alerts', 'Mga babala at paalala tungkol sa kuryente mo.'),
+            (
+              Icons.home_rounded,
+              'Home',
+              'Ang bahay mo ngayon: pindutin ang mga tuldok sa bahay para sa detalye. Nandito rin ang buod ko '
+                  'ng kahapon, mga tip para makatipid, at ang routine ng bahay mo.',
+            ),
+            (
+              Icons.bar_chart_rounded,
+              'Energy',
+              'Gamit mo kada araw, linggo at buwan, at ikumpara sa mga nakaraan.',
+            ),
+            (
+              Icons.receipt_long_rounded,
+              'Bill',
+              'Tantiya ng bill ngayong buwan at sa mga susunod na buwan, gastos kada linggo, at paano ito '
+                  'mapapababa. May smart meter? Makikita mo rin ang Meralco level mo.',
+            ),
+            (
+              Icons.notifications_rounded,
+              'Alerts',
+              'Brownout, mababang boltahe o sira. Pindutin ang alert para sa paliwanag at kung ano ang gagawin.',
+            ),
             (
               Icons.chat_bubble_outline_rounded,
               'Ako, si Mira',
-              'Pindutin ako sa kanang ibaba para magtanong, sa Tagalog o English, anumang oras.',
+              'Pindutin ako sa kanang ibaba para magtanong, sa Tagalog o English, anumang oras. Ipinapakita ko '
+                  'kung saan galing ang sagot ko.',
             ),
           ]),
-        3 => TextField(
+        3 => const _Points([
+            (
+              Icons.power_off_rounded,
+              'Brownout Advisor',
+              'Kapag nawalan ng kuryente: ano ang dapat gawin, at kung may battery, gaano ito katagal tatagal. '
+                  'May forecast din ng araw sa susunod na 48 oras. Bukas mula sa Home o sa alert.',
+            ),
+            (
+              Icons.fact_check_outlined,
+              'System check',
+              'May solar? Sa Bill, sinusuri ko kung sapat pa ang panels, battery at inverter sa gamit ng bahay mo.',
+            ),
+            (
+              Icons.notifications_active_outlined,
+              'Notifications',
+              'I-on ang "Notify me about alerts" sa Settings para hindi mo ma-miss ang brownout o sira.',
+            ),
+            (
+              Icons.settings_rounded,
+              'Settings',
+              'Ang gear sa kanang itaas: pangalan, setup ng bahay, Meralco rate para tama ang bill, at Light o '
+                  'Dark mode.',
+            ),
+          ]),
+        4 => TextField(
             key: const Key('onboard-name'),
             controller: _name,
             autofocus: true,

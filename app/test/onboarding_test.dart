@@ -1,4 +1,4 @@
-// First run with Mira: hello, how Solaris works, how to use it, your name, then "Ano ang meron sa bahay
+// First run with Mira: hello, how Solaris works, how to use it, what else she can do, your name, then "Ano ang meron sa bahay
 // mo?" (solar or a smart meter only). Name and setup are saved together (PUT /api/settings); a meter-only
 // home then sees no solar on Home, only its use and ways to save.
 import 'dart:async';
@@ -26,7 +26,7 @@ Future<void> _tap(WidgetTester t, String key) async {
 
 /// Through the introduction and the name, to the setup question.
 Future<void> _toSetup(WidgetTester t, {String name = 'Ana'}) async {
-  for (var i = 0; i < 3; i++) {
+  for (var i = 0; i < 4; i++) {
     await _tap(t, 'onboard-next');
   }
   await t.enterText(find.byKey(const Key('onboard-name')), name);
@@ -50,6 +50,14 @@ void main() {
     for (final tab in ['Home', 'Energy', 'Bill', 'Alerts', 'Ako, si Mira']) {
       expect(find.text(tab), findsOneWidget, reason: tab);
     }
+
+    // Then what the tabs don't show at a glance.
+    await _tap(t, 'onboard-next');
+    for (final more in ['Brownout Advisor', 'System check', 'Notifications', 'Settings']) {
+      expect(find.text(more), findsOneWidget, reason: more);
+    }
+    expect(find.textContaining('Notify me about alerts'), findsOneWidget);
+    await _tap(t, 'onboard-back');
 
     // Back works.
     await _tap(t, 'onboard-back');

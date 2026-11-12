@@ -49,7 +49,7 @@ void main() {
   testWidgets('onboarding "Smart meter lang" → Settings shows it; Settings changes Home both ways', (t) async {
     final api = _Home();
     final c = await pumpApp(t, api: api, onboarded: false, size: _tall);
-    for (var i = 0; i < 3; i++) {
+    for (var i = 0; i < 4; i++) {
       await _tap(t, find.byKey(const Key('onboard-next')));
     }
     await t.enterText(find.byKey(const Key('onboard-name')), 'Ana');
