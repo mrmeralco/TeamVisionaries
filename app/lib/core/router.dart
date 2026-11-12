@@ -74,8 +74,7 @@ GoRouter buildRouter() => GoRouter(
       ],
     );
 
-// The glass backdrop goes inside each tab's page: the page route paints an opaque surface behind
-// its content, so a backdrop around the whole shell would be hidden under every tab.
+// Each tab page groups its glass cards' blurs (GlassBackdrop).
 StatefulShellBranch _branch(String path, Widget screen) => StatefulShellBranch(
       routes: [GoRoute(path: path, builder: (context, state) => GlassBackdrop(child: screen))],
     );

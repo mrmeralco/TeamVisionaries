@@ -89,20 +89,14 @@ class C {
   static Color get divider => _n(const Color(0x1F292929), const Color(0x24FFFFFF)); // between rows
   static Color get shadow => _n(const Color(0x40000000), const Color(0x66000000));
 
-  // Frosted glass cards (SCard, PressCard): a translucent fill, lighter at the top-left, over the
-  // page's sun orbs ([orbs], painted by GlassBackdrop). The orbs have edges, so the blur shows: an
-  // orb is crisp on the page and melts where a card passes over it. On an orb's core [muted] text
-  // holds 4.5:1 on the page and 4.9:1 on a card; at night 5.1:1+.
-  static Color get glassTop => _n(const Color(0x99FFFFFF), const Color(0x992A3558)); // .60
-  static Color get glassBottom => _n(const Color(0x66FFFFFF), const Color(0x801A2440)); // .40 / .50
-  static Color get glassSheen => _n(const Color(0x66FFFFFF), const Color(0x1FFFFFFF)); // top light
+  // Frosted glass cards (SCard, PressCard): a translucent fill, lighter at the top-left, with a
+  // sheen and a lit rim, over the plain [cream] page. Mostly solid: a hint of glass, not a window.
+  // [muted] text on a card: 5.5:1+ (night 6:1+).
+  static Color get glassTop => _n(const Color(0xEBFFFFFF), const Color(0xEB2A3558)); // .92
+  static Color get glassBottom => _n(const Color(0xD1FFFFFF), const Color(0xE01A2440)); // .82 / .88
+  static Color get glassSheen => _n(const Color(0x40FFFFFF), const Color(0x14FFFFFF)); // top light
   static Color get glassEdge => _n(Colors.white, const Color(0x59FFFFFF)); // lit rim (not text)
   static Color get glassEdgeFar => _n(const Color(0x66FF7415), const Color(0x4DFF7415)); // far rim, orange
-  /// Page orbs, in [GlassBackdrop]'s order: big sun top right, peach left, orange low right,
-  /// small sun bottom left.
-  static List<Color> get orbs => night
-      ? const [Color(0x665B6BE0), Color(0x47F47721), Color(0x478A5CF6), Color(0x405B6BE0)]
-      : const [Color(0x70FFC857), Color(0x50FFB37A), Color(0x2AF47721), Color(0x70FFC857)];
 
   // Status
   static Color get green => _n(const Color(0xFF299D65), const Color(0xFF4FCB8D));

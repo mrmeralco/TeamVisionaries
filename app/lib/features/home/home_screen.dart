@@ -68,7 +68,7 @@ class HomeScreen extends ConsumerWidget {
     final inBrownout = _BrownoutAdvisor.active(live);
     const advisor = _BrownoutAdvisor();
 
-    // No page colour here: the cream and the glass orbs come from the tab's GlassBackdrop.
+    // No page colour here: the cream comes from the Scaffold behind the tab.
     return RefreshIndicator(
       onRefresh: refresh,
       child: ListView(

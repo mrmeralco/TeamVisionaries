@@ -185,59 +185,18 @@ BorderSide get kCardLine => BorderSide(color: C.orangeLine, width: 0.5);
 /// How much a glass card blurs the page behind it.
 const kGlassBlur = 22.0;
 
-/// Behind every page: four fixed sun orbs ([C.orbs]) on the cream for glass cards to frost. The
-/// orbs have edges, so the frost is visible: crisp on the page, melted under a card, and it shifts
-/// as the content scrolls over them. It also groups the cards' blurs ([BackdropGroup]) so the
-/// page is read once, not once per card.
+/// Around every page: groups the glass cards' blurs ([BackdropGroup]) so the page is read once,
+/// not once per card. The page itself stays plain cream (the Scaffold's background).
 class GlassBackdrop extends StatelessWidget {
   const GlassBackdrop({super.key, required this.child});
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => BackdropGroup(
-    child: Stack(
-      fit: StackFit.expand,
-      children: [
-        Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: _Orbs(C.orbs)))),
-        child,
-      ],
-    ),
-  );
-}
-
-class _Orbs extends CustomPainter {
-  _Orbs(this.colors);
-  final List<Color> colors;
-
-  // (centre x, centre y, radius) as fractions of the width / height / width.
-  static const _spots = [(0.88, 0.07, 0.42), (0.04, 0.42, 0.34), (0.92, 0.66, 0.26), (0.12, 0.88, 0.2)];
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (var i = 0; i < _spots.length; i++) {
-      final (x, y, r) = _spots[i];
-      final c = Offset(size.width * x, size.height * y);
-      final radius = size.width * r;
-      final color = colors[i];
-      canvas.drawCircle(
-        c,
-        radius,
-        Paint()
-          // A solid core with a short feathered edge: a shape, not a haze.
-          ..shader = RadialGradient(
-            colors: [color, color, color.withValues(alpha: 0)],
-            stops: const [0, 0.82, 1],
-          ).createShader(Rect.fromCircle(center: c, radius: radius)),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_Orbs old) => old.colors != colors;
+  Widget build(BuildContext context) => BackdropGroup(child: child);
 }
 
 /// The glass surface under every card: it blurs what is behind it, lays a translucent fill on
-/// top (white fading from .60 to .40 by default, or [color] for a tinted card), a sheen of light
+/// top (white fading from .92 to .82 by default, or [color] for a tinted card), a sheen of light
 /// across the top, and a rim that is bright at the top-left and fades to a faint orange, like
 /// light on a pane. A [border] replaces the rim (status cards outline themselves in their own
 /// colour).
