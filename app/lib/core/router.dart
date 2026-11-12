@@ -9,7 +9,6 @@ import 'package:go_router/go_router.dart';
 import '../features/alerts/alerts_screen.dart';
 import '../features/ask/ask_screen.dart';
 import '../features/bill/bill_screen.dart';
-import '../features/common/ui.dart' show GlassBackdrop;
 import '../features/brownout/brownout_screen.dart';
 import '../features/energy/energy_screen.dart';
 import '../features/home/home_screen.dart';
@@ -74,7 +73,6 @@ GoRouter buildRouter() => GoRouter(
       ],
     );
 
-// Each tab page groups its glass cards' blurs (GlassBackdrop).
 StatefulShellBranch _branch(String path, Widget screen) => StatefulShellBranch(
-      routes: [GoRoute(path: path, builder: (context, state) => GlassBackdrop(child: screen))],
+      routes: [GoRoute(path: path, builder: (context, state) => screen)],
     );

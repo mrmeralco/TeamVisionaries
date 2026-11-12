@@ -121,7 +121,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
 
     return Scaffold(
       backgroundColor: C.cream,
-      body: GlassBackdrop(child: Column(children: [
+      body: Column(children: [
         BackHeader(
           'Ask Mira',
           solar ? 'Get answers about your solar energy.' : 'Get answers about your electricity.',
@@ -222,7 +222,7 @@ class _AskScreenState extends ConsumerState<AskScreen> {
             ),
           ),
         ),
-      ])),
+      ]),
     );
   }
 }

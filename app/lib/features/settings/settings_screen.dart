@@ -246,7 +246,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // Figma "screen 06 - settings" language: back + link dot row, 26 px title, subtitle, outlined white cards.
     return Scaffold(
       backgroundColor: C.cream,
-      body: GlassBackdrop(child: ListView(
+      body: ListView(
         padding: EdgeInsets.zero,
         children: [
           const BackHeader('Settings', 'Server connection, alerts and your household.'),
@@ -431,7 +431,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
         ],
-      )),
+      ),
     );
   }
 }

@@ -150,16 +150,16 @@ class _Group extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           SectionTitle('$label  ·  ${alerts.length}'),
           const SizedBox(height: S.x2),
-          Glass(
-            child: Material(
-              type: MaterialType.transparency,
-              child: Column(children: [
-                for (var i = 0; i < alerts.length; i++) ...[
-                  if (i > 0) Divider(height: 1, indent: 16, endIndent: 16, color: C.divider),
-                  _AlertTile(alerts[i], onTap: () => onTap(alerts[i])),
-                ],
-              ]),
-            ),
+          Material(
+            color: C.card,
+            shape: RoundedRectangleBorder(borderRadius: R.card, side: kCardLine),
+            clipBehavior: Clip.antiAlias,
+            child: Column(children: [
+              for (var i = 0; i < alerts.length; i++) ...[
+                if (i > 0) Divider(height: 1, indent: 16, endIndent: 16, color: C.divider),
+                _AlertTile(alerts[i], onTap: () => onTap(alerts[i])),
+              ],
+            ]),
           ),
         ]),
       );

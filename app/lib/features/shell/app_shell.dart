@@ -102,7 +102,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
     return Scaffold(
       backgroundColor: C.cream,
-      body: shell, // each tab page paints its own GlassBackdrop (see router.dart)
+      body: shell,
       floatingActionButton: const MiraButton(),
       bottomNavigationBar: SolarisNavBar(
         index: shell.currentIndex,

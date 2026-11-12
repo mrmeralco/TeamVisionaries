@@ -106,7 +106,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final (label, onPressed) = _primary;
     return Scaffold(
       backgroundColor: C.cream,
-      body: GlassBackdrop(child: SafeArea(
+      body: SafeArea(
         child: Column(
           children: [
             _TopBar(
@@ -148,7 +148,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             ),
           ],
         ),
-      )),
+      ),
     );
   }
 
@@ -498,39 +498,40 @@ class _Option extends StatelessWidget {
       button: true,
       selected: selected,
       inMutuallyExclusiveGroup: true,
-      child: Glass(
-        color: selected ? C.yellow.withValues(alpha: C.night ? 0.12 : 0.25) : null,
-        border: selected ? Border.all(color: C.orange, width: 2) : null,
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.all(S.x4),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(color: C.orange.withValues(alpha: 0.14), borderRadius: R.control),
-                  child: Icon(icon, color: C.orangeText),
+      child: Material(
+        color: selected ? C.yellow.withValues(alpha: C.night ? 0.12 : 0.25) : C.card,
+        shape: RoundedRectangleBorder(
+          borderRadius: R.card,
+          side: selected ? const BorderSide(color: C.orange, width: 2) : kCardLine,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(S.x4),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(color: C.orange.withValues(alpha: 0.14), borderRadius: R.control),
+                child: Icon(icon, color: C.orangeText),
+              ),
+              const SizedBox(width: S.x3),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title, style: ts(15, w: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(body, style: ts(12, height: 1.45, color: C.label)),
+                ]),
+              ),
+              const SizedBox(width: S.x2),
+              ExcludeSemantics(
+                child: Icon(
+                  selected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                  color: selected ? C.orangeText : C.navOff,
                 ),
-                const SizedBox(width: S.x3),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(title, style: ts(15, w: FontWeight.w700)),
-                    const SizedBox(height: 2),
-                    Text(body, style: ts(12, height: 1.45, color: C.label)),
-                  ]),
-                ),
-                const SizedBox(width: S.x2),
-                ExcludeSemantics(
-                  child: Icon(
-                    selected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                    color: selected ? C.orangeText : C.navOff,
-                  ),
-                ),
-              ]),
-            ),
+              ),
+            ]),
           ),
         ),
       ),
