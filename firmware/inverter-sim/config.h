@@ -61,6 +61,20 @@
 #define FAULT_CODE      21                 // overheating
 #define DEFAULT_SPEED   60                 // sim time multiplier (60 = 1 s -> 1 min)
 
+// ---- AUTO mode: the simulator drives SUN and LOAD itself (no knob needed)
+//      sun  = clear-sky curve for the local time of day x passing clouds
+//      load = household day pattern + appliance bursts (kettle, aircon, iron ...)
+//      Turn the knob (on SUN/LOAD) or move a web slider -> manual. Web button or
+//      serial "auto on" -> back to AUTO.
+#define AUTO_DEFAULT          1            // 1 = start in AUTO after every boot
+#define AUTO_SPEED            1            // sim speed at boot in AUTO (1 = real time, so battery % matches the app's kWh)
+#define AUTO_TZ               "PHT-8"      // POSIX TZ for the sun curve (Asia/Manila = UTC+8)
+#define AUTO_OFFLINE_START_H  10.0f        // no internet time yet: pretend the box booted at 10:00
+#define AUTO_SUN_PEAK         88           // sun % at clear-sky noon
+#define AUTO_BURST_GAP_MIN_S  30           // quiet time between appliance bursts
+#define AUTO_BURST_GAP_MAX_S  120
+#define AUTO_KNOB_TAKEOVER_PCT 12          // turn the knob this far to switch to manual; 101 = knob never stops AUTO
+
 // ---- Smart meter mode (Eastron SDM120-style single-phase kWh meter)
 //      Hold the button > 6 s to switch INVERTER <-> METER (remembered after reboot).
 #define MODE_PRESS_MS   6000

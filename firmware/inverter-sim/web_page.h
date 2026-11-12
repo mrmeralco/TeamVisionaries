@@ -80,6 +80,7 @@ footer{margin-top:14px;font-size:12px;color:var(--mute);text-align:center}
     <div class="row"><label>Knob</label><div class="seg" id="knobs"></div></div>
     <div class="sub" id="knobSub"></div>
     <div class="btns">
+      <button id="bAuto" title="AUTO drives Sun and Load from the time of day, clouds and appliance bursts">Auto</button>
       <button id="bBrown">Brownout</button>
       <button id="bFault" class="danger">Fault 21</button>
       <select id="speed" title="Simulation speed"><option value="1">Speed 1×</option><option value="10">10×</option><option value="60">60×</option><option value="300">300×</option><option value="1800">1800×</option></select>
@@ -131,7 +132,7 @@ function render(s){
     $("t1s").textContent+=" · load "+fmt(e.load_w)+" W, solar "+fmt(e.pv_w)+" W";
   }else{const r=s.inv;
     tile(0,"☀ Solar",fmt(r.pv_w),"W","Sun "+c.sun+"%",r.pv_w/50,"var(--sun)");
-    tile(1,"⌂ Home load",fmt(r.load_w),"W","Load knob "+c.load+"%",r.load_w/40,"var(--acc)");
+    tile(1,"⌂ Home load",fmt(r.load_w),"W",(c.auto&&c.auto_burst?c.auto_burst+" on · ":"")+"Load "+c.load+"%",r.load_w/40,"var(--acc)");
     tile(2,"▮ Battery",r.batt_soc,"%",r.batt_w>0?"Discharging "+fmt(r.batt_w)+" W":r.batt_w<0?"Charging "+fmt(-r.batt_w)+" W":"Idle",r.batt_soc,"var(--batt)");
     tile(3,"⚡ Grid",sgn(r.grid_w),"W",(!r.grid_on?"Brownout — grid off":r.grid_w>0?"Importing":r.grid_w<0?"Exporting":"Idle")+" · "+r.inv_temp_c+" °C",r.inv_temp_c/0.9,r.inv_temp_c>60?"var(--bad)":"var(--grid)");
   }
@@ -140,7 +141,9 @@ function render(s){
   const key=c.knobs.join();if(key!==knobKey){knobKey=key;$("knobs").innerHTML=c.knobs.map(k=>`<button data-k="${k}">${KNOB_LABEL[k]}</button>`).join("");
     $("knobs").querySelectorAll("button").forEach(b=>b.onclick=()=>send({knob:b.dataset.k}))}
   $("knobs").querySelectorAll("button").forEach(b=>b.className=b.dataset.k==c.knob?"on":"");
-  $("knobSub").textContent="Physical knob at "+c.pot+"% · "+(c.knob_locked?"turn it to take over":"in control");
+  $("knobSub").textContent=c.auto?"AUTO drives Sun and Load ("+c.auto_clock+(c.auto_ntp?"":", no internet time yet")+") · move a slider or turn the knob firmly for manual":
+    "Physical knob at "+c.pot+"% · "+(c.knob_locked?"turn it to take over":"in control");
+  $("bAuto").className=c.auto?"on":"";$("bAuto").textContent=c.auto?"Auto ON · "+c.auto_clock:"Auto OFF";
   $("bBrown").className=c.brownout?"on":"";$("bBrown").textContent=c.brownout?"Brownout ON":"Brownout";
   const evOn=meter?c.sag:c.fault;$("bFault").className="danger"+(evOn?" on":"");
   $("bFault").textContent=(meter?"Low voltage":"Fault 21")+(evOn?" ON":"");
@@ -168,6 +171,7 @@ function send(p){return fetch("/api/control",{method:"POST",body:new URLSearchPa
   el.addEventListener("change",()=>{send({[id]:el.value}).then(()=>drag[id]=0)});
 });
 ["inverter","meter","meralco"].forEach(k=>$("m_"+k).onclick=()=>send({mode:k}));
+$("bAuto").onclick=()=>S&&send({auto:S.ctl.auto?0:1});
 $("bBrown").onclick=()=>S&&send({brownout:S.ctl.brownout?0:1});
 $("bFault").onclick=()=>S&&(S.mode=="meter"?send({sag:S.ctl.sag?0:1}):send({fault:S.ctl.fault?0:1}));
 $("speed").onchange=e=>send({speed:e.target.value});
