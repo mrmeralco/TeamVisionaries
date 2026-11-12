@@ -256,13 +256,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           if (_home == _Home.solar)
             Padding(
               padding: const EdgeInsets.only(top: S.x2),
+              // The row is the whole card, so its hover and press highlight fills the card.
               child: SCard(
-                padding: const EdgeInsets.symmetric(horizontal: S.x4, vertical: S.x1),
+                padding: EdgeInsets.zero,
                 child: Material(
                   type: MaterialType.transparency,
                   child: SwitchListTile(
                     key: const Key('onboard-also-meter'),
-                    contentPadding: EdgeInsets.zero,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: S.x4, vertical: S.x1),
                     value: _alsoMeter,
                     onChanged: (v) => setState(() => _alsoMeter = v),
                     title: Text('May smart meter din ako', style: ts(13, w: FontWeight.w700)),

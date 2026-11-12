@@ -90,16 +90,19 @@ class C {
   static Color get shadow => _n(const Color(0x40000000), const Color(0x66000000));
 
   // Frosted glass cards (SCard, PressCard): a translucent fill, lighter at the top-left, over the
-  // page's blurred warm glow ([glow], painted by GlassBackdrop). The glow stays pale enough that
-  // [muted] text holds 4.5:1 on its richest spot of the page and 5.1:1 on a card; at night 5.6:1+.
-  static Color get glassTop => _n(const Color(0xB8FFFFFF), const Color(0xB82A3558)); // .72
-  static Color get glassBottom => _n(const Color(0x85FFFFFF), const Color(0x991A2440)); // .52 / .60
-  static Color get glassEdge => _n(const Color(0xF2FFFFFF), const Color(0x47FFFFFF)); // lit rim (not text)
-  static Color get glassEdgeFar => _n(const Color(0x59FF7415), const Color(0x40FF7415)); // far rim, orange
-  /// Page glow blobs: top right, middle left, bottom right.
-  static List<Color> get glow => night
-      ? const [Color(0x664B5BC8), Color(0x2EF47721), Color(0x4D3B4BA8)]
-      : const [Color(0x66FFC857), Color(0x59FFC59D), Color(0x26F47721)];
+  // page's sun orbs ([orbs], painted by GlassBackdrop). The orbs have edges, so the blur shows: an
+  // orb is crisp on the page and melts where a card passes over it. On an orb's core [muted] text
+  // holds 4.5:1 on the page and 4.9:1 on a card; at night 5.1:1+.
+  static Color get glassTop => _n(const Color(0x99FFFFFF), const Color(0x992A3558)); // .60
+  static Color get glassBottom => _n(const Color(0x66FFFFFF), const Color(0x801A2440)); // .40 / .50
+  static Color get glassSheen => _n(const Color(0x66FFFFFF), const Color(0x1FFFFFFF)); // top light
+  static Color get glassEdge => _n(Colors.white, const Color(0x59FFFFFF)); // lit rim (not text)
+  static Color get glassEdgeFar => _n(const Color(0x66FF7415), const Color(0x4DFF7415)); // far rim, orange
+  /// Page orbs, in [GlassBackdrop]'s order: big sun top right, peach left, orange low right,
+  /// small sun bottom left.
+  static List<Color> get orbs => night
+      ? const [Color(0x665B6BE0), Color(0x47F47721), Color(0x478A5CF6), Color(0x405B6BE0)]
+      : const [Color(0x70FFC857), Color(0x50FFB37A), Color(0x2AF47721), Color(0x70FFC857)];
 
   // Status
   static Color get green => _n(const Color(0xFF299D65), const Color(0xFF4FCB8D));

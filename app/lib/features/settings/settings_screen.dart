@@ -258,54 +258,62 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SectionTitle('Server'),
                 const SizedBox(height: S.x3),
                 SCard(
+                  padding: EdgeInsets.zero, // the switch row runs edge to edge, and so does its highlight
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Material(
                         type: MaterialType.transparency,
                         child: SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
+                          contentPadding: const EdgeInsets.fromLTRB(S.x4, S.x2, S.x4, 0),
                           value: cfg.useMock,
                           onChanged: (v) => ref.read(serverConfigProvider.notifier).setUseMock(v),
                           title: Text('Demo data (no server)', style: ts(13, w: FontWeight.w700)),
                           subtitle: Text('Answers from the contract example files', style: ts(11, color: C.muted)),
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      _field(
-                        'Server address (laptop IP)',
-                        _url,
-                        hint: '192.168.43.100:8000',
-                        type: TextInputType.url,
-                        error: _urlError,
-                        enabled: !cfg.useMock,
-                        onSubmitted: (_) => _saveUrl(),
-                      ),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          FilledButton(onPressed: cfg.useMock ? null : _saveUrl, child: const Text('Save address')),
-                          OutlinedButton.icon(
-                            onPressed: _testing ? null : _test,
-                            icon: _testing
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.wifi_tethering_rounded, size: 16),
-                            label: const Text('Test connection'),
-                          ),
-                        ],
-                      ),
-                      if (_testResult != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          _testResult!,
-                          style: ts(12, w: FontWeight.w600, color: _testOk ? C.green : C.red),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(S.x4, 6, S.x4, S.x4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _field(
+                              'Server address (laptop IP)',
+                              _url,
+                              hint: '192.168.43.100:8000',
+                              type: TextInputType.url,
+                              error: _urlError,
+                              enabled: !cfg.useMock,
+                              onSubmitted: (_) => _saveUrl(),
+                            ),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                FilledButton(onPressed: cfg.useMock ? null : _saveUrl, child: const Text('Save address')),
+                                OutlinedButton.icon(
+                                  onPressed: _testing ? null : _test,
+                                  icon: _testing
+                                      ? const SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        )
+                                      : const Icon(Icons.wifi_tethering_rounded, size: 16),
+                                  label: const Text('Test connection'),
+                                ),
+                              ],
+                            ),
+                            if (_testResult != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                _testResult!,
+                                style: ts(12, w: FontWeight.w600, color: _testOk ? C.green : C.red),
+                              ),
+                            ],
+                          ],
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
@@ -313,11 +321,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SectionTitle('Alerts'),
                 const SizedBox(height: S.x3),
                 SCard(
+                  padding: EdgeInsets.zero, // the row fills the card, and so does its highlight
                   child: Material(
                     type: MaterialType.transparency,
                     child: SwitchListTile(
                       key: const Key('notify-switch'),
-                      contentPadding: EdgeInsets.zero,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: S.x4, vertical: S.x2),
                       value: notify && notifier.permission == 'granted',
                       onChanged: notifier.supported
                           ? (v) async {

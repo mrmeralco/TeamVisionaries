@@ -241,7 +241,7 @@ void main() {
     testWidgets('live readings, money and yesterday’s summary from the contract', (t) async {
       await pumpApp(t);
       final live = example('live');
-      expect(find.text('Mock'), findsWidgets); // /ws/live link up through MockApiService
+      expect(find.text('Mock'), findsNothing); // demo data shows no connection chip
       expect(find.text(live['status_line'] as String), findsOneWidget);
       expect(find.textContaining('Juan'), findsOneWidget); // settings.user_name
       expect(find.text('3.2 kW'), findsOneWidget); // pv_w 3200, on the house's SOLAR label

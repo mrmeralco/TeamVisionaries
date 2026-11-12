@@ -56,9 +56,11 @@ class LinkIndicator extends ConsumerWidget {
     final live = ref.watch(liveProvider);
     final link = live.link;
     final mock = ref.watch(serverConfigProvider.select((c) => c.useMock));
+    // Demo data has no connection to show, so no chip (Settings still says it is on).
+    if (mock && link == LinkStatus.connected) return const SizedBox.shrink();
     final (color, label) = switch (link) {
       LinkStatus.connected when !mock && live.device?['online'] == false => (C.red, 'Device offline'),
-      LinkStatus.connected => (C.green, mock ? 'Mock' : 'Live'),
+      LinkStatus.connected => (C.green, 'Live'),
       LinkStatus.connecting => (C.amber, 'Connecting'),
       LinkStatus.waiting => (C.red, 'Reconnecting'),
     };
@@ -181,11 +183,12 @@ class BackHeader extends StatelessWidget {
 BorderSide get kCardLine => BorderSide(color: C.orangeLine, width: 0.5);
 
 /// How much a glass card blurs the page behind it.
-const kGlassBlur = 18.0;
+const kGlassBlur = 22.0;
 
-/// Behind every page: the cream with three soft, fixed glow blobs ([C.glow]) for glass cards to
-/// frost. Content scrolls over the glow, so each card shows a slightly different blur. It also
-/// groups the cards' blurs ([BackdropGroup]) so the page is read once, not once per card.
+/// Behind every page: four fixed sun orbs ([C.orbs]) on the cream for glass cards to frost. The
+/// orbs have edges, so the frost is visible: crisp on the page, melted under a card, and it shifts
+/// as the content scrolls over them. It also groups the cards' blurs ([BackdropGroup]) so the
+/// page is read once, not once per card.
 class GlassBackdrop extends StatelessWidget {
   const GlassBackdrop({super.key, required this.child});
   final Widget child;
@@ -195,19 +198,19 @@ class GlassBackdrop extends StatelessWidget {
     child: Stack(
       fit: StackFit.expand,
       children: [
-        Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: _Glow(C.glow)))),
+        Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: _Orbs(C.orbs)))),
         child,
       ],
     ),
   );
 }
 
-class _Glow extends CustomPainter {
-  _Glow(this.colors);
+class _Orbs extends CustomPainter {
+  _Orbs(this.colors);
   final List<Color> colors;
 
   // (centre x, centre y, radius) as fractions of the width / height / width.
-  static const _spots = [(0.92, 0.06, 0.85), (0.02, 0.46, 0.75), (0.95, 0.88, 0.8)];
+  static const _spots = [(0.88, 0.07, 0.42), (0.04, 0.42, 0.34), (0.92, 0.66, 0.26), (0.12, 0.88, 0.2)];
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -215,24 +218,29 @@ class _Glow extends CustomPainter {
       final (x, y, r) = _spots[i];
       final c = Offset(size.width * x, size.height * y);
       final radius = size.width * r;
+      final color = colors[i];
       canvas.drawCircle(
         c,
         radius,
         Paint()
-          ..shader = RadialGradient(colors: [colors[i], colors[i].withValues(alpha: 0)])
-              .createShader(Rect.fromCircle(center: c, radius: radius)),
+          // A solid core with a short feathered edge: a shape, not a haze.
+          ..shader = RadialGradient(
+            colors: [color, color, color.withValues(alpha: 0)],
+            stops: const [0, 0.82, 1],
+          ).createShader(Rect.fromCircle(center: c, radius: radius)),
       );
     }
   }
 
   @override
-  bool shouldRepaint(_Glow old) => old.colors != colors;
+  bool shouldRepaint(_Orbs old) => old.colors != colors;
 }
 
 /// The glass surface under every card: it blurs what is behind it, lays a translucent fill on
-/// top (white fading from .72 to .52 by default, or [color] for a tinted card), and draws a
-/// rim that is bright at the top-left and fades to a faint orange, like light on a pane. A
-/// [border] replaces the rim (status cards outline themselves in their own colour).
+/// top (white fading from .60 to .40 by default, or [color] for a tinted card), a sheen of light
+/// across the top, and a rim that is bright at the top-left and fades to a faint orange, like
+/// light on a pane. A [border] replaces the rim (status cards outline themselves in their own
+/// colour).
 class Glass extends StatelessWidget {
   const Glass({super.key, required this.child, this.color, this.border, this.radius});
   final Widget child;
@@ -263,9 +271,20 @@ class Glass extends StatelessWidget {
             ),
             position: DecorationPosition.background,
             child: DecoratedBox(
-              decoration: BoxDecoration(border: border, borderRadius: r),
-              position: DecorationPosition.foreground,
-              child: child,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.center,
+                  colors: [C.glassSheen, C.glassSheen.withValues(alpha: 0)],
+                ),
+                borderRadius: r,
+              ),
+              position: DecorationPosition.background,
+              child: DecoratedBox(
+                decoration: BoxDecoration(border: border, borderRadius: r),
+                position: DecorationPosition.foreground,
+                child: child,
+              ),
             ),
           ),
         ),
@@ -281,7 +300,7 @@ class _GlassRim extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const w = 1.0;
+    const w = 1.2;
     final rect = (Offset.zero & size).deflate(w / 2);
     canvas.drawRRect(
       radius.toRRect(rect),

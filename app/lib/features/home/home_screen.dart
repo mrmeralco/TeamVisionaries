@@ -68,204 +68,202 @@ class HomeScreen extends ConsumerWidget {
     final inBrownout = _BrownoutAdvisor.active(live);
     const advisor = _BrownoutAdvisor();
 
-    return ColoredBox(
-      color: C.cream,
-      child: RefreshIndicator(
-        onRefresh: refresh,
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            // The house leads the page, Tesla-style: greeting and live status on the sky, then the
-            // house across the full width, its lawn fading into the dashboard below.
-            _Sky(
-              state: str(data?['state'], 'offline'),
-              night: night,
-              child: SafeArea(
-                bottom: false,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const TopBar(onDark: true),
-                          // Dark text: white on the orange → yellow sky was 1.5:1 to 2.8:1.
-                          EnterOnce(
-                            id: 'home-greeting',
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Semantics(
-                                  header: true,
-                                  child: Text(
-                                    '${_greeting()}${name.isEmpty ? '' : ', $name'}!',
-                                    style: ts(24, w: FontWeight.w700, spacing: -0.48, color: night ? C.onNight : C.ink),
-                                  ),
-                                ),
-                                const SizedBox(height: S.x1),
-                                Padding(
-                                  padding: const EdgeInsets.only(right: S.x2),
-                                  child: Semantics(
-                                    liveRegion: true,
-                                    child: Text(
-                                      // The device dropped off: say the numbers are its last ones.
-                                      offline && (live.telemetry != null || live.meter != null)
-                                          ? 'Offline ang Solaris device. Huling reading ang ipinapakita.'
-                                          : str(data?['status_line'], 'Kumokonekta sa Solaris… Ilang saglit lang.'),
-                                      style: ts(13, w: FontWeight.w500, height: 1.4, color: night ? C.onNightMuted : C.ink),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    EnterOnce(
-                      id: 'home-hero',
-                      delay: const Duration(milliseconds: 80),
-                      child: HouseScene(
-                        telemetry: mapOf(data?['telemetry']),
-                        offline: offline || live.telemetry == null,
-                        night: night,
-                        // No solar: the house without panels or battery, labelled from the meter.
-                        meterOnly: !hasSolar,
-                        meter: live.meter,
-                        voltageStatus: hasSolar
-                            ? null
-                            : str(mapOf(ref.watch(meterProvider).value?['quality'])['voltage_status'], ''),
-                      ),
-                    ),
-                    // At night the dark lawn eases into the light dashboard.
-                    if (night)
-                      SizedBox(
-                        height: 48,
-                        width: double.infinity,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [C.nightLawn, C.cream],
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            if (data == null && live.link == LinkStatus.waiting)
-              ErrorBox(onRetry: () => ref.invalidate(liveProvider), error: live.error)
-            else if (data == null)
-              const Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
-                child: Freshness(readingTs: live.readingTs, link: live.link, deviceOnline: live.device?['online'] as bool?),
-              ),
-              _StateBanner(live: live),
-              if (inBrownout) advisor,
-              if (hasSolar && live.telemetry == null) const _NoReadings(),
-              // A meter-only home: what the house labels don't say (current, power factor) under it.
-              if (!hasSolar)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
-                  child: EnterOnce(
-                    id: 'home-meter-stats',
-                    delay: const Duration(milliseconds: 160),
-                    child: _MeterStats(meter: live.meter, outdated: offline),
-                  ),
-                ),
-              if (live.telemetry != null || (offline && hasSolar))
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
-                  child: _DeviceHealth(telemetry: live.telemetry ?? const {}, device: live.device, offline: offline),
-                ),
-              if (setup == 'solar_and_meter')
-                const Padding(padding: EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0), child: MeterNowCard()),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
-                child: EnterOnce(
-                  id: 'home-stats',
-                  delay: const Duration(milliseconds: 160),
-                  child: SCard(
-                    padding: EdgeInsets.zero,
+    // No page colour here: the cream and the glass orbs come from the tab's GlassBackdrop.
+    return RefreshIndicator(
+      onRefresh: refresh,
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          // The house leads the page, Tesla-style: greeting and live status on the sky, then the
+          // house across the full width, its lawn fading into the dashboard below.
+          _Sky(
+            state: str(data?['state'], 'offline'),
+            night: night,
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (hasSolar)
-                          _Row(
-                            Icons.savings_outlined,
-                            'Saved today',
-                            formatPhp(numOr(data['saved_today_php'])),
-                            caption: rate == null ? null : 'At ${formatPhp(rate)}/kWh',
-                          )
-                        else
-                          // A meter-only home has nothing "saved": what the house used today instead.
-                          _Row(
-                            Icons.electric_meter_outlined,
-                            'Used today',
-                            today == null ? '—' : '${kwhNum(mapOf(today['totals'])['grid_import_kwh'])} kWh',
-                            caption: 'See your usage',
-                            onTap: () => context.go(Routes.energy),
+                        const TopBar(onDark: true),
+                        // Dark text: white on the orange → yellow sky was 1.5:1 to 2.8:1.
+                        EnterOnce(
+                          id: 'home-greeting',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Semantics(
+                                header: true,
+                                child: Text(
+                                  '${_greeting()}${name.isEmpty ? '' : ', $name'}!',
+                                  style: ts(24, w: FontWeight.w700, spacing: -0.48, color: night ? C.onNight : C.ink),
+                                ),
+                              ),
+                              const SizedBox(height: S.x1),
+                              Padding(
+                                padding: const EdgeInsets.only(right: S.x2),
+                                child: Semantics(
+                                  liveRegion: true,
+                                  child: Text(
+                                    // The device dropped off: say the numbers are its last ones.
+                                    offline && (live.telemetry != null || live.meter != null)
+                                        ? 'Offline ang Solaris device. Huling reading ang ipinapakita.'
+                                        : str(data?['status_line'], 'Kumokonekta sa Solaris… Ilang saglit lang.'),
+                                    style: ts(13, w: FontWeight.w500, height: 1.4, color: night ? C.onNightMuted : C.ink),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        Divider(height: 1, thickness: 0.5, indent: 68, color: C.divider),
-                        _Row(
-                          Icons.receipt_long_outlined,
-                          'Est. monthly bill',
-                          forecast is num ? formatPhp(forecast, whole: true) : '—',
-                          caption: 'See bill details',
-                          onTap: () => context.go(Routes.bill),
                         ),
                       ],
                     ),
                   ),
-                ),
+                  EnterOnce(
+                    id: 'home-hero',
+                    delay: const Duration(milliseconds: 80),
+                    child: HouseScene(
+                      telemetry: mapOf(data?['telemetry']),
+                      offline: offline || live.telemetry == null,
+                      night: night,
+                      // No solar: the house without panels or battery, labelled from the meter.
+                      meterOnly: !hasSolar,
+                      meter: live.meter,
+                      voltageStatus: hasSolar
+                          ? null
+                          : str(mapOf(ref.watch(meterProvider).value?['quality'])['voltage_status'], ''),
+                    ),
+                  ),
+                  // At night the dark lawn eases into the light dashboard.
+                  if (night)
+                    SizedBox(
+                      height: 48,
+                      width: double.infinity,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [C.nightLawn, C.cream],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              if (!inBrownout) advisor,
-              if (hasSolar) const SolarTips(),
-              // No solar: nothing about solar at all. Ways to save from the home's own use lead, then the
-              // rest of what the meter says (voltage, level, reading).
-              if (!hasSolar)
-                const MeterInsights(
-                  key: Key('home-saving-tips'),
-                  title: 'Paano makatipid',
-                  subtitle: 'Batay sa gamit ng bahay mo, mula sa meter',
-                  only: kSavingInsights,
-                ),
-              if (setup != 'solar') MeterInsights(skip: hasSolar ? const {'reading'} : kSavingInsights),
-              const HouseholdCard(),
-            ],
+            ),
+          ),
+          if (data == null && live.link == LinkStatus.waiting)
+            ErrorBox(onRetry: () => ref.invalidate(liveProvider), error: live.error)
+          else if (data == null)
             const Padding(
-              padding: EdgeInsets.fromLTRB(S.gutter, S.x6, S.gutter, 0),
-              child: SectionTitle('Yesterday’s summary'),
-            ),
+              padding: EdgeInsets.all(32),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else ...[
             Padding(
-              padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, kFabClearance),
-              child: AsyncBody(
-                value: summary,
-                onRetry: () => ref.invalidate(dailySummaryProvider),
-                data: (s) => _Summary(
-                  s,
-                  onAsk: () {
-                    ref
-                        .read(chatProvider.notifier)
-                        .send(
-                          hasSolar ? 'Kumusta ang solar at kuryente ko kahapon?' : 'Kumusta ang kuryente ko kahapon?',
-                        );
-                    context.push(Routes.ask);
-                  },
+              padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
+              child: Freshness(readingTs: live.readingTs, link: live.link, deviceOnline: live.device?['online'] as bool?),
+            ),
+            _StateBanner(live: live),
+            if (inBrownout) advisor,
+            if (hasSolar && live.telemetry == null) const _NoReadings(),
+            // A meter-only home: what the house labels don't say (current, power factor) under it.
+            if (!hasSolar)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
+                child: EnterOnce(
+                  id: 'home-meter-stats',
+                  delay: const Duration(milliseconds: 160),
+                  child: _MeterStats(meter: live.meter, outdated: offline),
+                ),
+              ),
+            if (live.telemetry != null || (offline && hasSolar))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
+                child: _DeviceHealth(telemetry: live.telemetry ?? const {}, device: live.device, offline: offline),
+              ),
+            if (setup == 'solar_and_meter')
+              const Padding(padding: EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0), child: MeterNowCard()),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
+              child: EnterOnce(
+                id: 'home-stats',
+                delay: const Duration(milliseconds: 160),
+                child: SCard(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      if (hasSolar)
+                        _Row(
+                          Icons.savings_outlined,
+                          'Saved today',
+                          formatPhp(numOr(data['saved_today_php'])),
+                          caption: rate == null ? null : 'At ${formatPhp(rate)}/kWh',
+                        )
+                      else
+                        // A meter-only home has nothing "saved": what the house used today instead.
+                        _Row(
+                          Icons.electric_meter_outlined,
+                          'Used today',
+                          today == null ? '—' : '${kwhNum(mapOf(today['totals'])['grid_import_kwh'])} kWh',
+                          caption: 'See your usage',
+                          onTap: () => context.go(Routes.energy),
+                        ),
+                      Divider(height: 1, thickness: 0.5, indent: 68, color: C.divider),
+                      _Row(
+                        Icons.receipt_long_outlined,
+                        'Est. monthly bill',
+                        forecast is num ? formatPhp(forecast, whole: true) : '—',
+                        caption: 'See bill details',
+                        onTap: () => context.go(Routes.bill),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
+            if (!inBrownout) advisor,
+            if (hasSolar) const SolarTips(),
+            // No solar: nothing about solar at all. Ways to save from the home's own use lead, then the
+            // rest of what the meter says (voltage, level, reading).
+            if (!hasSolar)
+              const MeterInsights(
+                key: Key('home-saving-tips'),
+                title: 'Paano makatipid',
+                subtitle: 'Batay sa gamit ng bahay mo, mula sa meter',
+                only: kSavingInsights,
+              ),
+            if (setup != 'solar') MeterInsights(skip: hasSolar ? const {'reading'} : kSavingInsights),
+            const HouseholdCard(),
           ],
-        ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(S.gutter, S.x6, S.gutter, 0),
+            child: SectionTitle('Yesterday’s summary'),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, kFabClearance),
+            child: AsyncBody(
+              value: summary,
+              onRetry: () => ref.invalidate(dailySummaryProvider),
+              data: (s) => _Summary(
+                s,
+                onAsk: () {
+                  ref
+                      .read(chatProvider.notifier)
+                      .send(
+                        hasSolar ? 'Kumusta ang solar at kuryente ko kahapon?' : 'Kumusta ang kuryente ko kahapon?',
+                      );
+                  context.push(Routes.ask);
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

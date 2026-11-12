@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../features/alerts/alerts_screen.dart';
 import '../features/ask/ask_screen.dart';
 import '../features/bill/bill_screen.dart';
+import '../features/common/ui.dart' show GlassBackdrop;
 import '../features/brownout/brownout_screen.dart';
 import '../features/energy/energy_screen.dart';
 import '../features/home/home_screen.dart';
@@ -73,6 +74,8 @@ GoRouter buildRouter() => GoRouter(
       ],
     );
 
+// The glass backdrop goes inside each tab's page: the page route paints an opaque surface behind
+// its content, so a backdrop around the whole shell would be hidden under every tab.
 StatefulShellBranch _branch(String path, Widget screen) => StatefulShellBranch(
-      routes: [GoRoute(path: path, builder: (context, state) => screen)],
+      routes: [GoRoute(path: path, builder: (context, state) => GlassBackdrop(child: screen))],
     );
