@@ -19,13 +19,16 @@ trap '[[ -n "$MOSQ_PID" ]] && kill $MOSQ_PID 2>/dev/null; exit' INT TERM EXIT
 command -v ollama >/dev/null && ! pgrep -x ollama >/dev/null && (ollama serve >/dev/null 2>&1 &)
 
 IP=$(ipconfig getifaddr en0 || ipconfig getifaddr en1 || echo "<this-laptop-ip>")
+NAME=$(scutil --get LocalHostName 2>/dev/null || hostname -s)
 cat <<EOF
 
   Sinag host is up
   -----------------------------------------------
   MQTT broker   ${IP}:1883     (log: server/logs/mosquitto.log)
   API + docs    http://${IP}:8000/docs
-  Firmware      set MQTT_HOST "${IP}" in firmware/sinag-device/config.h
+  Firmware      in firmware/sinag-device/config.h set
+                MQTT_MDNS_HOST "${NAME}"  (finds this laptop on any IP)
+                MQTT_HOST "${IP}"  (fallback)
   Ctrl+C to stop
   -----------------------------------------------
 

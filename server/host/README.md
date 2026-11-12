@@ -32,14 +32,20 @@ bash server/host/start-mac.sh        # every time
 
 ## Pointing the Sinag device at the host
 
-The start script prints a line like `MQTT broker 192.168.43.100:1883`. Put that IP in
+The start script prints this laptop's name and IP. Put them in
 `firmware/sinag-device/config.h` together with the hotspot name and password, then reflash:
 
 ```c
-#define WIFI_SSID  "team hotspot name"
-#define WIFI_PASS  "hotspot password"
-#define MQTT_HOST  "192.168.43.100"
+#define WIFI_SSID       "team hotspot name"
+#define WIFI_PASS       "hotspot password"
+#define MQTT_MDNS_HOST  "ANDY-LAPTOP"       // found as ANDY-LAPTOP.local on any IP
+#define MQTT_HOST       "192.168.43.100"    // used if the name doesn't answer
 ```
+
+With the name set, a new IP from the hotspot needs no reflash. The serial log shows which one it
+used: `[mqtt] connecting to ANDY-LAPTOP.local (192.168.43.100)` or `... did not answer, falling back`.
+Check the name answers from another computer on the hotspot: `ping ANDY-LAPTOP.local`. If it
+doesn't (some Windows firewall setups block mDNS, UDP 5353), the fixed IP still works.
 
 The ESP32 only does 2.4 GHz Wi-Fi, so the hotspot must have 2.4 GHz on. The host laptop and the
 ESP32 must be on the same hotspot. Tip: the hotspot usually gives the laptop the same IP every

@@ -5,8 +5,11 @@
 // ---- Wi-Fi (team hotspot) and MQTT broker (Mosquitto on the server laptop)
 #define WIFI_SSID     "YOUR_HOTSPOT_SSID"
 #define WIFI_PASS     "YOUR_HOTSPOT_PASSWORD"
-#define MQTT_HOST     "192.168.43.100"     // server laptop IP on the hotspot
+#define MQTT_MDNS_HOST ""                  // server laptop's name, e.g. "ANDY-LAPTOP" -> found as ANDY-LAPTOP.local
+                                           // on any hotspot IP (the start script prints it). "" = MQTT_HOST only
+#define MQTT_HOST     "192.168.43.100"     // fallback: server laptop IP on the hotspot
 #define MQTT_PORT     1883
+#define MDNS_TIMEOUT_MS 1500               // how long to wait for the laptop to answer its .local name
 #define MQTT_USER     ""                   // empty = no auth
 #define MQTT_PASS     ""
 #define DEVICE_ID     "sinag-001"          // empty "" = derive from MAC (sinag-a1b2c3)
@@ -15,6 +18,7 @@
 #define POLL_MS       5000                 // Modbus poll + telemetry publish
 #define STATUS_MS     30000                // retained status refresh
 #define NTP_SERVER    "pool.ntp.org"       // or the laptop's IP if it runs an NTP server
+#define WDT_TIMEOUT_S 30                   // reboot if loop() hangs this long
 
 // ---- Modbus link. UART2.
 //      Today (no RS485 modules): wire ESP32-to-ESP32 directly, TX->RX crossed.
