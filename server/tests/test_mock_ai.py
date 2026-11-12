@@ -71,3 +71,26 @@ def test_mock_meter_only_solar_plan_matches_the_go_solar_card(monkeypatch):
     assert rec.values[:2] == (best["savings_php_month"], best["cost_php"])
     reply, ids = service.fallback_reply({"solar_plan", "now"}, set(), service.gather(settings["device_id"], settings))
     assert ids[0] == "solar_plan.recommended" and f"{best['pv_kwp']:g} kWp" in reply
+
+
+def test_mock_solar_install_question_explains_plan_instead_of_referring_to_facts(mock_client, monkeypatch):
+    monkeypatch.setattr(config, "LLM_ENABLED", True)
+    monkeypatch.setattr(mock, "_setup", "meter_only")
+    calls = []
+
+    async def defer_to_facts(system, messages, schema, max_tokens=220):
+        calls.append(messages)
+        return {"answerable": True, "reply": "Tingnan ang solar_plan facts para sa mungkahi ng laki at tipid.",
+                "fact_ids": ["solar_plan.recommended"]}
+
+    monkeypatch.setattr(llm, "complete_json", defer_to_facts)
+    response = mock_client.post("/api/chat", json={
+        "message": "anong setup ng solar ang dapat ko iinstall para mabawasan ang bill ko sa kuryente"})
+    assert response.status_code == 200
+    result = response.json()
+    assert "solar_plan.recommended" in calls[0][0]["content"]
+    assert "bill.forecast_php" not in calls[0][0]["content"]
+    assert result["facts_used"][0] == "solar_plan.recommended"
+    assert "kWp" in result["reply"] and "₱" in result["reply"]
+    assert "4.64 kWp" in result["reply"] and "15 kWh na battery" in result["reply"]
+    assert "solar_plan" not in result["reply"] and "facts" not in result["reply"].lower()

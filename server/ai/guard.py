@@ -117,6 +117,9 @@ def check(reply: str, fact_ids: list[str], answerable: bool, given: list[Fact], 
 
     if not reply.strip():
         problems.append("empty reply")
+    if re.search(r"\b(?:solar_plan|fact_ids|facts)\b", reply, re.I) or any(
+            re.search(rf"\b{re.escape(f.id)}\b", reply, re.I) for f in given):
+        problems.append("internal fact names in reply: explain the recommendation directly in plain language")
     if len(reply.split()) > MAX_WORDS:
         problems.append(f"too long ({len(reply.split())} words)")
 
@@ -139,6 +142,13 @@ def check(reply: str, fact_ids: list[str], answerable: bool, given: list[Fact], 
     rec = next((f for f in given if f.id == "solar_plan.recommended"), None)
     if rec and is_solar_plan(question) and not (re.search(r"\d\s*kWp", reply) and re.search(r"₱\s*\d", reply)):
         problems.append("solar plan question: give the suggested size (kWp) and the ₱ savings or cost from solar_plan.recommended")
+    if rec and is_solar_plan(question) and "solar_plan.recommended" in fact_ids:
+        battery = re.search(r"(\d+(?:\.\d+)?) kWh na battery", rec.text)
+        if battery and (not re.search(r"battery|baterya", reply, re.I) or not any(
+                float(n) == float(battery.group(1)) for n in re.findall(r"(\d+(?:\.\d+)?)\s*kWh\b", reply, re.I))):
+            problems.append("solar plan recommendation: state the recommended battery capacity in kWh")
+        if not battery and "walang battery" in rec.text and not re.search(r"walang (?:battery|baterya)|no battery|without (?:a )?battery", reply, re.I):
+            problems.append("solar plan recommendation: explain that this option has no battery")
     problems.extend(semantics.problems(reply, fact_ids, given, numbers_in, _matches))
     plan = any(f.id.startswith("solar_plan.") for f in given)   # asked about getting solar: it may say "solar"
     if any(f.id == "setup.meter_only" for f in given) and not plan and not NO_SOLAR_WORDS.search(question) \

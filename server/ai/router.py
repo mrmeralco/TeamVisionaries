@@ -27,7 +27,8 @@ KEYWORDS: dict[str, tuple[str, ...]] = {
                    "kumuha ng solar", "install solar", "get solar", "go solar", "solar setup", "solar panel",
                    "ilang panel", "ilang kw", "kwp", "laki ng solar", "kalaki ang solar", "how big", "how much solar",
                    "net metering", "magkano ang solar", "presyo ng solar", "kailangan ko ba ng solar", "solar ba",
-                   "sulit ba ang solar", "sulit bang mag", "should i get solar", "worth getting solar"),
+                   "sulit ba ang solar", "sulit bang mag", "should i get solar", "worth getting solar",
+                   "solar plan", "solar_plan", "mag solar", "magpa solar"),
     # Household profile (app/household.py): who's home, the daily routine, always-on use.
     "household": ("nasa bahay", "may tao", "walang tao", "anyone home", "someone home", "tulog", "gising", "routine",
                   "umaalis", "umalis", "umuuwi", "uuwi", "standby", "baseload", "laging nakabukas", "occupancy"),
@@ -128,7 +129,10 @@ def is_upgrade(message: str) -> bool:
 
 def is_solar_plan(message: str) -> bool:
     """"Magkano kung magpa-solar ako?": a home thinking of getting solar (app/solar_plan.py), not live readings."""
-    return _hits(message.lower(), KEYWORDS["solar_plan"])
+    m = message.lower()
+    return _hits(m, KEYWORDS["solar_plan"]) or bool(
+        re.search(r"\bsolar\b", m) and re.search(
+            r"\b(?:setup|set-up|install\w*|i-?install|ikabit|ipakabit|lumipat|switch|move|transition)\b", m))
 
 
 def select_facts(message, facts):
@@ -166,6 +170,8 @@ def topics_for(message: str, active: set[str]) -> set[str]:
     """`active` = topics with something urgent going on (e.g. {"brownout"} during an outage)."""
     m = message.lower()
     found = {topic for topic, words in KEYWORDS.items() if _hits(m, words)}
+    if is_solar_plan(message):
+        found.add("solar_plan")
     if solar_forecast(m):
         found.discard("bill")
         found.add("outlook")

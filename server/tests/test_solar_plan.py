@@ -198,7 +198,10 @@ def test_meter_only_home_has_plan_facts_with_savings_then_cost(meter_only_home):
 
 
 @pytest.mark.parametrize("q", ["Magkano kung magpa-solar ako?", "Ilang panels ang kailangan ko?",
-                               "Sulit ba ang solar para sa bahay namin?", "How big a solar setup do I need?"])
+                               "Sulit ba ang solar para sa bahay namin?", "How big a solar setup do I need?",
+                               "anong setup ng solar ang dapat ko iinstall para mabawasan ang bill ko sa kuryente",
+                               "if i were to move into solar, what setup should i install base on my home consumption",
+                               "Explain the solar_plan", "Ipaliwanag mo ang solar plan"])
 def test_getting_solar_questions_answer_from_the_plan(meter_only_home, q):
     r = _chat(meter_only_home, q)
     assert r["facts_used"][0] == "solar_plan.recommended", r
@@ -248,8 +251,7 @@ def test_plan_questions_get_only_the_plan_and_no_offline_rule(meter_only_home):
     assert picked and all(f.topic == "solar_plan" for f in picked)
     rec = fs.by_id()["solar_plan.recommended"]
     offline = facts.Fact("now.online", "now", "OFFLINE ang Solaris device; luma na ang live data.")
-    reply = (f"{rec.chip[1]} ang mungkahi: tantiyang tipid ₱{rec.values[0]:,.0f} kada buwan kung magpa-solar ka; "
-             "installer ang magbibigay ng quote.")
+    reply = rec.spoken + " Tantiya lang; installer ang magbibigay ng quote."
     assert guard.check(reply, ["solar_plan.recommended"], True, [rec, offline, fs.by_id()["setup.meter_only"]], q).ok
     # The fallback doesn't tack on an offline note either.
     r = _chat(meter_only_home, q)
@@ -264,6 +266,9 @@ def test_plan_answer_must_give_size_and_money(meter_only_home):
     vague = guard.check("Tantiya lang ito at installer ang magbibigay ng quote.", ["solar_plan.recommended"], True, [rec], q)
     assert not vague.ok and any("suggested size" in p for p in vague.problems)
     kwp = rec.chip[1]
-    good = guard.check(f"Oo: {kwp} ang mungkahi, tantiyang tipid ₱{rec.values[0]:,.0f} kada buwan.",
+    missing_battery = guard.check(f"Oo: {kwp} ang mungkahi, tantiyang tipid ₱{rec.values[0]:,.0f} kada buwan.",
+                                 ["solar_plan.recommended"], True, [rec], q)
+    assert not missing_battery.ok and any("battery" in p for p in missing_battery.problems)
+    good = guard.check(rec.spoken,
                        ["solar_plan.recommended"], True, [rec], q)
     assert good.ok, good.problems
