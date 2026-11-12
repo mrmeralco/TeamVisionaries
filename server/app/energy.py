@@ -199,6 +199,12 @@ def energy(device_id: str, period: str, back: int = 0) -> dict:
 
 # ----------------------------------------------------------------- forecast --
 AVG_DAYS = 28  # window for the weekday/weekend average fallback
+# The month's range also allows for the household's LEVEL shifting (heat, a new appliance, guests), not only
+# for day-to-day noise around the recent level: without it the "about 68%" range held the actual month only
+# 30-40% of the time early in the month (tools/backtest_ranges.py). Its size, as a log-scale std dev of the
+# remaining days' total, is how much this home's weekly use varies, at least LEVEL_SD_MIN.
+LEVEL_SD_MIN = 0.2
+LEVEL_SD_DEFAULT = 0.3   # fewer than 3 weeks with use to measure it on
 
 
 def daily_history(device_id: str, d: date, n: int) -> list[tuple[date, float | None]]:
@@ -217,11 +223,13 @@ def forecast_days(device_id: str, d: date, n: int, today_kwh: float = 0.0, fallb
 
     SARIMA (sarima.py) when there are 4+ weeks of history, else weekday/weekend averages of the last 28
     days (or `fallback_level` per day with no history at all). `method` overrides FORECAST_METHOD. Returns {method, model, kwh: per day,
-    totals: SARIMA's simulated sums of the n days (None for averages), sd: daily std dev (averages only)}.
+    totals: SARIMA's simulated sums of the n days (None for averages), sd: daily std dev (averages only),
+    level_sd: uncertainty of the household's level, see LEVEL_SD_MIN}.
     """
     hist = daily_history(device_id, d, sarima.HISTORY_DAYS)
     days = [d + timedelta(days=i) for i in range(n)]
     f = [tariff.season_factor(x) for x in days]
+    level_sd = _level_sd([v for _, v in hist])
     method = method or config.FORECAST_METHOD
     model = sarima.cached_forecast(device_id, d, [v for _, v in hist], n) if method == "sarima" else None
     if model is not None:
@@ -230,7 +238,8 @@ def forecast_days(device_id: str, d: date, n: int, today_kwh: float = 0.0, fallb
         sims = model["paths"] * np.array(f)[:, None]
         kwh[0] = max(today_kwh, kwh[0])
         sims[0] = np.maximum(sims[0], today_kwh)
-        return {"method": "sarima", "model": model["model"], "kwh": kwh, "totals": sims.sum(axis=0), "sd": None}
+        return {"method": "sarima", "model": model["model"], "kwh": kwh, "totals": sims.sum(axis=0), "sd": None,
+                "level_sd": level_sd}
 
     recent = [(x, v) for x, v in hist[-AVG_DAYS:] if v is not None]
     wk = [v for x, v in recent if x.weekday() < 5]
@@ -242,7 +251,36 @@ def forecast_days(device_id: str, d: date, n: int, today_kwh: float = 0.0, fallb
     sd = statistics.pstdev(allv) if len(allv) > 1 else avg_all * 0.2
     kwh = [(avg_wk if x.weekday() < 5 else avg_we) * fx for x, fx in zip(days, f)]
     kwh[0] = max(today_kwh, kwh[0])
-    return {"method": "average", "model": "weekday/weekend average", "kwh": kwh, "totals": None, "sd": sd * f[0]}
+    return {"method": "average", "model": "weekday/weekend average", "kwh": kwh, "totals": None, "sd": sd * f[0],
+            "level_sd": level_sd}
+
+
+def _level_sd(series: list[float | None]) -> float:
+    """Std dev of log weekly totals (newest full weeks of the days with data), at least LEVEL_SD_MIN."""
+    import math
+    v = [x for x in series if x is not None]
+    weeks = [w for w in (sum(v[i:i + 7]) for i in range(len(v) % 7, len(v), 7)) if w > 0]
+    if len(weeks) < 3:
+        return LEVEL_SD_DEFAULT
+    return max(LEVEL_SD_MIN, statistics.pstdev(math.log(w) for w in weeks))
+
+
+def month_range(done_kwh: float, fc: dict) -> tuple[float, float, float]:
+    """(expected, low, high) kWh for the month: finished days + forecast_days() for the rest.
+    Low-high is about +-1 std dev (16th-84th percentile) and never narrower than +-5%."""
+    rem = sum(fc["kwh"])
+    mid = done_kwh + rem
+    s = fc["level_sd"]
+    if fc["totals"] is not None:
+        # SARIMA paths carry day-to-day noise; each path's remaining total is also scaled by one level draw
+        # (log-normal, mean 1, so the expected value doesn't move).
+        import numpy as np
+        z = np.random.default_rng(1).standard_normal(len(fc["totals"]))
+        p16, p84 = (done_kwh + float(v) for v in np.percentile(fc["totals"] * np.exp(s * z - s * s / 2), [16, 84]))
+        return mid, mid - max(mid - p16, mid * 0.05), mid + max(p84 - mid, mid * 0.05)
+    # Averages: each remaining day is an independent draw (spread grows with √days), plus the level term.
+    spread = max((fc["sd"] ** 2 * len(fc["kwh"]) + (s * rem) ** 2) ** 0.5, mid * 0.05)
+    return mid, mid - spread, mid + spread
 
 
 # --------------------------------------------------------------------- bill --
@@ -262,16 +300,7 @@ def bill(device_id: str, settings: dict) -> dict:
     fc = forecast_days(device_id, d, n_days - d.day + 1, today_kwh,
                        fallback_level=mtd_kwh / max(1, d.day) / tariff.season_factor(d))
     done_kwh = mtd_kwh - today_kwh  # finished days this month
-    fc_kwh = done_kwh + sum(fc["kwh"])
-    if fc["totals"] is not None:
-        # SARIMA: the range is the 16th-84th percentile of simulated months (≈ ± one std dev).
-        import numpy as np
-        p16, p84 = (done_kwh + float(v) for v in np.percentile(fc["totals"], [16, 84]))
-        lo_kwh, hi_kwh = fc_kwh - max(fc_kwh - p16, fc_kwh * 0.05), fc_kwh + max(p84 - fc_kwh, fc_kwh * 0.05)
-    else:
-        # Averages: each remaining day is an independent draw, so the spread grows with √days.
-        spread = max(fc["sd"] * len(fc["kwh"]) ** 0.5, fc_kwh * 0.05)
-        lo_kwh, hi_kwh = fc_kwh - spread, fc_kwh + spread
+    fc_kwh, lo_kwh, hi_kwh = month_range(done_kwh, fc)
 
     forecast = tariff.cost(fc_kwh, rate)  # incl. fixed monthly charges
     eff_rate = tariff.rate_at(fc_kwh, rate)  # ₱/kWh at the level this month is heading for

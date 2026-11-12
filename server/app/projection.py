@@ -16,7 +16,12 @@ How a month is projected (a solar home's grid use depends on BOTH how much it us
      over the last 14 days, and every month is corrected by that ratio (bounded).
   5. Priced with Meralco's tiers (tariff.cost) at TODAY's rate: the rate changes monthly, which is one
      reason projections are rough.
-Range: +-(spread + RANGE_GROWTH x months ahead), spread = how much this home's weekly grid use varies.
+Range (about +-1 std dev, so the actual month should land inside roughly 2 times out of 3):
+  +-max((SPREAD_X x spread + RANGE_GROWTH x months ahead) x kWh, FLOOR_SHARE x the month's home use),
+  spread = how much this home's weekly grid use varies. A solar home's grid use is what is left after sun and
+  battery, so it swings much more than its total use: the floor keeps a home that barely touches the grid
+  from getting a range of almost nothing. Calibrated on synthetic years (tools/backtest_ranges.py): the
+  earlier +-(spread + 0.10/month) held the actual month only about a third of the time.
 
 LOAD_SEASON and SOLAR_SEASON are rough Metro Manila priors (monthly / yearly average). SOLAR_SEASON follows
 typical monthly global horizontal irradiance for Manila (approx. 4.1-6.6 kWh/m2/day, NASA POWER-style
@@ -31,8 +36,11 @@ from . import config, energy, outlook, tariff
 
 MAX_MONTHS = 3                 # projected months after the current one
 MIN_DAYS = 14                  # days of history needed before projecting
-RANGE_GROWTH = 0.10            # extra +-share of the range for each month further out
-RANGE_MAX = 0.6
+SPREAD_X = 1.5                 # weekly variation understates how much a whole month can move
+RANGE_GROWTH = 0.30            # extra +-share of the range for each month further out
+RANGE_MAX = 1.2
+FLOOR_SHARE = 0.12             # the range is at least +-this share of the month's home use (load) in kWh
+RANGE_PCT_MAX = 100            # range_pct shown as "±N%" is capped; low/high carry the real range
 ANCHOR_BOUNDS = (0.5, 2.0)     # how far the reality correction may move the simulation
 
 LOAD_SEASON = (0.91, 0.92, 0.99, 1.13, 1.17, 1.08, 1.01, 0.99, 0.98, 0.96, 0.94, 0.92)
@@ -125,14 +133,15 @@ def _project(device_id: str, settings: dict) -> dict:
         pv_x = _season(SOLAR_SEASON, mid) / _season(SOLAR_SEASON, today)
         day = _daily_grid(prof, load_x, pv_x, settings)
         kwh = day["grid"] * anchor * n
-        w = min(RANGE_MAX, spread + RANGE_GROWTH * k)
-        lo_kwh, hi_kwh = kwh * (1 - w), kwh * (1 + w)
+        w = min(RANGE_MAX, SPREAD_X * spread + RANGE_GROWTH * k)
+        half = max(w * kwh, FLOOR_SHARE * day["load"] * n)
+        lo_kwh, hi_kwh = max(0.0, kwh - half), kwh + half
         months.append({
             "month": m.strftime("%Y-%m"), "label": month_label(m), "months_ahead": k, "kind": "projection",
             "grid_kwh": round(kwh, 1), "low_kwh": round(lo_kwh, 1), "high_kwh": round(hi_kwh, 1),
             "bill_php": round(tariff.cost(kwh, rate), 2),
             "low_php": round(tariff.cost(lo_kwh, rate), 2), "high_php": round(tariff.cost(hi_kwh, rate), 2),
             "load_kwh": round(day["load"] * n, 1), "solar_kwh": round(day["pv"] * n, 1),
-            "range_pct": round(w * 100),
+            "range_pct": min(RANGE_PCT_MAX, round(half / max(kwh, 1e-9) * 100)),
         })
     return {**base, "enough_data": True, "basis_days": len(hist), "months": months}

@@ -165,8 +165,10 @@ too wide to use. Cached per day.
 
 Projection: this home's typical hourly day, load scaled by an air-con season index and solar by Manila's
 monthly sunshine (dry season sunny, rainy season and December less), simulated with the battery, then
-corrected by the ratio of simulated to metered grid use over the last 14 days. Range = this home's weekly
-variation + 10 % per month ahead (max 60 %).
+corrected by the ratio of simulated to metered grid use over the last 14 days. Range (about +-1 std dev) =
+1.5 x this home's weekly variation + 30 % per month ahead (max 120 %), and at least +-12 % of the month's home
+use in kWh; low_kwh never goes below 0 and range_pct is capped at 100. This month's peso range also allows for
+the household's level shifting, not only day-to-day noise. Both calibrated with server/tools/backtest_ranges.py.
 
 ### `GET /api/upgrade`
 

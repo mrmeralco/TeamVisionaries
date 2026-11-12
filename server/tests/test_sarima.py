@@ -101,3 +101,30 @@ def test_history_is_divided_by_the_season_factor(device):
     hist = energy.daily_history(device, d, 3)
     assert [x for x, _ in hist] == [d - timedelta(days=i) for i in (3, 2, 1)]
     assert hist[-1][1] == pytest.approx(3.0 / tariff.season_factor(d - timedelta(days=1)), rel=0.01)
+
+
+# ----------------------------------------------------------------- range --
+def _fc(level_sd, totals=None, sd=None, kwh=(10.0,) * 20):
+    return {"kwh": list(kwh), "totals": totals, "sd": sd, "level_sd": level_sd}
+
+
+def test_month_range_allows_for_the_level_shifting():
+    """Day-to-day noise alone made the range far too narrow early in the month (tools/backtest_ranges.py)."""
+    totals = np.random.default_rng(0).normal(200, 10, 500)
+    _, lo0, hi0 = energy.month_range(0.0, _fc(0.0, totals))
+    mid, lo, hi = energy.month_range(0.0, _fc(0.3, totals))
+    assert mid == 200 and lo < lo0 and hi > hi0 and hi - lo > 0.4 * mid
+
+
+def test_month_range_narrows_as_the_month_is_metered():
+    early = energy.month_range(20.0, _fc(0.3, sd=3.0, kwh=[10.0] * 28))
+    late = energy.month_range(260.0, _fc(0.3, sd=3.0, kwh=[10.0] * 2))
+    width = lambda r: (r[2] - r[1]) / r[0]  # noqa: E731
+    assert width(early) > 2 * width(late) and late[1] >= 0.95 * late[0] - 1e-9
+
+
+def test_level_sd_comes_from_this_homes_weekly_variation():
+    steady = energy._level_sd([5.0] * 56)
+    jumpy = energy._level_sd([2.0] * 28 + [8.0] * 28)
+    assert steady == energy.LEVEL_SD_MIN and jumpy > 0.5
+    assert energy._level_sd([5.0] * 10) == energy.LEVEL_SD_DEFAULT

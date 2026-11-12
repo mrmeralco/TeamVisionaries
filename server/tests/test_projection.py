@@ -32,9 +32,24 @@ def test_this_month_is_the_forecast_and_three_months_are_projected(proj):
 
 def test_the_range_widens_every_month(proj):
     ranges = [m["range_pct"] for m in proj["months"][1:]]
-    assert ranges == sorted(ranges) and ranges[0] < ranges[-1]
+    assert ranges == sorted(ranges) and (ranges[0] < ranges[-1] or ranges[0] == projection.RANGE_PCT_MAX)
+    widths = [m["high_kwh"] - m["low_kwh"] for m in proj["months"][1:]]
+    assert all(w > 0 for w in widths)
     for m in proj["months"][1:]:
-        assert m["low_php"] < m["bill_php"] < m["high_php"]
+        assert m["low_php"] < m["bill_php"] < m["high_php"] and m["low_kwh"] >= 0
+        assert m["range_pct"] <= projection.RANGE_PCT_MAX
+
+
+def test_range_never_shrinks_to_nothing_for_a_home_that_barely_uses_the_grid(monkeypatch):
+    """Grid use is what's left after sun and battery: a projection of ~0 kWh still gets a real range."""
+    monkeypatch.setattr(projection, "_daily_grid", lambda prof, lx, px, s: {"grid": 0.05, "load": 12.0, "pv": 20.0})
+    projection._cache.clear()
+    s = db.get_settings()
+    out = projection.project(s["device_id"], s)
+    projection._cache.clear()
+    for m in out["months"][1:]:
+        assert m["high_kwh"] - m["grid_kwh"] >= projection.FLOOR_SHARE * m["load_kwh"] - 0.1
+        assert m["low_kwh"] == 0 and m["range_pct"] == projection.RANGE_PCT_MAX
 
 
 def test_this_month_matches_the_bill_forecast(proj):

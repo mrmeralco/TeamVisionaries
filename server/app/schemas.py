@@ -163,7 +163,7 @@ class ProjectionMonth(BaseModel):
     high_php: float
     load_kwh: float | None = Field(description="Projected home use; null for this month")
     solar_kwh: float | None = Field(description="Projected solar; null for this month")
-    range_pct: int | None = Field(description="+- share of the projection range; grows each month; null for this month")
+    range_pct: int | None = Field(description="+- share of the projection range, capped at 100 (low_kwh then 0); grows each month; null for this month")
 
 
 class Projection(BaseModel):
