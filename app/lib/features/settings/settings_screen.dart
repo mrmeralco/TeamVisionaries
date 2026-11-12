@@ -118,7 +118,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       await ref.read(serverSettingsProvider.notifier).save(changes);
       messenger.showSnackBar(const SnackBar(content: Text('Na-save ang settings.')));
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Hindi na-save. ${friendlyError(e).title}')));
+      final f = friendlyError(e);
+      messenger.showSnackBar(SnackBar(content: Text('Hindi na-save. ${f.title}${e is SettingsNotKept ? ' ${f.hint}' : ''}')));
     }
     if (mounted) setState(() => _saving = false);
   }

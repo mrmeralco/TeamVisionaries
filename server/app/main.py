@@ -214,9 +214,7 @@ def get_settings():
 @app.put("/api/settings", response_model=S.Settings)
 def put_settings(body: S.SettingsIn):
     if config.MOCK:
-        if body.setup:
-            mock.set_setup(body.setup)
-        return mock.load("settings") | body.model_dump(exclude_none=True)
+        return mock.save_settings(body.model_dump(exclude_none=True))
     return db.put_settings(body.model_dump(exclude_none=True))
 
 

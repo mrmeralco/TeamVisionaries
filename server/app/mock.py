@@ -4,6 +4,9 @@
 
 Household setup (settings `setup`): PUT /api/settings {"setup": "meter_only"} switches the demo. Each example
 then comes from `<name>_<setup>.json` when that file exists (e.g. live_meter_only.json), else `<name>.json`.
+
+Settings saved in mock mode (setup, name, rate, ...) are kept in config.MOCK_SETTINGS_PATH, like the real server
+keeps them in its DB: the app remembers it has been set up, so a server restart mustn't undo the answers.
 """
 import asyncio
 import copy
@@ -14,19 +17,51 @@ import time
 from . import config, hub
 
 PUSH_EVERY_S = 5.0
-_setup = "solar"   # the demo household; not persisted
+SETUPS = ("solar", "meter_only", "solar_and_meter")
+
+
+def _read_saved() -> dict:
+    try:
+        saved = json.loads(config.MOCK_SETTINGS_PATH.read_text())
+        return saved if isinstance(saved, dict) else {}
+    except (OSError, ValueError):
+        return {}   # none saved yet, or unreadable: start from the example
+
+
+_saved: dict = _read_saved()   # settings changed through PUT /api/settings
+_setup: str = _saved.get("setup") if _saved.get("setup") in SETUPS else "solar"   # the demo household
+
+
+def save_settings(changes: dict) -> dict:
+    """PUT /api/settings in mock mode: keep the changes (on disk too) and return the full settings."""
+    global _setup
+    _saved.update(changes)
+    if changes.get("setup") in SETUPS:
+        _setup = changes["setup"]
+    try:
+        config.MOCK_SETTINGS_PATH.write_text(json.dumps(_saved, indent=2))
+    except OSError:
+        pass   # read-only folder: still kept until the server stops
+    return load("settings")
 
 
 def set_setup(setup: str) -> None:
+    save_settings({"setup": setup})
+
+
+def reset() -> None:
+    """Back to the example household (tests)."""
     global _setup
-    _setup = setup
+    _saved.clear()
+    _setup = "solar"
+    config.MOCK_SETTINGS_PATH.unlink(missing_ok=True)
 
 
 def load(name: str):
     variant = config.EXAMPLES_DIR / f"{name}_{_setup}.json"
     path = variant if _setup != "solar" and variant.exists() else config.EXAMPLES_DIR / f"{name}.json"
     data = json.loads(path.read_text())
-    return {**data, "setup": _setup} if name == "settings" else data
+    return {**data, **_saved, "setup": _setup} if name == "settings" else data
 
 
 async def ws_loop() -> None:
