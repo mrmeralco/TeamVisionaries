@@ -55,3 +55,19 @@ def test_mock_chat_calls_model_with_seeded_facts(mock_client, monkeypatch):
     assert amount in response.json()["reply"]
     assert calls and "Bakit mataas ang bill ko?" in calls[0][0]["content"]
     assert "OFFLINE ang Solaris device" not in calls[0][0]["content"]
+
+
+def test_mock_meter_only_solar_plan_matches_the_go_solar_card(monkeypatch):
+    """The card shows mock.load("solar_plan"); Mira must quote the same plan, not "need 7 days of readings"."""
+    monkeypatch.setattr(config, "MOCK", True)
+    monkeypatch.setattr(mock, "_setup", "meter_only")
+    settings = mock.load("settings")
+    card = mock.load("solar_plan")["options"]
+    by = service.gather(settings["device_id"], settings).by_id()
+    assert "solar_plan.not_ready" not in by
+    best = next(o for o in card if o["recommended"])
+    rec = by["solar_plan.recommended"]
+    assert rec.chip == ("Suggested solar", f"{best['pv_kwp']:g} kWp")
+    assert rec.values[:2] == (best["savings_php_month"], best["cost_php"])
+    reply, ids = service.fallback_reply({"solar_plan", "now"}, set(), service.gather(settings["device_id"], settings))
+    assert ids[0] == "solar_plan.recommended" and f"{best['pv_kwp']:g} kWp" in reply

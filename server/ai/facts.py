@@ -399,7 +399,8 @@ def _solar_plan_facts(fs: FactSet, device_id: str, settings: dict) -> None:
     """A home without solar: how big a setup its use needs (app/solar_plan.py). The only solar facts a
     meter-only home gets, and only for questions about getting solar. Sponsors are never facts."""
     try:
-        p = solar_plan.plan(device_id, settings)
+        # Mock mode: the same plan the app's "Go solar" card shows (examples/solar_plan_meter_only.json).
+        p = mock.load("solar_plan") if config.MOCK else solar_plan.plan(device_id, settings)
     except Exception:                       # extra, like the system check; never let it break chat
         return
     if p["has_solar"]:
