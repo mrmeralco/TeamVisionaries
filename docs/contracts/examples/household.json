@@ -1,0 +1,76 @@
+{
+  "generated_ts": 1762912800,
+  "now": {
+    "state": "away",
+    "likely_home": false,
+    "load_w": 290,
+    "usual_home_pct": 0,
+    "unusual": false,
+    "next_active_ts": 1762941600,
+    "text": "Laging-nakabukas na gamit lang (290 W): mukhang walang tao sa bahay ngayon. Karaniwang may gumagamit ulit mga 6PM."
+  },
+  "days_used": 28,
+  "confidence": "high",
+  "baseload": {
+    "watts": 280,
+    "kwh_month": 201.1,
+    "php_month": 3029,
+    "share_pct": 37.8
+  },
+  "daylight_use_pct": 36.6,
+  "routine": {
+    "weekday": {
+      "wake_hour": 7,
+      "sleep_hour": 23,
+      "away": {
+        "start_hour": 9,
+        "end_hour": 18
+      },
+      "peak_hour": 21,
+      "home_pct": [15, 15, 0, 0, 0, 0, 0, 100, 100, 0, 0, 0, 5, 0, 0, 0, 0, 0, 100, 100, 100, 100, 100, 15],
+      "avg_w": [466, 465, 301, 297, 297, 299, 298, 898, 904, 299, 298, 299, 445, 304, 302, 298, 298, 302, 1653, 1656, 1644, 1831, 1815, 468]
+    },
+    "weekend": {
+      "wake_hour": 7,
+      "sleep_hour": 23,
+      "away": null,
+      "peak_hour": 22,
+      "home_pct": [12, 12, 0, 0, 0, 0, 0, 100, 100, 0, 100, 100, 100, 100, 100, 100, 100, 0, 100, 100, 100, 100, 100, 25],
+      "avg_w": [438, 442, 296, 303, 302, 296, 299, 901, 895, 304, 1105, 1102, 1101, 1102, 1101, 1098, 1096, 297, 1612, 1660, 1641, 1915, 1923, 578]
+    }
+  },
+  "archetype": {
+    "id": "away_daytime",
+    "label": "Wala sa bahay tuwing weekday",
+    "description": "Tuwing weekday, karaniwang tahimik ang bahay mula 9AM hanggang 6PM: mukhang nasa trabaho o eskwela kayo."
+  },
+  "traits": [
+    {
+      "id": "evening_peak",
+      "label": "Pinakamalakas ang gamit mga 9PM"
+    },
+    {
+      "id": "weekend_home",
+      "label": "Nasa bahay tuwing weekend"
+    },
+    {
+      "id": "high_baseload",
+      "label": "Mataas ang laging-nakabukas na gamit (280 W)"
+    }
+  ],
+  "new_loads": [
+    {
+      "id": "block_21_02",
+      "kind": "scheduled",
+      "start_hour": 21,
+      "end_hour": 2,
+      "added_w": 1100,
+      "kwh_day": 5.5,
+      "php_month": 2485,
+      "since_ts": 1762444800,
+      "days_seen": 5,
+      "guess": "aircon",
+      "text": "Mula noong Nov 7, mga 1.1 kW ang dagdag na gamit tuwing 9PM–2AM (mga 5.5 kWh kada araw, hanggang ₱2,485 kada buwan). Baka may bagong aircon?"
+    }
+  ]
+}

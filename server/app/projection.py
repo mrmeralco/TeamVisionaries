@@ -43,6 +43,10 @@ RANGE_MAX = 1.2
 FLOOR_SHARE = 0.12             # the range is at least +-this share of the month's home use (load) in kWh
 RANGE_PCT_MAX = 100            # range_pct shown as "±N%" is capped; low/high carry the real range
 ANCHOR_BOUNDS = (0.5, 2.0)     # how far the reality correction may move the simulation
+# A home without solar: its grid use is its whole use, which moves far less than a solar home's leftover grid
+# use, so the range grows more slowly. A prior (whole-home monthly use typically moves 10-20 %), not yet
+# backtested like the solar values above.
+METER_RANGE_GROWTH = 0.10
 
 LOAD_SEASON = (0.91, 0.92, 0.99, 1.13, 1.17, 1.08, 1.01, 0.99, 0.98, 0.96, 0.94, 0.92)
 SOLAR_SEASON = (0.93, 1.09, 1.24, 1.32, 1.21, 1.00, 0.88, 0.84, 0.88, 0.90, 0.87, 0.82)
@@ -87,7 +91,8 @@ def _daily_grid(prof: dict, load_x: float, pv_x: float, settings: dict) -> dict:
 
 
 def project(device_id: str, settings: dict) -> dict:
-    key = (device_id, energy.today(), settings["battery_kwh"], settings["rate_php_per_kwh"])
+    key = (device_id, energy.today(), settings["battery_kwh"], settings["rate_php_per_kwh"], energy.setup(settings),
+           energy.grid_source(device_id, settings))
     if key not in _cache:
         if len(_cache) > 32:
             _cache.clear()
@@ -108,6 +113,8 @@ def _project(device_id: str, settings: dict) -> dict:
     }
 
     hist = [(d, k) for d, k in energy.daily_history(device_id, today, 28) if k is not None]
+    if not energy.has_solar(settings):
+        return _project_meter_only(base, current, hist, rate, today)
     prof = outlook.profiles(device_id)
     if len(hist) < MIN_DAYS or len(prof["pv"]) < 24 or len(prof["load"]) < 24:
         return {**base, "enough_data": False, "basis_days": len(hist), "months": [current]}
@@ -143,6 +150,33 @@ def _project(device_id: str, settings: dict) -> dict:
             "bill_php": round(tariff.cost(kwh, rate), 2),
             "low_php": round(tariff.cost(lo_kwh, rate), 2), "high_php": round(tariff.cost(hi_kwh, rate), 2),
             "load_kwh": round(day["load"] * n, 1), "solar_kwh": round(day["pv"] * n, 1),
+            "range_pct": min(RANGE_PCT_MAX, round(half / max(kwh, 1e-9) * 100)),
+        })
+    return {**base, "enough_data": True, "basis_days": len(hist), "months": months}
+
+
+def _project_meter_only(base: dict, current: dict, hist: list, rate: float, today: date) -> dict:
+    """A home without solar: grid use is home use, so each month is the last 14 days' level scaled by the
+    air-con season (LOAD_SEASON). Range as for a solar home but growing METER_RANGE_GROWTH a month; no solar."""
+    if len(hist) < MIN_DAYS:
+        return {**base, "enough_data": False, "basis_days": len(hist), "months": [current]}
+    daily = statistics.mean(k * tariff.season_factor(d) for d, k in hist[-14:])
+    weeks = [sum(k for _, k in hist[j - 7:j]) for j in range(len(hist), 6, -7)][:4]
+    spread = statistics.pstdev(weeks) / statistics.mean(weeks) if len(weeks) >= 2 and statistics.mean(weeks) > 0 else 0.15
+    spread = max(0.10, min(spread, 0.25))
+    months = [current]
+    for k in range(1, MAX_MONTHS + 1):
+        m = _month_add(today, k)
+        n = calendar.monthrange(m.year, m.month)[1]
+        kwh = daily * _season(LOAD_SEASON, date(m.year, m.month, 15)) / _season(LOAD_SEASON, today) * n
+        half = max(min(RANGE_MAX, SPREAD_X * spread + METER_RANGE_GROWTH * k) * kwh, FLOOR_SHARE * kwh)
+        lo_kwh, hi_kwh = max(0.0, kwh - half), kwh + half
+        months.append({
+            "month": m.strftime("%Y-%m"), "label": month_label(m), "months_ahead": k, "kind": "projection",
+            "grid_kwh": round(kwh, 1), "low_kwh": round(lo_kwh, 1), "high_kwh": round(hi_kwh, 1),
+            "bill_php": round(tariff.cost(kwh, rate), 2),
+            "low_php": round(tariff.cost(lo_kwh, rate), 2), "high_php": round(tariff.cost(hi_kwh, rate), 2),
+            "load_kwh": round(kwh, 1), "solar_kwh": 0.0,
             "range_pct": min(RANGE_PCT_MAX, round(half / max(kwh, 1e-9) * 100)),
         })
     return {**base, "enough_data": True, "basis_days": len(hist), "months": months}

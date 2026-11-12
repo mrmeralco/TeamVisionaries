@@ -1,0 +1,29 @@
+{
+  "device": {
+    "id": "solaris-001",
+    "online": true,
+    "rssi": -58,
+    "fw": "0.4.0",
+    "last_seen_ts": 1794489390
+  },
+  "telemetry": null,
+  "state": "grid",
+  "status_line": "Kumukuha ang bahay mo ng 1.5 kW mula sa grid ngayon.",
+  "saved_today_php": 0.0,
+  "rate_php_per_kwh": 13.0,
+  "setup": "meter_only",
+  "meter": {
+    "ts": 1794489390,
+    "meter_type": "sdm120",
+    "voltage_v": 228.4,
+    "current_a": 7.22,
+    "power_w": 1452.0,
+    "apparent_va": 1649.0,
+    "reactive_var": 783.0,
+    "pf": 0.88,
+    "freq_hz": 60.01,
+    "import_kwh": 2414.17,
+    "export_kwh": 12.0,
+    "grid_on": true
+  }
+}

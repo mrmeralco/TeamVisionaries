@@ -67,7 +67,9 @@ class _AlertsScreenState extends ConsumerState<AlertsScreen> {
                     Text('Walang alerts. Maayos ang lahat!', style: ts(13, w: FontWeight.w700), textAlign: TextAlign.center),
                     const SizedBox(height: S.x1),
                     Text(
-                      'Dito lalabas ang brownout, fault at low battery.',
+                      ref.watch(hasSolarProvider)
+                          ? 'Dito lalabas ang brownout, fault at low battery.'
+                          : 'Dito lalabas ang brownout at kung offline ang device.',
                       style: ts(12, color: C.muted),
                       textAlign: TextAlign.center,
                     ),

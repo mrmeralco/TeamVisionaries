@@ -17,6 +17,8 @@ Puwedeng magtapos sa isang maikling tip na walang bagong numero, kung makakatulo
 Bill sa mga susunod na buwan: ang buwang ito lang ang forecast. Ang 1 hanggang 3 buwan pagkatapos nito ay projection lang: laging sabihing tantiya lang ito at hindi gaanong maaasahan (nagbabago ang panahon, gamit at rate), at i-cite ang projection fact ng buwang tinanong.
 Kung lampas 3 buwan ang tinanong (hal. sa susunod na taon), sabihing hindi pa ito kaya, ipaliwanag kung bakit gamit ang projection.limits, at huwag magbigay ng halaga para sa buwang iyon; puwedeng banggitin ang pinakamalayong projection.
 Sa tanong tungkol sa upgrade (dagdag na battery, panel o inverter), gamitin ang upgrade facts at sabihing tantiya lang ang tipid at presyo; installer ang magbibigay ng eksaktong quote.
+Kung may [setup.meter_only] sa FACTS, walang solar at battery ang bahay: huwag silang banggitin (maliban kung itinanong), at pag-usapan ang gamit, bill, Meralco level, meter at paano makatipid.
+Kung may solar_plan facts, nagtatanong ang bahay na WALA PANG solar kung magpapa-solar: SAGUTIN ito ("answerable": true), kahit may [setup.meter_only]. Sabihin ang mungkahing laki (kWp, ilang panels, battery), tipid kada buwan, gastos at balik-puhunan mula sa solar_plan.recommended, linawing tantiya lang at installer ang magbibigay ng eksaktong quote. Huwag magrekomenda ng brand, installer o ad.
 Sabihing "Nagastos mo na" para sa month-to-date at "Inaasahang bill" para sa forecast.
 Ang "Walang fault" at "Walang brownout" ay sagot na alam mo: sabihin ito at i-cite ang fact.
 Sa paghahambing, sabihin nang malinaw na FORECAST ang ikinukumpara sa nakaraang buwan. Gamitin lang ang ids na nasa kasalukuyang FACTS.
@@ -112,6 +114,17 @@ TASK_RETRY_NOTE = ("Gawain ito ng Solaris app, hindi tanong ng user, at nasa FAC
                    "Gawin ito gamit ang FACTS at i-set ang \"answerable\": true.")
 
 
+# A home with only a meter: no solar share or savings to recap.
+SUMMARY_TASK_METER = ("Gumawa ng maikling recap ng KAHAPON para sa user (2-3 pangungusap, hanggang 60 salita). "
+                      "Banggitin ang nagamit na kuryente at ang nagastos. "
+                      "Magdagdag ng isang tip sa pagtitipid na hindi gumagamit ng bagong numero.")
+
+
+def summary_fallback_meter(used: str, cost: str) -> str:
+    return (f"Kahapon, {used} ang nagamit ng bahay mo at {cost} ang nagastos mo sa kuryente. "
+            "Tip: patayin ang aircon at mga appliance na hindi ginagamit, at hugutin ang mga naka-standby.")
+
+
 def summary_fallback(self_sufficiency_pct: float, cost: str, saved: str) -> str:
     """Rule-based recap when the model is down: one natural paragraph, not three 'Kahapon, ...' labels."""
     return (f"Kahapon, {self_sufficiency_pct:.0f}% ng kuryenteng ginamit mo ay hindi galing sa grid. "
@@ -124,6 +137,8 @@ Ulitin. Gamitin LAMANG ang mga numerong nakasulat sa FACTS, eksakto kung paano n
 
 OUT_OF_SCOPE = ("Pasensya na, hindi ko pa alam iyan. Ang kaya kong sagutin ay tungkol sa solar, battery, "
                 "bill, brownout at alerts ng bahay mo.")
+OUT_OF_SCOPE_METER = ("Pasensya na, hindi ko pa alam iyan. Ang kaya kong sagutin ay tungkol sa kuryente, bill, "
+                      "meter, brownout at alerts ng bahay mo.")
 
 # JSON schema for structured output (Ollama `format`, OpenAI `response_format`).
 REPLY_SCHEMA = {
@@ -155,6 +170,14 @@ def brownout_advice(active: bool, soc: int | None, load_w: int | None, runtime_h
            if load_w and load_w > 1000 else "Ilaw, electric fan, ref at charger lang muna para tumagal.")
     note = f" {solar_note}" if solar_note else ""
     return f"May brownout. Sa {load_w} W na gamit, aabot pa ng mga {runtime_h:g} oras ang battery mo ({soc}%).{note} {tip}"
+
+
+def meter_brownout_advice(active: bool) -> str:
+    """Brownout advice for a home with only a meter: no battery to talk about, only protecting appliances."""
+    if not active:
+        return "Walang brownout ngayon. Kapag nawalan ng kuryente, makikita mo rito kung kailan ito nagsimula at natapos."
+    return ("May brownout. Hugutin muna ang aircon, ref, TV at computer para hindi sila tamaan ng biglang "
+            "pagbalik ng kuryente, at mag-iwan ng isang ilaw na naka-on para malaman mo kapag bumalik na.")
 
 
 # ----------------------------------------------------------------- outlook --

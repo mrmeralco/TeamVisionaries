@@ -13,8 +13,12 @@ os.environ.update({"SOLARIS_DB": f"{_tmp}/test.db", "MQTT_ENABLED": "0", "AI_LOG
                    "SOLARIS_MOCK": "0", "LLM_ENABLED": "0", "WEATHER_ENABLED": "0"})
 sys.path.insert(0, str(SERVER))
 sys.path.insert(0, str(SERVER.parent / "tests"))  # solaris_contract.py
-subprocess.run([sys.executable, str(SERVER / "tools" / "seed_history.py"), "--days", "40"], check=True, env=os.environ,
-               stdout=subprocess.DEVNULL)
+subprocess.run([sys.executable, str(SERVER / "tools" / "seed_history.py"), "--days", "40", "--meter", "--meter-type", "ansi-c12"],
+               check=True, env=os.environ, stdout=subprocess.DEVNULL)
+# Smart meter mode: a home with a meter and no solar (tests/test_meter_mode.py switches settings to it).
+METER_ONLY_DEVICE = "meter-001"
+subprocess.run([sys.executable, str(SERVER / "tools" / "seed_history.py"), "--days", "40", "--meter-only",
+                "--device", METER_ONLY_DEVICE], check=True, env=os.environ, stdout=subprocess.DEVNULL)
 
 
 @pytest.fixture

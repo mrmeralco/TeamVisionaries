@@ -1,5 +1,7 @@
 // MockApiService: same methods as ApiService, answers from assets/mock/*.json
 // (copies of docs/contracts/examples). Turn it on in Settings or with --dart-define=SOLARIS_MOCK=true.
+// Household setup: saving {"setup": "meter_only"} (or solar_and_meter) in Settings switches the demo to
+// `<name>_<setup>.json` wherever that file exists, like the backend's mock mode.
 //
 // pubspec.yaml:
 //   flutter:
@@ -18,7 +20,20 @@ class MockApiService implements ApiService {
   final AssetLoader _load;
   final _settingsOverrides = <String, dynamic>{};
 
-  Future<Map<String, dynamic>> _json(String name) async => jsonDecode(await _load(name)) as Map<String, dynamic>;
+  /// solar | meter_only | solar_and_meter: the demo household (saved through [updateSettings]).
+  String get setup => '${_settingsOverrides['setup'] ?? 'solar'}';
+
+  /// The example for the current [setup] when there is one (e.g. live_meter_only), else the plain example.
+  Future<Map<String, dynamic>> _json(String name) async {
+    if (setup != 'solar') {
+      try {
+        return jsonDecode(await _load('${name}_$setup')) as Map<String, dynamic>;
+      } catch (_) {
+        // no variant for this setup: same data as a solar home (alerts, chat, ...)
+      }
+    }
+    return jsonDecode(await _load(name)) as Map<String, dynamic>;
+  }
 
   @override
   String get baseUrl => 'mock://';
@@ -49,6 +64,14 @@ class MockApiService implements ApiService {
   @override
   Future<Map<String, dynamic>> getUpgrade() => _json('upgrade');
   @override
+  Future<Map<String, dynamic>> getTips() => _json('tips');
+  @override
+  Future<Map<String, dynamic>> getHousehold() => _json('household');
+  @override
+  Future<Map<String, dynamic>> getSolarPlan() => _json('solar_plan');
+  @override
+  Future<Map<String, dynamic>> getMeter() => _json('meter');
+  @override
   Future<Map<String, dynamic>> getAlerts({bool unreadOnly = false}) async {
     final a = await _json('alerts');
     if (unreadOnly) a['alerts'] = (a['alerts'] as List).where((x) => x['read'] == false).toList();
@@ -69,7 +92,7 @@ class MockApiService implements ApiService {
   @override
   Future<Map<String, dynamic>> getDailySummary() => _json('summary_daily');
   @override
-  Future<Map<String, dynamic>> getSettings() async => {...await _json('settings'), ..._settingsOverrides};
+  Future<Map<String, dynamic>> getSettings() async => {...await _json('settings'), ..._settingsOverrides, 'setup': setup};
   @override
   Future<Map<String, dynamic>> updateSettings(Map<String, dynamic> changes) async {
     _settingsOverrides.addAll(changes);
@@ -92,17 +115,25 @@ class MockApiService implements ApiService {
     var i = 0;
     // Stamp readings "now" so Home's "Updated …" line reads like a live demo, not a 6-hour-old file.
     Map<String, dynamic> fresh(Map<String, dynamic> live) {
-      final t = live['telemetry'];
-      if (t is Map<String, dynamic>) t['ts'] = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      for (final r in [live['telemetry'], live['meter']]) {
+        if (r is Map<String, dynamic>) r['ts'] = now;
+      }
       return live;
     }
 
     yield {'type': 'telemetry', 'data': fresh(jsonDecode(jsonEncode(base)) as Map<String, dynamic>)};
     await for (final _ in Stream.periodic(every)) {
       final live = jsonDecode(jsonEncode(base)) as Map<String, dynamic>;
-      final t = live['telemetry'] as Map<String, dynamic>;
-      t['pv_w'] = (t['pv_w'] as int) + ((i++ % 5) - 2) * 100;
-      t['batt_w'] = (t['load_w'] as int) - (t['pv_w'] as int);
+      final step = ((i++ % 5) - 2) * 100;
+      final t = live['telemetry'];
+      final m = live['meter'];
+      if (t is Map<String, dynamic>) {
+        t['pv_w'] = (t['pv_w'] as int) + step;
+        t['batt_w'] = (t['load_w'] as int) - (t['pv_w'] as int);
+      } else if (m is Map<String, dynamic>) {
+        m['power_w'] = (m['power_w'] as num) + step; // meter only: the house's draw moves instead
+      }
       yield {'type': 'telemetry', 'data': fresh(live)};
     }
   }

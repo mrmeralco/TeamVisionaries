@@ -12,7 +12,7 @@ import re
 from dataclasses import dataclass, field
 
 from .facts import Fact
-from .router import bill_intent, is_projection, is_upgrade, months_ahead
+from .router import bill_intent, is_projection, is_solar_plan, is_upgrade, months_ahead
 
 # A projection answer must say it's an estimate.
 HEDGE = re.compile(r"tantiya|projection|hindi (?:pa )?sigurado|hindi gaanong maaasahan|maaaring magbago|"
@@ -20,6 +20,8 @@ HEDGE = re.compile(r"tantiya|projection|hindi (?:pa )?sigurado|hindi gaanong maa
 from . import semantics
 
 MAX_WORDS = 110
+# A meter-only home has none of these; the reply may name them only when the user did.
+NO_SOLAR_WORDS = re.compile(r"\b(?:solar|battery|baterya|panels?|inverter|araw ang nagpapagana)\b", re.I)
 # Small counting words are fine ("isang tip", "2 bagay"). Anything else must come from FACTS.
 FREE_NUMBERS = {0.0, 1.0, 2.0, 3.0}
 
@@ -134,7 +136,14 @@ def check(reply: str, fact_ids: list[str], answerable: bool, given: list[Fact], 
     if is_upgrade(question) and any(f.id.startswith("upgrade.") for f in given) and not any(
             i.startswith("upgrade.") for i in fact_ids):
         problems.append("upgrade question: answer from the system check facts (upgrade.*) and cite them")
+    rec = next((f for f in given if f.id == "solar_plan.recommended"), None)
+    if rec and is_solar_plan(question) and not (re.search(r"\d\s*kWp", reply) and re.search(r"₱\s*\d", reply)):
+        problems.append("solar plan question: give the suggested size (kWp) and the ₱ savings or cost from solar_plan.recommended")
     problems.extend(semantics.problems(reply, fact_ids, given, numbers_in, _matches))
+    plan = any(f.id.startswith("solar_plan.") for f in given)   # asked about getting solar: it may say "solar"
+    if any(f.id == "setup.meter_only" for f in given) and not plan and not NO_SOLAR_WORDS.search(question) \
+            and NO_SOLAR_WORDS.search(reply):
+        problems.append("this home has no solar or battery (setup.meter_only): don't mention solar, battery, panels or inverter")
     urgent = {"brownout" if f.id.startswith("brownout") else "fault" for f in given
               if f.id in {"brownout.active", "fault.active"} and f.text.startswith("MAY ")}
     remaining = set(urgent)
@@ -151,7 +160,7 @@ def check(reply: str, fact_ids: list[str], answerable: bool, given: list[Fact], 
         if re.search(rf"\b(?:walang|no)\s+(?:active\s+)?{keyword}\b", reply.lower()):
             problems.append(f"denies active {keyword}")
     m = question.lower()
-    live_question = not is_upgrade(question) and not is_projection(question) and any(w in m for w in ("solar", "battery", "baterya", "grid")) and not any(
+    live_question = not is_upgrade(question) and not is_projection(question) and not is_solar_plan(question) and any(w in m for w in ("solar", "battery", "baterya", "grid")) and not any(
         w in m for w in ("kahapon", "yesterday", "oras", "peak", "week", "linggo", "natipid", "savings"))
     offline = any(f.id == "now.online" and f.text.startswith("OFFLINE") for f in given)
     if live_question and offline and not any(w in reply.lower() for w in ("offline", "luma", "huling data")):

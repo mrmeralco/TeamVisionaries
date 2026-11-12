@@ -1,7 +1,7 @@
 # Solaris Presentation Outline and Speaker Script
 
-**Recommended length:** 5–7 minutes  
-**Format:** 10 slides followed by a live demonstration
+**Recommended length:** 7–9 minutes  
+**Format:** 13 slides followed by a live demonstration
 
 ---
 
@@ -18,7 +18,7 @@ Families invest in solar because they expect lower electricity costs and greater
 
 But many solar owners still receive bills that are higher than expected. They cannot easily tell how much energy their panels produced, how much electricity they bought from the grid, or whether their battery was used efficiently.
 
-They invested in an energy solution, but they still lack a clear view of what is happening inside their home.
+And the many homes without solar have the same problem: the meter turns all month, and the only explanation arrives with the bill.
 
 ### Suggested visual
 
@@ -30,7 +30,7 @@ Show a homeowner looking at an unexpectedly high electricity bill beside a house
 
 ### Title
 
-**Solar ownership does not always provide energy visibility**
+**Owning the equipment does not mean understanding the energy**
 
 ### On-screen points
 
@@ -38,13 +38,14 @@ Show a homeowner looking at an unexpectedly high electricity bill beside a house
 - Smart meters and hybrid inverters often display technical information.
 - Solar production, battery use, and grid consumption may appear in separate systems.
 - Customers discover problems only after receiving a high bill.
+- A new appliance or an always-on load can raise the bill for weeks before anyone notices.
 - Predicting future consumption and expenses remains difficult.
 
 ### Speaker script
 
 Solar panels can reduce electricity costs, but customers still need to understand how their entire energy system behaves.
 
-Was there not enough sunlight? Did the household consume more energy at night? Was the battery empty? Did the home rely heavily on the grid?
+Was there not enough sunlight? Did the household consume more energy at night? Was the battery empty? Did the family buy a new air conditioner? Is something staying on all day while nobody is home?
 
 Most systems provide readings, but they do not clearly explain what those readings mean for the customer’s bill.
 
@@ -58,7 +59,7 @@ Most systems provide readings, but they do not clearly explain what those readin
 
 ### On-screen text
 
-> A smart energy monitoring device and mobile application for solar-powered homes
+> A smart energy monitoring device and mobile application for every home: with solar, or with only a meter
 
 ### Speaker script
 
@@ -66,11 +67,19 @@ That is why we created **Solaris**.
 
 Solaris is a monitoring device that connects to compatible smart meters and hybrid inverters. It reads the home’s solar production, household consumption, grid usage, battery status, and inverter condition.
 
+Solaris works in three setups:
+
+| Setup | What Solaris reads | Who it is for |
+|---|---|---|
+| **Solar** | Hybrid inverter | Homes with solar panels and a battery |
+| **Smart meter mode** | Smart meter or Meralco meter only | Homes without solar |
+| **Solar + meter** | Both; the meter supplies the billed kWh | Solar homes that want the exact number Meralco bills |
+
 Our system analyzes these readings and presents them through a simple mobile application. Customers can see what is happening now, understand what happened before, and prepare for what may happen next.
 
 ### Suggested visual
 
-Show the Solaris device beside a phone displaying the mobile application.
+Show the Solaris device beside a phone displaying the mobile application, with two small house icons: one with solar panels, one with only a meter.
 
 ---
 
@@ -83,22 +92,24 @@ Show the Solaris device beside a phone displaying the mobile application.
 ### System flow
 
 ```text
-Smart meter or hybrid inverter
-              ↓
-    Solaris monitoring device
-              ↓
- Local server and prediction engine
-              ↓
-    Solaris mobile application
-              ↓
-      Mira AI energy assistant
+Hybrid inverter  and/or  Smart meter / Meralco meter
+                    ↓
+          Solaris monitoring device
+                    ↓
+  Local server: history, forecasts, household profile
+                    ↓
+         Solaris mobile application
+                    ↓
+          Mira AI energy assistant
 ```
 
 ### Speaker script
 
-The Solaris device reads information directly from the smart meter and hybrid inverter.
+The Solaris device reads information directly from the hybrid inverter, the smart meter, or both.
 
-It sends the readings to our local server, which stores the household’s energy history, detects important events, calculates costs, and produces forecasts.
+It sends the readings to our local server, which stores the household’s energy history, detects important events, calculates costs, learns the household’s routine, and produces forecasts.
+
+Everything runs on a computer inside the home, including Mira. The household’s data, including when the family is usually home, never leaves the house.
 
 The Solaris app then turns the data into information that customers can understand. Mira, our AI energy assistant, helps explain what the numbers mean and what actions the customer can take.
 
@@ -114,16 +125,20 @@ The Solaris app then turns the data into information that customers can understa
 
 - Current solar production
 - Household electricity consumption
-- Grid import or export
+- Grid power, clearly labelled as importing or exporting
 - Battery percentage and charging status
 - Estimated savings for the day
-- Device connection and inverter status
+- Inverter temperature and fault status
+- Device connection and Wi-Fi status
+- Brownout advisor: how long the battery would last if the power went out now
 
 ### Speaker script
 
 On the Solaris Home screen, customers can immediately see where their electricity is coming from and where it is going.
 
-If solar production is higher than the household load, the app shows that the battery is charging. If solar production is low, it shows whether the home is using the battery or buying electricity from the grid.
+If solar production is higher than the household load, the app shows that the battery is charging. If solar production is low, it shows whether the home is using the battery or buying electricity from the grid. When the home sends extra solar to the grid, the app says “Exporting”, so the customer never mistakes it for buying power.
+
+The Brownout advisor card answers a question every Filipino household asks: if the power goes out now, how long will we last?
 
 The information updates live. Customers can switch on an appliance and see its effect on household consumption within seconds.
 
@@ -139,9 +154,9 @@ The information updates live. Customers can switch on an appliance and see its e
 
 - Daily, weekly, and monthly consumption
 - Solar generation and grid usage
-- Current month-to-date cost
-- Predicted bill at the end of the month
-- Low and high forecast range
+- Current month-to-date cost, priced with Meralco’s residential rate levels
+- Predicted bill at the end of the month, with a low and high range
+- Coming months: up to three months ahead, clearly marked as estimates
 - Comparison with the previous month
 - Estimated solar savings
 
@@ -149,7 +164,11 @@ The information updates live. Customers can switch on an appliance and see its e
 
 Solaris does more than show current readings. It studies the household’s energy history.
 
-Customers can review their consumption by day, week, or month. The system estimates the current cost and predicts the bill at the end of the month. It also provides a possible low and high range so the customer can understand the uncertainty in the forecast.
+Customers can review their consumption by day, week, or month. The system estimates the current cost and predicts the bill at the end of the month. The forecast follows the household’s level over the last 14 days, so it reacts quickly when the weather turns hot or the family’s habits change.
+
+We tested this honestly. We ran the forecast against a full simulated year for several households and checked how often the real bill landed inside the range we showed. That testing made our ranges more truthful: the month-end error dropped by up to 38 percent in the middle of the month.
+
+Solaris also shows the next three months. Only this month is called a forecast. Later months are labelled as estimates, and their range widens the further ahead they are. We stop at three months, because beyond that the range would be too wide to be useful.
 
 Instead of waiting for the final bill, the customer receives an early warning and has enough time to adjust their energy use.
 
@@ -169,7 +188,7 @@ Instead of waiting for the final bill, the customer receives an early warning an
 - Projected battery percentage
 - Expected grid consumption
 - Estimated time until the battery reaches its reserve
-- Estimated battery runtime during a brownout
+- Estimated battery runtime during a brownout, including the expected sun
 - History-based forecast when weather data is unavailable
 
 ### Speaker script
@@ -182,35 +201,128 @@ If there is not yet enough household data, Solaris starts with the configured so
 
 Solaris combines the expected solar generation with the household’s usual hourly consumption. It then projects the battery percentage, expected grid use, the time when the battery may reach its reserve, and whether the next day’s sunlight may recharge it.
 
-During a brownout, the app estimates how long the battery can support the current household load. This helps the customer decide whether to continue normal use or turn off appliances that consume a large amount of electricity.
+During a brownout, the app estimates how long the battery can support the current household load, counting the sun that is still expected. This helps the customer decide whether to continue normal use or turn off appliances that consume a large amount of electricity.
 
 ---
 
-## Slide 8 — Meet Mira
+## Slide 8 — Solar Tips and System Check
 
 ### Title
 
-**Mira explains the customer’s energy data**
+**Getting more from the sun the household already has**
+
+### App features to show
+
+- **Best window today:** the three sunniest hours with the most spare solar, such as “10AM–1PM”
+- **Right now:** “You are sending solar to the grid, run the washing machine now” or “You are buying from the grid, wait for the sunny window”
+- **Habit tips** from the last 30 days, ordered by the money they could save
+- **Clean energy this month:** share of home use not from the grid, CO₂ avoided, and the equivalent number of trees
+- **System check:** does the solar, battery, and inverter still fit the household? Recommendations with rough savings and payback
+
+### Speaker script
+
+Solar only saves money when the household uses it. Solaris tells the family when the sun is strongest today, and what to do right now.
+
+If the home is sending solar to the grid while it buys electricity every night, Solaris suggests shifting laundry, ironing, or cooling into the day, and shows how much that could save each month.
+
+Every month, the customer also sees their clean-energy impact: how much carbon dioxide their panels avoided, in a number anyone can picture.
+
+Finally, the system check looks at the last 30 days and asks whether the equipment still fits the household. If the battery runs empty every night while solar goes to waste during the day, Solaris recommends a battery upgrade, with an estimated monthly saving and payback period. We label these as estimates; the installer gives the exact quote.
+
+---
+
+## Slide 9 — Getting to Know the Household
+
+### Title
+
+**Solaris learns the home’s routine from its electricity use alone**
+
+### App features to show
+
+- **Household type:** for example, “Away during weekdays” or “Someone is home during the day”
+- **Daily routine:** usual wake-up time, sleep time, time away, and the busiest hour
+- **Right now:** whether someone is likely home, asleep, or away, compared with the usual routine
+- **Unusual activity:** use at an hour that is normally quiet
+- **Always-on load:** the electricity used even when nobody is using anything, in kWh and pesos per month
+- **New appliance detection:** “Since Nov 7, about 1.1 kW more every night from 9PM to 2AM. A new air conditioner?”
+
+### Speaker script
+
+Solaris does not need cameras or extra sensors to understand a household. The home’s electricity use already tells the story.
+
+Using only the household’s power readings, averaged every 15 minutes, Solaris learns when the family usually wakes up, leaves, comes home, and sleeps, on weekdays and on weekends.
+
+That profile makes everything else more personal. Solaris can see that a home is quiet during the day but still draws 280 watts, and tells the family that this always-on load costs about ₱3,000 a month. It can notice when a new load appears every night and ask whether the family bought a new air conditioner, before the higher bill arrives.
+
+Because this information is personal, the profile is computed on the home’s own computer and never leaves the house.
+
+### Suggested visual
+
+Show the Household card: the 24-hour activity strip, the “likely home now” status, and the new-appliance message.
+
+---
+
+## Slide 10 — Smart Meter Mode
+
+### Title
+
+**Solaris for homes without solar**
+
+### App features to show
+
+- Live meter reading: power, voltage, current, and power factor
+- Voltage quality: whether the supply is normal, too low, or too high, with the last 24 hours’ minimum and maximum
+- Usage pattern: daily use, peak hours, night share, and weekday versus weekend use
+- **Meralco rate level this month:** which consumption level the month is heading for and its price per kWh
+- **Level warning:** “You are 132 kWh above the 400 kWh level; cutting about 7 kWh a day could save ₱2,096”
+- Always-on load in kWh and pesos per month
+- The meter’s import reading, the same number Meralco reads
+- Brownout and grid-restored alerts from the meter, with advice to protect appliances
+- Mira answers questions about use, bill, meter, and saving, without mentioning solar or battery
+
+### Speaker script
+
+Not every household has solar yet. Smart meter mode lets Solaris serve those homes too, using only a smart meter or the Meralco meter.
+
+Solaris reads the meter live, checks whether the voltage is healthy, and learns the household’s usage pattern. It also tracks which Meralco consumption level the month is heading for. Because the whole month is priced by that level, crossing it raises the cost of every kilowatt-hour. Solaris warns the family early and tells them how much to cut each day to stay in the cheaper level.
+
+For solar homes that also have a meter, Solaris uses the meter for the bill, because that is the exact number Meralco charges.
+
+Smart meter mode also opens a path for the business: start with a meter-only home today, and when the family is ready for solar, Solaris already knows their usage and can show what size of system would fit.
+
+---
+
+## Slide 11 — Meet Mira
+
+### Title
+
+**Mira explains the customer’s energy data, and shows where every number comes from**
 
 ### Suggested questions
 
 - “Mira, bakit mataas ang bill ko?”
 - “Gaano katagal ang battery?”
-- “Okay ba ang solar production ko?”
-- “Kailan pinakamataas ang consumption namin?”
-- “Paano ko mapapababa ang bill this month?”
+- “Magkano ang bill ko sa Disyembre?”
+- “May tao ba sa bahay ngayon?”
+- “Biglang tumaas ang gamit namin, bakit?”
+- “Nasaang Meralco level na ako ngayong buwan?”
+- “Kailangan ko na bang magdagdag ng battery?”
 
 ### Speaker script
 
-Mira is the AI energy assistant inside Solaris.
+Mira is the AI energy assistant inside Solaris. Customers can open her from any screen with the floating Mira button.
 
 Instead of requiring customers to interpret graphs and technical values, Mira explains their energy data in simple Taglish.
 
-Mira uses the household’s actual readings when answering questions. It can explain why the bill may be increasing, how long the battery may last, whether the solar system is performing as expected, and what the customer can do to reduce consumption.
+Mira uses only the household’s actual readings when answering questions, and every answer shows **where it comes from**: the exact readings, forecasts, and settings behind it. Customers can tap a source to open the screen with that data.
+
+Mira is also honest about her limits. She says when a number is only an estimate, and if asked about a bill a year away, she explains why she cannot predict that far instead of guessing.
+
+Mira runs on the home’s own computer, so the household’s questions and data stay private.
 
 ---
 
-## Slide 9 — Alerts and Recommendations
+## Slide 12 — Alerts and Recommendations
 
 ### Title
 
@@ -218,24 +330,26 @@ Mira uses the household’s actual readings when answering questions. It can exp
 
 ### App features to show
 
-- Brownout alert
+- Brownout alert and grid-restored notice
 - Low-battery warning
 - High-temperature warning
 - Inverter fault explanation
 - Device offline notification
+- New appliance-sized load detected
+- Notifications for alerts missed while the app was closed
 - Recommended actions based on current conditions
 
 ### Speaker script
 
 When Solaris detects a brownout, low battery, high temperature, or inverter fault, it immediately alerts the customer.
 
-The app does more than report a problem. It explains the situation and recommends a practical response. During a brownout, for example, Solaris can advise the customer to reduce the use of high-consumption appliances to extend the available battery runtime.
+The app does more than report a problem. It explains the situation and recommends a practical response. During a brownout, for example, Solaris advises the customer to reduce the use of high-consumption appliances to extend the battery. In a home without a battery, it advises unplugging sensitive appliances until the power returns.
 
 This allows customers to respond before a small issue becomes a larger and more expensive problem.
 
 ---
 
-## Slide 10 — Why Solaris Matters
+## Slide 13 — Why Solaris Matters
 
 ### Title
 
@@ -243,39 +357,47 @@ This allows customers to respond before a small issue becomes a larger and more 
 
 | Current customer experience | With Solaris |
 |---|---|
-| The cost is discovered when the bill arrives | The bill is forecast before the month ends |
+| The cost is discovered when the bill arrives | The bill is forecast before the month ends, with an honest range |
 | The inverter displays technical readings | The app provides clear household explanations |
 | Problems may be noticed late | Live alerts identify faults and brownouts |
 | Battery runtime is uncertain | Remaining runtime is estimated |
 | Solar savings are unclear | Daily and monthly savings are visible |
+| A new appliance shows up only on the bill | New loads and always-on use are spotted within days |
+| Crossing a Meralco rate level is a surprise | Solaris warns early and says how much to cut |
+| Homes without solar have nothing to monitor | Smart meter mode works with the meter alone |
 | Information is spread across different devices | One application brings the information together |
 
 ### Speaker script
 
-Customers invest in solar because they want lower electricity costs. But owning solar equipment does not automatically mean understanding how energy is being used.
+Customers invest in solar because they want lower electricity costs. But owning solar equipment does not automatically mean understanding how energy is being used. And homes without solar deserve that understanding too.
 
 Solaris provides that missing visibility.
 
-The Solaris device reads the smart meter and hybrid inverter. Our system analyzes the household’s energy behavior. The app shows live conditions and future costs. Mira explains the information and recommends what the customer can do next.
+The Solaris device reads the hybrid inverter, the smart meter, or both. Our system learns the household’s energy behavior and routine. The app shows live conditions and future costs. Mira explains the information, shows where every number comes from, and recommends what the customer can do next.
 
-With Solaris, customers can understand whether their solar investment is working, prepare for their next bill, and make better energy decisions every day.
+With Solaris, customers can understand whether their energy is being used well, prepare for their next bill, and make better energy decisions every day.
 
 ### Final line
 
-> Solaris helps solar owners understand their energy today and prepare for its cost tomorrow.
+> Solaris helps every home understand its energy today and prepare for its cost tomorrow.
 
 ---
 
 # Recommended Live Demo Flow
 
-1. **Open the Home screen.** Show the current solar production, household load, grid usage, and battery percentage.
+1. **Open the Home screen.** Show the current solar production, household load, grid importing or exporting, and battery percentage.
 2. **Change the simulated solar or household load.** Let the audience see the app update live.
-3. **Open the Energy screen.** Show the daily, weekly, and monthly views.
-4. **Open the Bill screen.** Highlight the current cost, predicted month-end bill, forecast range, and estimated savings.
-5. **Trigger a brownout.** Show the alert and the estimated battery runtime.
-6. **Open the solar and battery outlook.** Explain the forecast and projected battery level.
-7. **Ask Mira a question.** Use: “Mira, bakit mataas ang bill ko?” or “Gaano katagal ang battery natin?”
-8. **Return to the closing slide.** End with the benefit to the customer rather than the technology.
+3. **Show the Solar tips card on Home.** Point out today’s best window and the CO₂ avoided this month.
+4. **Show the Household card on Home.** Point out the routine strip, “likely home now”, and the new-appliance message. (Seed the demo with `python tools/seed_history.py --reset --new-load-days 5` so a new night-time load appears.)
+5. **Open the Energy screen.** Show the daily, weekly, and monthly views.
+6. **Open the Bill screen.** Highlight the current cost, predicted month-end bill, forecast range, coming months, and the system check.
+7. **Trigger a brownout.** Show the alert and the estimated battery runtime.
+8. **Open the solar and battery outlook.** Explain the forecast and projected battery level.
+9. **Ask Mira a question.** Use: “Mira, bakit mataas ang bill ko?” or “May bago ba kaming appliance?” Open “Where this answer comes from” under the reply.
+10. **Switch to smart meter mode.** Set the household setup to `meter_only` (`PUT /api/settings {"setup": "meter_only"}`) and ask Mira: “Nasaang Meralco level na ako ngayong buwan?” Mira answers from the meter, without mentioning solar or battery.
+11. **Return to the closing slide.** End with the benefit to the customer rather than the technology.
+
+> **Demo note:** Smart meter mode is complete on the server and in Mira. The app does not yet have its own meter screens, so show it through Mira (step 10) rather than the Home screen.
 
 ---
 
@@ -283,17 +405,19 @@ With Solaris, customers can understand whether their solar investment is working
 
 ## Customer features
 
+- App screens for smart meter mode (meter reading, voltage, Meralco level)
 - Monthly electricity budget and savings goals
-- Notifications when consumption is likely to exceed the customer’s target
+- Notifications when consumption is likely to cross the customer’s target or the next Meralco level
 - Appliance-level monitoring through smart plugs or circuit sensors
-- Personalized schedules for high-consumption appliances
+- Personalized schedules for high-consumption appliances, built from the household routine
 - Downloadable monthly energy and savings reports
-- Estimated environmental impact of solar production
+- Solar sizing for meter-only homes, based on their measured usage
 
 ## Installer and business features
 
 - Installer dashboard for monitoring multiple customer systems
 - Remote fault diagnosis and maintenance notifications
+- Upgrade leads from the system check, with the household’s permission
 - Compatibility profiles for additional inverter and meter brands
 - System-performance reports for warranties and maintenance
 - Optional cloud backup and access outside the home network
@@ -301,6 +425,7 @@ With Solaris, customers can understand whether their solar investment is working
 ## Possible business model
 
 - One-time purchase of the Solaris monitoring device
+- A lower-cost meter-only package for homes without solar
 - Professional installation through solar installers
 - Optional subscription for advanced forecasts, reports, and remote monitoring
 - Business package for installers, property managers, and small commercial sites
@@ -311,7 +436,9 @@ With Solaris, customers can understand whether their solar investment is working
 
 - Start with the customer’s electricity bill, not the technical architecture.
 - Show the physical Solaris device early so the audience understands that it connects to real energy equipment.
-- Keep technical terms such as Modbus, MQTT, and forecasting models in reserve for questions.
-- Spend most of the demonstration on the bill forecast, live monitoring, brownout runtime, and Mira.
-- Avoid claiming guaranteed savings. Explain that Solaris gives customers the information and recommendations needed to make better decisions.
+- Keep technical terms such as Modbus, MQTT, SARIMA, and forecasting models in reserve for questions.
+- Spend most of the demonstration on the bill forecast, live monitoring, the household profile, brownout runtime, and Mira.
+- Mention privacy when presenting the household profile: it is computed on the home’s own computer and never leaves the house.
+- Present smart meter mode as a way to reach the many homes without solar, not as a side feature.
+- Avoid claiming guaranteed savings. Explain that Solaris gives customers the information and recommendations needed to make better decisions, and that upgrade prices are estimates.
 - End with the customer benefit: visibility, preparation, and control over household energy costs.

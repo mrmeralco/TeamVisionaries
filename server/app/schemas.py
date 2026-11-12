@@ -17,6 +17,8 @@ State = Literal["solar", "battery", "grid", "brownout", "fault", "offline"]
 AlertType = Literal["fault", "brownout", "grid_restored", "low_battery", "high_temp", "device_offline", "device_online"]
 Severity = Literal["info", "warning", "critical"]
 Source = Literal["llm", "fallback"]
+Setup = Literal["solar", "meter_only", "solar_and_meter"]
+MeterType = Literal["sdm120", "ansi-c12"]
 
 
 # ---------------------------------------------------------------- /api/live --
@@ -41,13 +43,31 @@ class Telemetry(BaseModel):
     fault_code: int = Field(description="0 = OK")
 
 
+class MeterReading(BaseModel):
+    """Contract B meter payload, as stored (smart meter A2 or Meralco meter A3)."""
+    ts: int
+    meter_type: MeterType
+    voltage_v: float
+    current_a: float | None = None
+    power_w: float = Field(description="+ import, − export")
+    apparent_va: float | None = None
+    reactive_var: float | None = None
+    pf: float | None = Field(None, ge=-1, le=1)
+    freq_hz: float | None = None
+    import_kwh: float = Field(description="Meter register: kWh bought from the grid since it was installed")
+    export_kwh: float
+    grid_on: bool
+
+
 class Live(BaseModel):
     device: Device
-    telemetry: Telemetry | None = Field(description="null if nothing received yet")
+    telemetry: Telemetry | None = Field(description="null if nothing received yet; always null when setup is meter_only")
     state: State
     status_line: str
     saved_today_php: float
     rate_php_per_kwh: float
+    setup: Setup = Field("solar", description="The household's setup (settings)")
+    meter: MeterReading | None = Field(None, description="Latest meter reading; null for setup solar or before one arrives")
 
 
 # -------------------------------------------------------------- /api/energy --
@@ -97,6 +117,8 @@ class Bill(BaseModel):
     savings_today_php: float
     savings_month_php: float
     weekly_costs: list[WeeklyCost]
+    grid_source: Literal["inverter", "meter"] = Field(
+        "inverter", description="Where the grid kWh come from: the meter whenever the home has one")
 
 
 # ------------------------------------------------------------ /api/brownout --
@@ -225,6 +247,240 @@ class Upgrade(BaseModel):
     recommendations: list[UpgradeRec]
 
 
+# ---------------------------------------------------------------- /api/tips --
+class TipWindow(BaseModel):
+    """The next WINDOW_H hours with the most solar left over after typical use."""
+    start_ts: int
+    end_ts: int
+    surplus_kwh: float = Field(description="Forecast solar minus typical home use over the window")
+    day: Literal["today", "tomorrow"]
+
+
+class TipImpact(BaseModel):
+    """This month so far."""
+    month: str = Field(pattern=r"^\d{4}-\d{2}$")
+    solar_kwh: float = Field(description="Made by the panels")
+    clean_share_pct: float = Field(description="Home use not bought from the grid (self-sufficiency)")
+    co2_avoided_kg: float = Field(description="solar_kwh x GRID_CO2_KG_PER_KWH")
+    trees: int = Field(ge=0, description="Grown trees that take up that much CO₂ in a year")
+
+
+class Tip(BaseModel):
+    id: str = Field(description="surplus_now | grid_now | best_window | cloudy_tomorrow | shift_to_day | "
+                                "spread_loads | precool | general")
+    kind: Literal["now", "today", "habit", "general"]
+    priority: int = Field(ge=1, description="1 = most urgent")
+    title: str = Field(min_length=1)
+    body: str = Field(min_length=1, description="Taglish, built from the home's numbers")
+    evidence: list[UpgradeEvidence]
+    savings_php_month: int | None = Field(description="Rough upper bound; null when not directly about money")
+
+
+class Tips(BaseModel):
+    generated_ts: int
+    best_window: TipWindow | None = Field(description="null when no window has enough sun (today or tomorrow)")
+    impact: TipImpact | None = Field(description="null before any solar this month")
+    tips: list[Tip] = Field(min_length=1, description="Most urgent first; always ends with one general tip")
+
+
+# ----------------------------------------------------------- /api/household --
+class HouseholdNow(BaseModel):
+    """The last 30 minutes of home use against the household's routine."""
+    state: Literal["active", "asleep", "away", "quiet", "unknown"] = Field(
+        description="active = someone is using things; asleep / away = only the always-on load, at an hour the "
+                    "house usually sleeps / is empty; quiet = only the always-on load at a usually busy hour; "
+                    "unknown = device offline or no data")
+    likely_home: bool | None = Field(description="null when it can't be told")
+    load_w: int | None = Field(description="Average home use over the last 30 minutes")
+    usual_home_pct: int | None = Field(ge=0, le=100, description="How often the house is active at this hour")
+    unusual: bool = Field(description="Active at an hour that is active less than 20 % of the time")
+    next_active_ts: int | None = Field(description="When not active: start of the next usually-busy hour")
+    text: str = Field(min_length=1, description="Taglish, built from the numbers above")
+
+
+class AwayWindow(BaseModel):
+    start_hour: int = Field(ge=0, le=23)
+    end_hour: int = Field(ge=0, le=24)
+
+
+class RoutineDay(BaseModel):
+    wake_hour: int | None = Field(ge=0, le=23, description="End of the quiet stretch around 3 AM")
+    sleep_hour: int | None = Field(ge=0, le=23, description="Start of the quiet stretch around 3 AM; null if "
+                                                            "the house is busy all night (e.g. aircon)")
+    away: AwayWindow | None = Field(description="Longest daytime quiet stretch, 3 h+")
+    peak_hour: int = Field(ge=0, le=23)
+    home_pct: list[int] = Field(min_length=24, max_length=24, description="% of time active, per hour 0-23")
+    avg_w: list[int] = Field(min_length=24, max_length=24, description="Average home use per hour 0-23")
+
+
+class Routine(BaseModel):
+    weekday: RoutineDay | None
+    weekend: RoutineDay | None
+
+
+class Archetype(BaseModel):
+    id: Literal["away_daytime", "home_daytime", "mixed", "unknown"]
+    label: str
+    description: str
+
+
+class Trait(BaseModel):
+    id: str = Field(description="early_riser | night_owl | night_load | evening_peak | weekend_home | high_baseload")
+    label: str
+
+
+class Baseload(BaseModel):
+    watts: int = Field(ge=0, description="Always-on use: 10th percentile of 15-minute averages")
+    kwh_month: float
+    php_month: int = Field(description="Upper bound: at the full rate, as if none of it came from the sun")
+    share_pct: float = Field(ge=0, le=100, description="Share of all home use")
+
+
+class NewLoad(BaseModel):
+    """Use that appeared in the last few days, compared with the 4 weeks before: maybe a new appliance."""
+    id: str
+    kind: Literal["always_on", "scheduled"]
+    start_hour: int | None = Field(ge=0, le=23, description="scheduled only")
+    end_hour: int | None = Field(ge=0, le=23, description="scheduled only (exclusive)")
+    added_w: int
+    kwh_day: float
+    php_month: int = Field(description="Upper bound: kwh_day x 30 x rate")
+    since_ts: int = Field(description="Local midnight of the first day it showed")
+    days_seen: int = Field(ge=1)
+    guess: str = Field(description="What it might be, from its watts and hours (Taglish)")
+    text: str = Field(min_length=1)
+
+
+class Household(BaseModel):
+    generated_ts: int
+    now: HouseholdNow
+    days_used: int = Field(ge=0, description="Days with data in the last 28")
+    confidence: Literal["none", "low", "medium", "high"] = Field(description="none < 3 days, low < 7, medium < 21")
+    baseload: Baseload | None
+    daylight_use_pct: float | None = Field(description="Share of home use between 6 AM and 6 PM")
+    routine: Routine
+    archetype: Archetype
+    traits: list[Trait]
+    new_loads: list[NewLoad] = Field(max_length=2, description="Biggest first")
+
+
+# --------------------------------------------------------------- /api/meter --
+class MeterQuality(BaseModel):
+    nominal_v: float = Field(description="GRID_NOMINAL_V (230)")
+    low_limit_v: float = Field(description="nominal - GRID_V_TOLERANCE")
+    high_limit_v: float
+    voltage_status: Literal["normal", "low", "high", "off"] = Field(description="Now; off = brownout")
+    min_v_24h: float | None = Field(description="Last 24 h with the grid on; null without readings")
+    avg_v_24h: float | None
+    max_v_24h: float | None
+    out_of_range_pct_24h: float | None = Field(description="Share of last-24 h readings outside the limits")
+    pf_status: Literal["good", "fair", "poor"] | None = Field(description="good >= 0.90, fair >= 0.80; null if the meter has no PF")
+
+
+class MeterUsage(BaseModel):
+    """Last 7 finished days of grid import from the meter (= home use when setup is meter_only)."""
+    days: int = Field(ge=1, description="Days with readings")
+    import_kwh_day: float
+    base_w: int = Field(description="Always-on use: 10th percentile of the power drawn")
+    peak_w: int
+    peak_hours: list[int] = Field(description="Up to 3 hours of the day (0-23) with the most use, ascending")
+    night_share_pct: int = Field(description="Share used 6 PM-6 AM")
+    weekday_kwh_day: float | None
+    weekend_kwh_day: float | None
+    by_hour_kwh: list[float] = Field(min_length=24, max_length=24, description="Typical day: kWh in each hour 0-23")
+
+
+class MeterTier(BaseModel):
+    """Where this month lands in Meralco's consumption levels (the whole month pays its level's rate)."""
+    month: str = Field(pattern=r"^\d{4}-\d{2}$")
+    days_left: int = Field(description="Including today")
+    month_to_date_kwh: float
+    forecast_kwh: float = Field(description="Same forecast as /api/bill")
+    level_min_kwh: float = Field(description="Level the forecast is in: above this ...")
+    level_max_kwh: float | None = Field(description="... up to this; null = open-ended (over 400 kWh)")
+    rate_php_per_kwh: float = Field(description="₱/kWh at that level (fixed charges not included)")
+    kwh_above_lower_level: float | None = Field(description="Forecast minus level_min_kwh; null in the lowest level")
+    save_php_at_lower_level: int | None = Field(description="₱ saved if the month ends at level_min_kwh instead")
+    kwh_to_next_level: float | None = Field(description="kWh left before the dearer level; null in the top level")
+    next_level_rate_php_per_kwh: float | None
+
+
+class MeterInsight(BaseModel):
+    id: Literal["voltage", "power_factor", "tier_drop", "tier_near", "tier", "peak_hours", "base_load", "reading"]
+    tone: Literal["info", "good", "warning"]
+    title: str = Field(min_length=1)
+    body: str = Field(min_length=1, description="Taglish, built from this response's numbers")
+    evidence: list[UpgradeEvidence]
+
+
+class MeterInfo(BaseModel):
+    generated_ts: int
+    setup: Setup
+    online: bool = Field(description="A fresh meter reading within OFFLINE_AFTER_S")
+    reading: MeterReading | None = Field(description="null until the first meter reading")
+    quality: MeterQuality | None
+    usage: MeterUsage | None = Field(description="null until a full day of meter readings")
+    tier: MeterTier | None = Field(description="null when the bill doesn't come from the meter")
+    insights: list[MeterInsight] = Field(description="Warnings first, then money, habits, the reading")
+
+
+# ---------------------------------------------------------- /api/solar-plan --
+class SolarPlanUsage(BaseModel):
+    """The household's typical day, last 30 days (the meter, in a home without solar)."""
+    kwh_day: float
+    day_kwh_day: float = Field(description="6 AM-6 PM")
+    night_kwh_day: float
+    night_share_pct: int = Field(ge=0, le=100)
+    peak_w: int = Field(description="99th percentile of home use, last 7 days")
+    bill_php_month: int = Field(description="A 30-day month at this use, today's rate and tiers")
+
+
+class SolarOption(BaseModel):
+    id: Literal["grid_tie", "hybrid"]
+    recommended: bool
+    title: str
+    pv_kwp: float
+    panels: int = Field(ge=1)
+    panel_w: int
+    roof_m2: int = Field(description="Roof area the panels need, incl. spacing")
+    inverter_kw: float
+    battery_kwh: float | None = Field(description="null for grid_tie")
+    solar_kwh_day: float = Field(description="Made on an average PH day")
+    covers_pct: int = Field(ge=0, le=100, description="Share of home use from solar or battery")
+    export_kwh_day: float
+    bill_before_php_month: int
+    bill_after_php_month: int = Field(description="Tiered bill for what's still bought, minus net metering credit")
+    savings_php_month: int
+    cost_php: int = Field(description="Rough installed price (config)")
+    payback_years: float | None
+    backup_hours: float | None = Field(description="Battery at the usual night load in a brownout; null without one")
+    co2_kg_year: int
+    why: str
+
+
+class Sponsor(BaseModel):
+    """Ad slot shown apart from the recommendation, labelled as sponsored."""
+    id: str
+    kind: Literal["installer", "panel_brand", "inverter_brand", "battery_brand", "financing"]
+    name: str
+    tagline: str
+    url: str | None
+    placeholder: bool = Field(description="true = an empty slot (no SPONSORS_FILE)")
+
+
+class SolarPlan(BaseModel):
+    generated_ts: int
+    setup: Setup
+    has_solar: bool = Field(description="true -> no options (see /api/upgrade)")
+    days: int = Field(ge=0, description="Days with data, last 30")
+    headline: str = Field(min_length=1)
+    usage: SolarPlanUsage | None = Field(description="null with < 7 days of data or when the home has solar")
+    options: list[SolarOption] = Field(max_length=2, description="Recommended first; [] when usage is null")
+    yield_kwh_per_kwp_day: float
+    sponsors: list[Sponsor]
+    disclaimer: str
+
+
 # -------------------------------------------------------------- /api/alerts --
 class Alert(BaseModel):
     id: int
@@ -299,6 +555,7 @@ class Settings(BaseModel):
     battery_kwh: float
     user_name: str
     device_id: str
+    setup: Setup = Field(description="solar | meter_only (smart meter, no solar) | solar_and_meter")
 
 
 class SettingsIn(BaseModel):
@@ -307,6 +564,7 @@ class SettingsIn(BaseModel):
     battery_kwh: float | None = Field(None, gt=0, lt=200)
     user_name: str | None = Field(None, max_length=40)
     device_id: str | None = Field(None, max_length=32)
+    setup: Setup | None = None
 
 
 # -------------------------------------------------------------- /api/health --
@@ -324,7 +582,7 @@ class Meter(BaseModel):
     model_config = {"extra": "allow"}
     device_id: str
     ts: int
-    meter_type: Literal["sdm120", "ansi-c12"]
+    meter_type: MeterType
 
 
 class WsTelemetry(BaseModel):

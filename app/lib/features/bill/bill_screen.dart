@@ -1,6 +1,8 @@
 // Bill & Savings (Figma "Bill"): GET /api/bill: forecast + range, vs last month, savings, weekly costs.
 // The tip comes from GET /api/outlook (weather-aware advice from the server) when it's available.
 // System check at the bottom: GET /api/upgrade (does the setup still fit this household's use?).
+// Smart meter mode: the Meralco level card (GET /api/meter); a meter-only home has no solar savings, outlook
+// tip or system check.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +11,7 @@ import '../../core/utils/format.dart';
 import '../../providers/data_providers.dart';
 import '../common/charts.dart';
 import '../common/ui.dart';
+import '../meter/meter_cards.dart';
 import 'coming_months.dart';
 import 'system_check.dart';
 
@@ -20,23 +23,30 @@ class BillScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bill = ref.watch(billProvider);
-    final advice = str(ref.watch(outlookProvider).value?['advice']);
+    final setup = ref.watch(setupProvider);
+    final solar = setup != 'meter_only';
+    final advice = solar ? str(ref.watch(outlookProvider).value?['advice']) : '';
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(outlookProvider);
         ref.invalidate(upgradeProvider);
         ref.invalidate(billProjectionProvider);
+        ref.invalidate(meterProvider);
         await ref.refresh(billProvider.future).then((_) {}, onError: (_) {});
       },
       child: ListView(padding: EdgeInsets.zero, children: [
-        const SafeArea(bottom: false, child: PageHeader('Bill & Savings', 'Track your bill and solar savings.')),
+        SafeArea(
+          bottom: false,
+          child: PageHeader('Bill & Savings', solar ? 'Track your bill and solar savings.' : 'Track your bill and your Meralco level.'),
+        ),
         AsyncBody(
           value: bill,
           onRetry: () => ref.invalidate(billProvider),
           // The system check is extra: if it fails or isn't ready, the bill still shows without it.
           data: (b) => _BillBody(b,
               advice: advice,
-              upgrade: ref.watch(upgradeProvider).value,
+              setup: setup,
+              upgrade: solar ? ref.watch(upgradeProvider).value : null,
               projection: ref.watch(billProjectionProvider).value),
         ),
       ]),
@@ -45,9 +55,10 @@ class BillScreen extends ConsumerWidget {
 }
 
 class _BillBody extends StatelessWidget {
-  const _BillBody(this.b, {required this.advice, this.upgrade, this.projection});
+  const _BillBody(this.b, {required this.advice, this.setup = 'solar', this.upgrade, this.projection});
   final Map<String, dynamic> b;
   final String advice;
+  final String setup; // solar | meter_only | solar_and_meter
   final Map<String, dynamic>? upgrade; // GET /api/upgrade; null = not loaded or failed
   final Map<String, dynamic>? projection; // GET /api/bill/projection; null = not loaded or failed
 
@@ -58,6 +69,8 @@ class _BillBody extends StatelessWidget {
     final forecast = numOr(b['forecast_php']);
     final diff = last == null ? null : last - forecast; // > 0: this month is cheaper
     final weeks = listOfMaps(b['weekly_costs']);
+    final solar = setup != 'meter_only';
+    final fromMeter = b['grid_source'] == 'meter';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(S.gutter, S.x4, S.gutter, kFabClearance),
@@ -90,19 +103,26 @@ class _BillBody extends StatelessWidget {
         const SizedBox(height: S.x2),
         Text(
           'So far: ${_php(b['month_to_date_php'])} · ${kwhNum(b['month_to_date_kwh'])} kWh from the grid · '
-          'day ${str(b['days_elapsed'], '—')} of ${str(b['days_in_month'], '—')}',
+          'day ${str(b['days_elapsed'], '—')} of ${str(b['days_in_month'], '—')}'
+          '${fromMeter ? ' · measured by your meter' : ''}',
           style: ts(12, color: C.muted),
         ),
-        const SizedBox(height: S.x6),
-        const SectionTitle('Your solar savings'),
-        const SizedBox(height: S.x3),
-        IntrinsicHeight(
-          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Expanded(child: _Saving('Saved today', formatPhp(numOr(b['savings_today_php'])))),
-            const SizedBox(width: S.x2),
-            Expanded(child: _Saving('Saved this month', _php(b['savings_month_php']))),
-          ]),
-        ),
+        if (setup != 'solar') ...[
+          const SizedBox(height: S.x3),
+          const MeralcoLevelCard(),
+        ],
+        if (solar) ...[
+          const SizedBox(height: S.x6),
+          const SectionTitle('Your solar savings'),
+          const SizedBox(height: S.x3),
+          IntrinsicHeight(
+            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Expanded(child: _Saving('Saved today', formatPhp(numOr(b['savings_today_php'])))),
+              const SizedBox(width: S.x2),
+              Expanded(child: _Saving('Saved this month', _php(b['savings_month_php']))),
+            ]),
+          ),
+        ],
         const SizedBox(height: S.x3),
         SCard(
           padding: const EdgeInsets.fromLTRB(S.x4, S.x4, S.x4, S.x3),
@@ -131,7 +151,7 @@ class _BillBody extends StatelessWidget {
           ComingMonthsCard(projection!),
         ],
         const SizedBox(height: S.x3),
-        _Tip(advice: advice),
+        _Tip(advice: advice, solar: solar),
         if (upgrade != null) ...[
           const SizedBox(height: S.x6),
           SystemCheckCard(upgrade!),   // above kFabClearance, so the floating Mira button never covers it
@@ -142,8 +162,9 @@ class _BillBody extends StatelessWidget {
 }
 
 class _Tip extends StatelessWidget {
-  const _Tip({required this.advice});
-  final String advice; // from /api/outlook; empty → the general daytime-use tip
+  const _Tip({required this.advice, this.solar = true});
+  final String advice; // from /api/outlook; empty → the general tip
+  final bool solar; // false: a home without solar gets an evening-use tip instead of the daytime-sun one
 
   @override
   Widget build(BuildContext context) => SCard(
@@ -167,6 +188,13 @@ class _Tip extends StatelessWidget {
               const SizedBox(height: S.x1),
               if (advice.isNotEmpty)
                 Text(advice, style: ts(13, height: 1.45))
+              else if (!solar)
+                Text.rich(TextSpan(style: ts(13, height: 1.45), children: [
+                  const TextSpan(text: 'Set the aircon to '),
+                  TextSpan(text: '25°C', style: ts(13, w: FontWeight.w700)),
+                  const TextSpan(text: ' with a timer, and unplug chargers and appliances on standby: '
+                      'the evening hours and the always-on load are where most homes can cut their bill.'),
+                ]))
               else
                 Text.rich(TextSpan(style: ts(13, height: 1.45), children: [
                   const TextSpan(text: 'Running your washing machine or water pump between '),

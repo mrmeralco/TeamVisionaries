@@ -4,7 +4,7 @@ import re
 
 MONEY = re.compile(r"(?:₱|PHP|pesos?)\s*[\d,.]+|[\d,.]+\s*pesos?", re.I)
 ROLES = {
-    "saved": r"\b(?:natipid|savings|saved)\b",
+    "saved": r"\b(?:natipid|tipid|savings|saved)\b",   # "tantiyang tipid" (upgrade / solar plan); not "makatipid"
     "cost": r"\b(?:nagastos|ginastos|gastos|spent|cost)\b",
     "forecast": r"\b(?:forecast|inaasahang|projected)\b",
 }
@@ -35,8 +35,8 @@ def problems(reply, fact_ids, facts, numbers_in, matches):
         for role in roles:
             allowed = [v for f in cited if money_role(f.id) == role
                        for v in (f.values[:3] if role == "forecast" else f.values[:1])]
-            # System-check facts hold both: savings at values[0], installed cost at values[1].
-            upgrades = [f for f in cited if f.id.startswith("upgrade.") and len(f.values) >= 2]
+            # System-check and solar-plan facts hold both: savings at values[0], installed cost at values[1].
+            upgrades = [f for f in cited if f.id.startswith(("upgrade.", "solar_plan.")) and len(f.values) >= 2]
             allowed += [f.values[0] for f in upgrades if role == "saved"] + [f.values[1] for f in upgrades if role == "cost"]
             if any(not matches(v, decimals, allowed) for _, v, decimals in amounts):
                 errors.append(f"money meaning mismatch ({role}): {clause}")

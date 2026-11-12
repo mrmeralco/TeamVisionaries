@@ -94,6 +94,32 @@ class UpgradeMock extends StateMock {
       result ?? (throw TimeoutException('no system check'));
 }
 
+/// GET /api/tips returns [result] (the example when not given), or fails when [fail]; counts the calls.
+class TipsMock extends StateMock {
+  TipsMock({this.result, this.fail = false, super.live});
+  final Map<String, dynamic>? result;
+  final bool fail;
+  int calls = 0;
+  @override
+  Future<Map<String, dynamic>> getTips() async {
+    calls++;
+    if (fail) throw TimeoutException('no tips');
+    return result ?? example('tips');
+  }
+}
+
+/// GET /api/household returns [result] (the example when not given), or fails when [fail].
+class HouseholdMock extends StateMock {
+  HouseholdMock({this.result, this.fail = false});
+  final Map<String, dynamic>? result;
+  final bool fail;
+  @override
+  Future<Map<String, dynamic>> getHousehold() async {
+    if (fail) throw TimeoutException('no household');
+    return result ?? example('household');
+  }
+}
+
 /// An out-of-scope refusal: no facts, so no sources (and an older server that never sends them).
 class NoSourcesChat extends StateMock {
   @override
@@ -305,6 +331,121 @@ void main() {
       await pumpApp(t, api: StateMock(live: live));
       expect(find.text('Wala pang reading mula sa device.'), findsOneWidget);
       expect(t.takeException(), isNull);
+    });
+  });
+
+  group('Your household on Home', () {
+    const tall = Size(393, 3600);
+
+    testWidgets('who is home now, a possible new appliance, and the usual weekday', (t) async {
+      await pumpApp(t, api: HouseholdMock(), size: tall);
+      final ex = example('household');
+      expect(find.text('Your household'), findsOneWidget);
+      expect(find.text('AT HOME NOW'), findsOneWidget);
+      expect(find.text('Probably no one home'), findsOneWidget);
+      expect(find.text(ex['now']['text'] as String), findsOneWidget);
+      expect(find.text('Unusual for this hour'), findsNothing);
+      // New appliance: +1.1 kW 9PM–2AM since Nov 7, with the backend's sentence and the bill impact.
+      expect(find.text('NEW APPLIANCE?'), findsOneWidget);
+      expect(find.text('+1.1 kW, 9PM–2AM since Nov 7'), findsOneWidget);
+      expect(find.text((ex['new_loads'] as List).first['text'] as String), findsOneWidget);
+      expect(find.text('Adds up to ₱2,485 a month'), findsOneWidget);
+      // Routine.
+      expect(find.text('Wala sa bahay tuwing weekday'), findsOneWidget);
+      expect(find.text('A usual weekday'), findsOneWidget);
+      for (final chip in ['Up  7AM', 'Out  9AM–6PM', 'Lights out  11PM', 'Busiest  9PM', 'Always on  280 W']) {
+        expect(find.textContaining(chip, findRichText: true), findsOneWidget, reason: chip);
+      }
+      expect(find.text('Always-on use is 37.8% of your home’s use: up to ₱3,029 a month.'), findsOneWidget);
+    });
+
+    testWidgets('someone up at an unusual hour is flagged; nothing new, no routine yet', (t) async {
+      await pumpApp(t, size: tall, api: HouseholdMock(result: {
+        ...example('household'),
+        'now': {'state': 'active', 'likely_home': true, 'load_w': 1200, 'usual_home_pct': 0, 'unusual': true,
+                'next_active_ts': null, 'text': 'May gumagamit ng kuryente ngayon (1.2 kW): may tao sa bahay.'},
+        'confidence': 'none', 'baseload': null, 'routine': {'weekday': null, 'weekend': null},
+        'archetype': {'id': 'unknown', 'label': 'Inaaral pa ang routine ninyo', 'description': 'Kailangan pa ng ilang araw.'},
+        'traits': <Object>[], 'new_loads': <Object>[],
+      }));
+      expect(find.text('Someone is home'), findsOneWidget);
+      expect(find.text('Unusual for this hour'), findsOneWidget);
+      expect(find.text('NEW APPLIANCE?'), findsNothing);
+      expect(find.text('Inaaral pa ang routine ninyo'), findsOneWidget);
+      expect(find.text('A usual weekday'), findsNothing);
+    });
+
+    testWidgets('a failed household request just hides the section', (t) async {
+      await pumpApp(t, api: HouseholdMock(fail: true), size: tall);
+      expect(find.text('Your household'), findsNothing);
+      expect(find.text('Yesterday’s summary'), findsOneWidget);
+    });
+  });
+
+  group('Solar tips on Home', () {
+    const tall = Size(393, 3000);
+
+    testWidgets('CO₂ avoided this month, then the first tips with their numbers; show more / fewer', (t) async {
+      await pumpApp(t, api: TipsMock(), size: tall);
+      final ex = example('tips');
+      final tips = (ex['tips'] as List).cast<Map<String, dynamic>>();
+      expect(find.text('Solar tips'), findsOneWidget);
+      expect(find.text('Avoided this month'), findsOneWidget);
+      expect(find.text('151'), findsOneWidget);                                  // impact.co2_avoided_kg
+      expect(find.text('213 kWh of clean solar · 76.5% of your home ran on the sun'), findsOneWidget);
+      expect(find.text('Like 7 trees growing for a year'), findsOneWidget);
+      for (final tip in tips.take(3)) {
+        expect(find.text(tip['title'] as String), findsOneWidget);
+        expect(find.text(tip['body'] as String), findsOneWidget);
+      }
+      expect(find.text('TODAY'), findsOneWidget);
+      expect(find.text('HABIT'), findsNWidgets(2));
+      expect(find.textContaining('Solar sent to grid  4.4 kWh/day', findRichText: true), findsOneWidget);
+      expect(find.text('Saves up to ₱1,672 a month'), findsOneWidget);
+      // The 4th (tip of the day) waits behind "Show 1 more tip".
+      expect(find.text(tips[3]['title'] as String), findsNothing);
+      await t.ensureVisible(find.text('Show 1 more tip'));
+      await t.tap(find.text('Show 1 more tip'));
+      await t.pumpAndSettle();
+      expect(find.text(tips[3]['title'] as String), findsOneWidget);
+      expect(find.text('TIP OF THE DAY'), findsOneWidget);
+      await t.tap(find.text('Show fewer tips'));
+      await t.pumpAndSettle();
+      expect(find.text(tips[3]['title'] as String), findsNothing);
+    });
+
+    testWidgets('a "right now" tip and no impact yet (no solar this month)', (t) async {
+      await pumpApp(t, size: tall, api: TipsMock(result: {
+        ...example('tips'),
+        'impact': null,
+        'tips': [
+          {'id': 'surplus_now', 'kind': 'now', 'priority': 1, 'title': 'Sobra ang araw ngayon: gamitin na',
+           'body': 'Gumagawa ang panels mo ng 3.2 kW pero 900 W lang ang gamit ng bahay.',
+           'evidence': [{'label': 'Solar now', 'value': '3.2 kW'}], 'savings_php_month': null},
+        ],
+      }));
+      expect(find.text('RIGHT NOW'), findsOneWidget);
+      expect(find.text('Sobra ang araw ngayon: gamitin na'), findsOneWidget);
+      expect(find.text('Avoided this month'), findsNothing);
+      expect(find.textContaining('more tip'), findsNothing);
+    });
+
+    testWidgets('a failed tips request just hides the section', (t) async {
+      await pumpApp(t, api: TipsMock(fail: true), size: tall);
+      expect(find.text('Solar tips'), findsNothing);
+      expect(find.text('Yesterday’s summary'), findsOneWidget); // the rest of Home still shows
+    });
+
+    testWidgets('tips follow the house: refetched when the live state changes', (t) async {
+      final api = TipsMock();
+      await pumpApp(t, api: api, size: tall);
+      final before = api.calls;
+      api.push({'type': 'telemetry', 'data': example('live')}); // same state: no refetch
+      await t.pumpAndSettle();
+      expect(api.calls, before);
+      api.push({'type': 'telemetry', 'data': {...example('live'), 'state': 'grid'}});
+      await t.pumpAndSettle();
+      expect(api.calls, before + 1);
     });
   });
 

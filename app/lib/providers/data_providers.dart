@@ -29,6 +29,31 @@ final outlookProvider = FutureProvider<Json>((ref) => ref.watch(apiServiceProvid
 /// GET /api/upgrade (system check: recommendations from the household's last 30 days)
 final upgradeProvider = FutureProvider<Json>((ref) => ref.watch(apiServiceProvider).getUpgrade());
 
+/// GET /api/tips (solar tips: right now, today, habits; this month's CO₂ avoided)
+final tipsProvider = FutureProvider<Json>((ref) => ref.watch(apiServiceProvider).getTips());
+
+/// GET /api/household (routine + is anyone home now, from home use; new appliance-sized loads)
+final householdProvider = FutureProvider<Json>((ref) => ref.watch(apiServiceProvider).getHousehold());
+
+/// GET /api/solar-plan (no solar yet: suggested size, savings, payback; sponsored slots)
+final solarPlanProvider = FutureProvider<Json>((ref) => ref.watch(apiServiceProvider).getSolarPlan());
+
+/// GET /api/meter (smart meter mode: reading, voltage, usage pattern, Meralco level, insights)
+final meterProvider = FutureProvider<Json>((ref) => ref.watch(apiServiceProvider).getMeter());
+
+/// The household's setup: solar | meter_only | solar_and_meter. Settings decide; the live object (which
+/// carries it too) fills in while settings load; an older server without the field is a solar home.
+final setupProvider = Provider<String>((ref) {
+  final s = ref.watch(serverSettingsProvider).value?['setup'] ?? ref.watch(liveProvider.select((l) => l.live?['setup']));
+  return s is String && const {'solar', 'meter_only', 'solar_and_meter'}.contains(s) ? s : 'solar';
+});
+
+/// False for a home with only a meter: no solar, battery, brownout runtime, solar tips or system check.
+final hasSolarProvider = Provider<bool>((ref) => ref.watch(setupProvider) != 'meter_only');
+
+/// True when the home has a smart/utility meter (meter_only or solar_and_meter).
+final hasMeterProvider = Provider<bool>((ref) => ref.watch(setupProvider) != 'solar');
+
 /// GET /api/summary/daily
 final dailySummaryProvider =
     FutureProvider<Json>((ref) => ref.watch(apiServiceProvider).getDailySummary());
@@ -105,6 +130,17 @@ class SettingsNotifier extends AsyncNotifier<Json> {
     // Rate / battery size feed the bill, brownout runtime and live savings.
     ref.invalidate(billProvider);
     ref.invalidate(brownoutProvider);
+    ref.invalidate(meterProvider);
+    ref.invalidate(solarPlanProvider); // the rate prices the savings; the setup decides if there is a plan
+    if (changes.containsKey('setup')) {
+      // A different household: every number comes from somewhere else now (meter vs inverter).
+      for (final p in [billProjectionProvider, outlookProvider, upgradeProvider, tipsProvider, householdProvider,
+          dailySummaryProvider]) {
+        ref.invalidate(p);
+      }
+      ref.invalidate(energyProvider);
+      ref.invalidate(liveProvider); // reconnect: the first message carries the new setup
+    }
   }
 }
 

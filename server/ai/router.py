@@ -14,7 +14,7 @@ KEYWORDS: dict[str, tuple[str, ...]] = {
     "today": ("ngayong araw", "today", "kanina", "ngayon araw"),
     "yesterday": ("kahapon", "yesterday"),
     "usage": ("gamit", "konsumo", "kumokonsumo", "consumption", "usage", "peak", "oras", "linggo", "week", "pattern",
-              "appliance", "aircon"),
+              "appliance", "aircon", "biglang tumaas", "tumaas ang gamit", "tumaas ang konsumo"),
     "battery": ("battery", "baterya", "charge", "soc", "tatagal", "runtime"),
     "brownout": ("brownout", "blackout", "walang kuryente", "nawalan", "outage", "power interruption"),
     "fault": ("fault", "error", "sira", "problema", "init", "mainit", "temperature", "overheat", "code"),
@@ -22,6 +22,18 @@ KEYWORDS: dict[str, tuple[str, ...]] = {
     # Specific phrases only: "mas malaki ang bill" or "sapat ba ang battery mamaya" are not upgrade questions.
     "upgrade": ("upgrade", "dagdag", "dagdagan", "palakihin", "mas malaking battery", "mas malaking inverter",
                 "mas maraming panel", "system", "sukat ng", "bigger", "add more", "more panels", "more battery"),
+    # Getting solar (app/solar_plan.py; facts exist only for a home without solar).
+    "solar_plan": ("magpa-solar", "magpasolar", "mag-solar", "magsolar", "magpakabit", "magkabit ng solar",
+                   "kumuha ng solar", "install solar", "get solar", "go solar", "solar setup", "solar panel",
+                   "ilang panel", "ilang kw", "kwp", "laki ng solar", "kalaki ang solar", "how big", "how much solar",
+                   "net metering", "magkano ang solar", "presyo ng solar", "kailangan ko ba ng solar", "solar ba",
+                   "sulit ba ang solar", "sulit bang mag", "should i get solar", "worth getting solar"),
+    # Household profile (app/household.py): who's home, the daily routine, always-on use.
+    "household": ("nasa bahay", "may tao", "walang tao", "anyone home", "someone home", "tulog", "gising", "routine",
+                  "umaalis", "umalis", "umuuwi", "uuwi", "standby", "baseload", "laging nakabukas", "occupancy"),
+    # Smart meter (app/meter.py). service.py also adds this topic to bill, savings and usage questions.
+    "meter": ("meter", "metro", "kuntador", "boltahe", "voltage", "volt", "power factor", "frequency", "hz",
+              "basa ng", "reading", "antas", "tier", "level ng"),
     "outlook": ("bukas", "tomorrow", "makalawa", "mamaya", "panahon", "weather", "ulap", "maulap", "ulan", "umuulan",
                 "bagyo", "sisikat", "sikat", "mauubos", "maubos", "mapupuno", "mapuno", "aabot"),
     "now": ("ngayon", "now", "solar", "araw", "panel", "grid", "live"),
@@ -114,22 +126,33 @@ def is_upgrade(message: str) -> bool:
     return _hits(message.lower(), KEYWORDS["upgrade"])
 
 
+def is_solar_plan(message: str) -> bool:
+    """"Magkano kung magpa-solar ako?": a home thinking of getting solar (app/solar_plan.py), not live readings."""
+    return _hits(message.lower(), KEYWORDS["solar_plan"])
+
+
 def select_facts(message, facts):
     if is_projection(message):
         # Only the projection (+ its limits) and an active brownout/fault: the small model mixed this
         # month's bill into "next month" answers when it saw both.
         return [f for f in facts if f.topic == "projection" or f.id in {"brownout.active", "fault.active"}]
+    if is_solar_plan(message) and any(f.topic == "solar_plan" for f in facts):
+        # Only the plan (+ an active brownout/fault). With live meter facts beside it, the small model talked
+        # about stale readings, or refused because the home "has no solar".
+        return [f for f in facts if f.topic == "solar_plan" or f.id in {"brownout.active", "fault.active"}]
     if is_upgrade(message):
         # Only the system check (+ an active brownout/fault, which always comes first). Live readings and the
         # 48 h outlook made the small model talk about "offline ngayon" instead of the upgrade.
-        return [f for f in facts if f.topic == "upgrade" or f.id in {"brownout.active", "fault.active"}]
+        # A home without solar has no system check; its "upgrade" is the solar plan.
+        return [f for f in facts if f.topic in ("upgrade", "solar_plan") or f.id in {"brownout.active", "fault.active"}]
     intent = bill_intent(message)
     if intent in {"comparison", "last_month"}:
         keep = {"bill.last_month_php", "bill.forecast_php", "bill.vs_last_month_pct"} if intent == "comparison" else {"bill.last_month_php"}
         return [f for f in facts if f.id in keep or f.topic in {"now", "brownout", "fault"}]
     if intent not in {"current", "forecast"}:
         if any(f.topic == "bill" for f in facts) and "bakit" in message.lower():
-            return [f for f in facts if f.topic != "usage" or f.id == "usage.peak_hours"]
+            # Peak hours and a possible new appliance explain a high bill; the rest of usage is noise here.
+            return [f for f in facts if f.topic != "usage" or f.id in {"usage.peak_hours", "household.new_load"}]
         return facts
     keep = {"bill.month_to_date_php" if intent == "current" else "bill.forecast_php", "now.online", "now.status"}
     return [f for f in facts if f.id in keep or f.topic in {"brownout", "fault"}]

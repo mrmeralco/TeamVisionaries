@@ -1,0 +1,77 @@
+{
+  "generated_ts": 1762912800,
+  "best_window": {
+    "start_ts": 1762912800,
+    "end_ts": 1762923600,
+    "surplus_kwh": 5.9,
+    "day": "today"
+  },
+  "impact": {
+    "month": "2025-11",
+    "solar_kwh": 212.7,
+    "clean_share_pct": 76.5,
+    "co2_avoided_kg": 151.0,
+    "trees": 7
+  },
+  "tips": [
+    {
+      "id": "best_window",
+      "kind": "today",
+      "priority": 1,
+      "title": "Pinakamaaraw ngayon: 10AM–1PM",
+      "body": "Mga 5.9 kWh na sobrang solar ang inaasahan ngayon, 10AM hanggang 1PM. Doon ilagay ang washing machine, plantsa, rice cooker at pag-charge para araw ang gamitin, hindi grid o battery.",
+      "evidence": [
+        {
+          "label": "Extra solar",
+          "value": "5.9 kWh"
+        }
+      ],
+      "savings_php_month": null
+    },
+    {
+      "id": "shift_to_day",
+      "kind": "habit",
+      "priority": 2,
+      "title": "Ilipat sa tanghali ang mabibigat na gawain",
+      "body": "Araw-araw, mga 4.4 kWh ng solar mo ang napupunta lang sa grid, habang 3.7 kWh ang binibili mo tuwing gabi. Ang laba, plantsa, pag-init ng tubig at pag-charge na nailipat sa tanghali ay makakatipid ng hanggang ₱1,672 kada buwan.",
+      "evidence": [
+        {
+          "label": "Solar sent to grid",
+          "value": "4.4 kWh/day"
+        },
+        {
+          "label": "Grid at night",
+          "value": "3.7 kWh/day"
+        }
+      ],
+      "savings_php_month": 1672
+    },
+    {
+      "id": "precool",
+      "kind": "habit",
+      "priority": 3,
+      "title": "Palamigin ang bahay habang may araw",
+      "body": "Pinakamalakas ang gamit mo mula 6PM hanggang 10PM (mga 1.6 kWh kada oras), pero 0.3 kWh lang sa tanghali. Buksan ang aircon sa hapon (2PM hanggang 5PM) habang araw ang nagpapagana, isara ang kurtina, at mas mahina na ang kailangan sa gabi.",
+      "evidence": [
+        {
+          "label": "Evening use",
+          "value": "1.6 kWh/h"
+        },
+        {
+          "label": "Midday use",
+          "value": "0.3 kWh/h"
+        }
+      ],
+      "savings_php_month": null
+    },
+    {
+      "id": "general",
+      "kind": "general",
+      "priority": 4,
+      "title": "I-charge sa tanghali",
+      "body": "I-charge ang e-bike, power bank, laptop at cellphone sa tanghali, hindi sa gabi. Diretso galing sa araw, at may natitira pang battery para sa gabi.",
+      "evidence": [],
+      "savings_php_month": null
+    }
+  ]
+}

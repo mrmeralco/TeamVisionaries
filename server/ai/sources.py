@@ -58,6 +58,22 @@ META: dict[str, tuple[str, str, str, str | None]] = {
     "upgrade.inverter": ("Inverter upgrade", ADVICE, "Last 30 days", "bill"),
     "upgrade.usage": ("Rising household use", ADVICE, "Last 7 days", "bill"),
     "upgrade.not_needed": ("Not needed now", ADVICE, "Last 30 days", "bill"),
+    "solar_plan.recommended": ("Suggested solar size", ADVICE, "Last 30 days", "home"),
+    "solar_plan.alternative": ("Other solar option", ADVICE, "Last 30 days", "home"),
+    "solar_plan.limits": ("How the size is estimated", ADVICE, "Average PH day", "home"),
+    "solar_plan.not_ready": ("Solar plan", ADVICE, "Needs 7 days of data", "home"),
+    "household.now": ("Someone home?", LIVE, "Last 30 minutes", "home"),
+    "household.routine": ("Household routine", HISTORY, "Last 28 days", "home"),
+    "household.baseload": ("Always-on use", HISTORY, "Last 28 days", "home"),
+    "household.new_load": ("Possible new appliance", HISTORY, "Last 7 days", "home"),
+    "household.new_load2": ("Possible new appliance", HISTORY, "Last 7 days", "home"),
+    "now.voltage_v": ("Voltage now", LIVE, "Right now", "home"),
+    "now.power_factor": ("Power factor now", LIVE, "Right now", "home"),
+    "meter.tier": ("Meralco level", FORECAST, "This month", "bill"),
+    "meter.base_load": ("Always-on use", HISTORY, "Last 7 days", "energy"),
+    "meter.voltage": ("Voltage check", LIVE, "Last 24 hours", "home"),
+    "meter.power_factor": ("Power factor check", LIVE, "Right now", "home"),
+    "meter.reading": ("Meter reading", LIVE, "Right now", "home"),
     "fault.active": ("Inverter health", LIVE, "Right now", "alerts"),
     "alerts.unread": ("Unread alerts", LIVE, "Right now", "alerts"),
 }
@@ -65,7 +81,7 @@ META: dict[str, tuple[str, str, str, str | None]] = {
 DAY_LABELS = {"solar_kwh": "Solar", "load_kwh": "Home use", "grid_kwh": "From grid", "cost_php": "Grid cost",
               "saved_php": "Saved", "self_sufficiency_pct": "Not from grid"}
 PERIODS = {"today": "Today", "yesterday": "Yesterday", "week": "Last 7 days"}
-HIDDEN = {"user.name"}  # used for tone only; not data the user needs to check
+HIDDEN = {"user.name", "setup.meter_only"}  # used for tone only; not data the user needs to check
 
 
 def meta(fact_id: str) -> tuple[str, str, str, str | None]:

@@ -1,0 +1,165 @@
+{
+  "generated_ts": 1794489393,
+  "setup": "meter_only",
+  "online": true,
+  "reading": {
+    "ts": 1794489390,
+    "meter_type": "sdm120",
+    "voltage_v": 228.4,
+    "current_a": 7.22,
+    "power_w": 1452.0,
+    "apparent_va": 1649.0,
+    "reactive_var": 783.0,
+    "pf": 0.88,
+    "freq_hz": 60.01,
+    "import_kwh": 2414.17,
+    "export_kwh": 12.0,
+    "grid_on": true
+  },
+  "quality": {
+    "nominal_v": 230.0,
+    "low_limit_v": 207.0,
+    "high_limit_v": 253.0,
+    "voltage_status": "normal",
+    "min_v_24h": 212.4,
+    "avg_v_24h": 228.7,
+    "max_v_24h": 232.0,
+    "out_of_range_pct_24h": 0.0,
+    "pf_status": "fair"
+  },
+  "usage": {
+    "days": 7,
+    "import_kwh_day": 17.93,
+    "base_w": 259,
+    "peak_w": 2222,
+    "peak_hours": [
+      20,
+      21,
+      22
+    ],
+    "night_share_pct": 64,
+    "weekday_kwh_day": 16.33,
+    "weekend_kwh_day": 21.92,
+    "by_hour_kwh": [
+      0.295,
+      0.303,
+      0.305,
+      0.298,
+      0.302,
+      0.306,
+      0.296,
+      0.897,
+      0.894,
+      0.3,
+      0.526,
+      0.531,
+      0.529,
+      0.528,
+      0.528,
+      0.529,
+      0.524,
+      0.305,
+      1.886,
+      1.875,
+      1.893,
+      1.891,
+      1.888,
+      0.297
+    ]
+  },
+  "tier": {
+    "month": "2026-11",
+    "days_left": 19,
+    "month_to_date_kwh": 208.37,
+    "forecast_kwh": 532.2,
+    "level_min_kwh": 400.0,
+    "level_max_kwh": null,
+    "rate_php_per_kwh": 14.13,
+    "kwh_above_lower_level": 132.2,
+    "save_php_at_lower_level": 2096,
+    "kwh_to_next_level": null,
+    "next_level_rate_php_per_kwh": null
+  },
+  "insights": [
+    {
+      "id": "tier_drop",
+      "tone": "info",
+      "title": "Kaya pang bumaba sa mas murang antas",
+      "body": "Mga 532 kWh ang inaasahang gamit mo ngayong buwan, 132 kWh lampas sa 400 kWh. Kung mababawasan mo ito ng mga 7.0 kWh kada araw sa natitirang 19 araw, mas murang antas ng Meralco ang sisingilin sa buong buwan: mga ₱2,096 na tipid.",
+      "evidence": [
+        {
+          "label": "Forecast use",
+          "value": "532 kWh"
+        },
+        {
+          "label": "Cheaper level",
+          "value": "up to 400 kWh"
+        },
+        {
+          "label": "Possible savings",
+          "value": "₱2,096"
+        }
+      ]
+    },
+    {
+      "id": "peak_hours",
+      "tone": "info",
+      "title": "Pinakamalakas tuwing 8PM, 9PM at 10PM",
+      "body": "Sa huling 7 araw, pinakamarami ang ginagamit ng bahay mo tuwing 8PM, 9PM at 10PM, at 64% nito ay sa gabi (6PM–6AM). Doon unang magtipid: aircon sa 25°C, at isang kuwarto lang ang palamigin kung kaya.",
+      "evidence": [
+        {
+          "label": "Peak hours",
+          "value": "8PM, 9PM at 10PM"
+        },
+        {
+          "label": "At night",
+          "value": "64%"
+        }
+      ]
+    },
+    {
+      "id": "base_load",
+      "tone": "info",
+      "title": "Laging bukas: mga 259 W",
+      "body": "Kahit tulog ang lahat, mga 259 W ang ginagamit ng bahay mo (ref, router, mga naka-standby). Mga 186 kWh iyan kada buwan, mga ₱2,635. Hugutin ang mga charger at appliance na hindi ginagamit.",
+      "evidence": [
+        {
+          "label": "Always on",
+          "value": "259 W"
+        },
+        {
+          "label": "Per month",
+          "value": "186 kWh"
+        }
+      ]
+    },
+    {
+      "id": "voltage",
+      "tone": "good",
+      "title": "Normal ang boltahe",
+      "body": "228 V ang boltahe ngayon, pasok sa normal na 207–253 V.",
+      "evidence": [
+        {
+          "label": "Voltage now",
+          "value": "228 V"
+        },
+        {
+          "label": "Normal range",
+          "value": "207–253 V"
+        }
+      ]
+    },
+    {
+      "id": "reading",
+      "tone": "info",
+      "title": "Basa ng meter: 2,414.2 kWh",
+      "body": "2,414.2 kWh na ang nasukat ng smart meter mo mula nang ikabit ito. Ihambing ang pagtaas nito sa kWh na nakasulat sa Meralco bill mo.",
+      "evidence": [
+        {
+          "label": "Meter reading",
+          "value": "2,414.2 kWh"
+        }
+      ]
+    }
+  ]
+}

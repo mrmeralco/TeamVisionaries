@@ -31,8 +31,14 @@ class LiveState {
   String? get state => live?['state'] as String?;
   Map<String, dynamic>? get device => live?['device'] as Map<String, dynamic>?;
 
-  /// Null on a brand-new DB: show the friendly empty state, not an error.
+  /// Null on a brand-new DB: show the friendly empty state, not an error. Always null for a meter-only home.
   Map<String, dynamic>? get telemetry => live?['telemetry'] as Map<String, dynamic>?;
+
+  /// Latest smart/utility meter reading (Contract B meter); null for a solar-only home.
+  Map<String, dynamic>? get meter => live?['meter'] as Map<String, dynamic>?;
+
+  /// When the newest reading was taken: inverter telemetry, or the meter in a meter-only home.
+  int? get readingTs => ((telemetry ?? meter)?['ts'] as num?)?.toInt();
 
   bool get isConnected => link == LinkStatus.connected;
 

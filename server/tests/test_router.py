@@ -25,6 +25,11 @@ from ai.router import topics_for
     ("Bakit mas malaki ang bill ko?", {"bill"}, {"upgrade"}),
     ("Sapat ba ang battery mamaya?", {"battery"}, {"upgrade"}),
     ("May problema ba ang inverter ko?", {"fault"}, {"upgrade"}),
+    # Household profile: who's home and the routine; a sudden rise is a usage question (new appliance?).
+    ("May tao ba sa bahay ngayon?", {"household"}, {"bill"}),
+    ("Anong oras kami karaniwang umaalis?", {"household"}, {"bill"}),
+    ("Bakit biglang tumaas ang gamit namin?", {"usage"}, set()),
+    ("Kumusta ang solar ko?", {"now"}, {"household"}),
     # Vague: broad overview.
     ("Kumusta?", {"today", "bill", "savings"}, set()),
 ])

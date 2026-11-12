@@ -1,4 +1,4 @@
-// Home (Figma "Home"): live status from /ws/live, readings, saved today, est. bill, yesterday's recap.
+// Home (Figma "Home"): live status from /ws/live, readings, saved today, est. bill, solar tips, household, yesterday's recap.
 // States (TESTING.md): solar | battery | grid | brownout | fault | offline, and empty (telemetry null).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,7 +13,11 @@ import '../../providers/live_providers.dart';
 import '../../services/live_connection.dart';
 import '../alerts/alert_detail.dart';
 import '../common/ui.dart';
+import '../meter/meter_cards.dart';
 import 'house_scene.dart';
+import 'household_card.dart';
+import 'solar_plan_card.dart';
+import 'solar_tips.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -31,6 +35,10 @@ class HomeScreen extends ConsumerWidget {
     final bill = ref.watch(billProvider).value;
     final summary = ref.watch(dailySummaryProvider);
     final name = str(ref.watch(serverSettingsProvider).value?['user_name']);
+    final setup = ref.watch(setupProvider);
+    final hasSolar = setup != 'meter_only';
+    // A meter-only home has nothing "saved": the first money card is what the house used today instead.
+    final today = hasSolar ? null : ref.watch(energyProvider(('day', 0))).value;
     final data = live.live;
 
     Future<void> refresh() async {
@@ -38,6 +46,11 @@ class HomeScreen extends ConsumerWidget {
       ref.invalidate(serverSettingsProvider);
       ref.invalidate(brownoutProvider);
       ref.invalidate(outlookProvider);
+      ref.invalidate(tipsProvider);
+      ref.invalidate(householdProvider);
+      if (!hasSolar) ref.invalidate(solarPlanProvider);
+      ref.invalidate(meterProvider);
+      if (!hasSolar) ref.invalidate(energyProvider(('day', 0)));
       await ref.refresh(dailySummaryProvider.future).then((_) {}, onError: (_) {});
     }
 
@@ -103,83 +116,119 @@ class HomeScreen extends ConsumerWidget {
                     EnterOnce(
                       id: 'home-hero',
                       delay: const Duration(milliseconds: 80),
-                      child: HouseScene(
-                        telemetry: mapOf(data?['telemetry']),
-                        offline: str(data?['state'], 'offline') == 'offline' || live.telemetry == null,
-                      ),
+                      child: hasSolar
+                          ? HouseScene(
+                              telemetry: mapOf(data?['telemetry']),
+                              offline: str(data?['state'], 'offline') == 'offline' || live.telemetry == null,
+                            )
+                          // No solar, battery or inverter to label: just the house.
+                          : AspectRatio(
+                              aspectRatio: kSceneW / kSceneH,
+                              child: ExcludeSemantics(child: svg('house-hero')),
+                            ),
                     ),
                   ],
                 ),
               ),
             ),
-                if (data == null && live.link == LinkStatus.waiting)
-                  ErrorBox(onRetry: () => ref.invalidate(liveProvider), error: live.error)
-                else if (data == null)
-                  const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else ...[
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
-                    child: Freshness(readingTs: intOrNull(live.telemetry?['ts']), link: live.link),
-                  ),
-                  _StateBanner(live: live),
-                  if (inBrownout) advisor,
-                  if (live.telemetry == null) const _NoReadings(),
-                  if (live.telemetry != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
-                      child: _DeviceHealth(telemetry: live.telemetry!, device: live.device),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
-                    child: EnterOnce(
-                      id: 'home-stats',
-                      delay: const Duration(milliseconds: 160),
-                      child: SCard(
-                        padding: EdgeInsets.zero,
-                        child: Column(
-                          children: [
-                            _Row(
-                              Icons.savings_outlined,
-                              'Saved today',
-                              formatPhp(numOr(data['saved_today_php'])),
-                              caption: rate == null ? null : 'At ${formatPhp(rate)}/kWh',
-                            ),
-                            const Divider(height: 1, thickness: 0.5, indent: 68, color: C.divider),
-                            _Row(
-                              Icons.receipt_long_outlined,
-                              'Est. monthly bill',
-                              forecast is num ? formatPhp(forecast, whole: true) : '—',
-                              caption: 'See bill details',
-                              onTap: () => context.go(Routes.bill),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (!inBrownout) advisor,
-                ],
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(S.gutter, S.x6, S.gutter, 0),
-                  child: SectionTitle('Yesterday’s summary'),
-                ),
+            if (data == null && live.link == LinkStatus.waiting)
+              ErrorBox(onRetry: () => ref.invalidate(liveProvider), error: live.error)
+            else if (data == null)
+              const Padding(
+                padding: EdgeInsets.all(32),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
+                child: Freshness(readingTs: live.readingTs, link: live.link),
+              ),
+              _StateBanner(live: live),
+              if (inBrownout) advisor,
+              if (hasSolar && live.telemetry == null) const _NoReadings(),
+              // A meter-only home has no house labels to read: its meter tiles sit under the house.
+              if (!hasSolar)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, kFabClearance),
-                  child: AsyncBody(
-                    value: summary,
-                    onRetry: () => ref.invalidate(dailySummaryProvider),
-                    data: (s) => _Summary(
-                      s,
-                      onAsk: () {
-                        ref.read(chatProvider.notifier).send('Kumusta ang solar at kuryente ko kahapon?');
-                        context.push(Routes.ask);
-                      },
+                  padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
+                  child: EnterOnce(
+                    id: 'home-meter-stats',
+                    delay: const Duration(milliseconds: 160),
+                    child: _MeterStats(meter: live.meter),
+                  ),
+                ),
+              if (live.telemetry != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
+                  child: _DeviceHealth(telemetry: live.telemetry!, device: live.device),
+                ),
+              if (setup == 'solar_and_meter')
+                const Padding(padding: EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0), child: MeterNowCard()),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
+                child: EnterOnce(
+                  id: 'home-stats',
+                  delay: const Duration(milliseconds: 160),
+                  child: SCard(
+                    padding: EdgeInsets.zero,
+                    child: Column(
+                      children: [
+                        if (hasSolar)
+                          _Row(
+                            Icons.savings_outlined,
+                            'Saved today',
+                            formatPhp(numOr(data['saved_today_php'])),
+                            caption: rate == null ? null : 'At ${formatPhp(rate)}/kWh',
+                          )
+                        else
+                          // A meter-only home has nothing "saved": what the house used today instead.
+                          _Row(
+                            Icons.electric_meter_outlined,
+                            'Used today',
+                            today == null ? '—' : '${kwhNum(mapOf(today['totals'])['grid_import_kwh'])} kWh',
+                            caption: 'See your usage',
+                            onTap: () => context.go(Routes.energy),
+                          ),
+                        const Divider(height: 1, thickness: 0.5, indent: 68, color: C.divider),
+                        _Row(
+                          Icons.receipt_long_outlined,
+                          'Est. monthly bill',
+                          forecast is num ? formatPhp(forecast, whole: true) : '—',
+                          caption: 'See bill details',
+                          onTap: () => context.go(Routes.bill),
+                        ),
+                      ],
                     ),
                   ),
                 ),
+              ),
+              if (!inBrownout) advisor,
+              if (hasSolar) const SolarTips(),
+              if (setup != 'solar') MeterInsights(skip: hasSolar ? const {'reading'} : const {}),
+              const HouseholdCard(),
+              if (!hasSolar) const SolarPlanCard(),
+            ],
+            const Padding(
+              padding: EdgeInsets.fromLTRB(S.gutter, S.x6, S.gutter, 0),
+              child: SectionTitle('Yesterday’s summary'),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, kFabClearance),
+              child: AsyncBody(
+                value: summary,
+                onRetry: () => ref.invalidate(dailySummaryProvider),
+                data: (s) => _Summary(
+                  s,
+                  onAsk: () {
+                    ref
+                        .read(chatProvider.notifier)
+                        .send(
+                          hasSolar ? 'Kumusta ang solar at kuryente ko kahapon?' : 'Kumusta ang kuryente ko kahapon?',
+                        );
+                    context.push(Routes.ask);
+                  },
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -259,22 +308,25 @@ class _StateBanner extends ConsumerWidget {
         minHeight: kMinTap,
         padding: const EdgeInsets.all(S.x3),
         child: Row(
-              children: [
-                Icon(icon, color: color),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: ts(13, w: FontWeight.w700, color: color == C.muted ? C.ink : color)),
-                      const SizedBox(height: 2),
-                      Text(sub, style: ts(12)),
-                    ],
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: ts(13, w: FontWeight.w700, color: color == C.muted ? C.ink : color),
                   ),
-                ),
-                if (onTap != null) Icon(Icons.chevron_right_rounded, color: color),
-              ],
+                  const SizedBox(height: 2),
+                  Text(sub, style: ts(12)),
+                ],
+              ),
             ),
+            if (onTap != null) Icon(Icons.chevron_right_rounded, color: color),
+          ],
+        ),
       ),
     );
   }
@@ -296,9 +348,11 @@ class _BrownoutAdvisor extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final live = ref.watch(liveProvider);
     final on = active(live);
-    ref.listen(liveProvider.select((s) => s.telemetry?['ts']), (prev, next) {
+    ref.listen(liveProvider.select((s) => s.readingTs), (prev, next) {
       if (prev != null && next != prev && active(ref.read(liveProvider))) ref.invalidate(brownoutProvider);
     });
+    // No battery in a meter-only home: nothing to say while the grid is on, and no runtime during a brownout.
+    if (!ref.watch(hasSolarProvider)) return on ? const _MeterBrownout() : const SizedBox.shrink();
     final b = ref.watch(brownoutProvider).value;
     final outlook = ref.watch(outlookProvider).value;
     final ifHits = outlook?['brownout'] is Map ? mapOf(outlook!['brownout']) : null;
@@ -337,17 +391,24 @@ class _BrownoutAdvisor extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: R.control),
-                      child: Icon(on ? Icons.power_off_rounded : Icons.power_rounded, size: 18, color: color),
-                    ),
-                    const SizedBox(width: S.x3),
-                    Expanded(child: Text(title, style: ts(14, w: FontWeight.w700, color: on ? C.orangeDeep : C.ink))),
-                    Icon(Icons.chevron_right_rounded, color: color),
-                  ]),
+                  Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: R.control),
+                        child: Icon(on ? Icons.power_off_rounded : Icons.power_rounded, size: 18, color: color),
+                      ),
+                      const SizedBox(width: S.x3),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: ts(14, w: FontWeight.w700, color: on ? C.orangeDeep : C.ink),
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded, color: color),
+                    ],
+                  ),
                   const SizedBox(height: S.x3),
                   Reading(value, 'hrs', size: 28, valueColor: on ? C.orangeDeep : C.ink),
                   const SizedBox(height: S.x1),
@@ -356,16 +417,19 @@ class _BrownoutAdvisor extends ConsumerWidget {
                     const SizedBox(height: S.x3),
                     Text(advice, maxLines: 3, overflow: TextOverflow.ellipsis, style: ts(13, height: 1.45)),
                   ],
-                  if (facts.isNotEmpty) ...[
-                    const SizedBox(height: S.x3),
-                    Text(facts, style: ts(11, color: C.muted)),
-                  ],
+                  if (facts.isNotEmpty) ...[const SizedBox(height: S.x3), Text(facts, style: ts(11, color: C.muted))],
                   const SizedBox(height: S.x3),
-                  Row(mainAxisSize: MainAxisSize.min, children: [
-                    Text('Open Brownout Advisor', style: ts(12, w: FontWeight.w700, color: C.orangeText)),
-                    const SizedBox(width: S.x1),
-                    const Icon(Icons.arrow_forward_rounded, size: 14, color: C.orangeText),
-                  ]),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Open Brownout Advisor',
+                        style: ts(12, w: FontWeight.w700, color: C.orangeText),
+                      ),
+                      const SizedBox(width: S.x1),
+                      const Icon(Icons.arrow_forward_rounded, size: 14, color: C.orangeText),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -376,34 +440,185 @@ class _BrownoutAdvisor extends ConsumerWidget {
   }
 }
 
+/// A meter-only home in a brownout: since when, Mira's advice (protect the appliances), and how often.
+class _MeterBrownout extends ConsumerWidget {
+  const _MeterBrownout();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final b = ref.watch(brownoutProvider).value;
+    final start = intOrNull(b?['start_ts']);
+    final outages = b?['outages_this_month'];
+    final facts = [
+      if (start != null) 'Nagsimula ${formatClock(start)}',
+      if (outages != null) '$outages brownout ngayong buwan',
+    ].join(' · ');
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(S.gutter, S.x6, S.gutter, 0),
+      child: SCard(
+        color: C.orangeDeep.withValues(alpha: 0.08),
+        border: Border.all(color: C.orangeDeep.withValues(alpha: 0.5), width: 0.5),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.power_off_rounded, color: C.orangeDeep),
+                const SizedBox(width: S.x2),
+                Expanded(
+                  child: Text(
+                    'May brownout ngayon',
+                    style: ts(14, w: FontWeight.w700, color: C.orangeDeep),
+                  ),
+                ),
+              ],
+            ),
+            if (str(b?['advice']).isNotEmpty) ...[
+              const SizedBox(height: S.x2),
+              Text(str(b?['advice']), style: ts(13, height: 1.45)),
+            ],
+            if (facts.isNotEmpty) ...[const SizedBox(height: S.x2), Text(facts, style: ts(11, color: C.muted))],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A meter-only home's live tiles: what the house draws from the grid, and the meter's power quality.
+class _MeterStats extends StatelessWidget {
+  const _MeterStats({required this.meter});
+  final Map<String, dynamic>? meter;
+
+  @override
+  Widget build(BuildContext context) {
+    final m = meter;
+    final Widget body;
+    if (m == null) {
+      body = Padding(
+        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 12),
+        child: Column(
+          children: [
+            const Icon(Icons.electric_meter_rounded, color: C.orangeDeep, size: 32),
+            const SizedBox(height: 8),
+            Text(
+              'Wala pang reading mula sa meter.',
+              style: ts(13, w: FontWeight.w700),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Lalabas dito ang gamit mo, boltahe at kuryente kapag naka-on na ang Solaris device.',
+              style: ts(11, color: C.labelOnYellow),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    } else {
+      final on = m['grid_on'] != false;
+      final pf = m['pf'];
+      final amps = m['current_a'];
+      body = TwoCol(
+        gap: S.x2,
+        runGap: S.x2,
+        children: [
+          _Tile(
+            'Home usage',
+            on ? kwNum(m['power_w']) : 'Off',
+            on ? 'kW' : '',
+            note: on ? 'From the grid' : 'Brownout',
+          ),
+          _Tile('Voltage', on ? numOr(m['voltage_v']).round().toString() : '0', 'V'),
+          _Tile('Current', amps is num ? amps.toStringAsFixed(1) : '—', amps is num ? 'A' : ''),
+          _Tile('Power factor', pf is num && on ? pf.toStringAsFixed(2) : '—', ''),
+        ],
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.all(S.x3),
+      decoration: BoxDecoration(
+        color: C.yellow,
+        borderRadius: R.card,
+        boxShadow: const [BoxShadow(color: C.shadow, blurRadius: 4, offset: Offset(0, 2))],
+      ),
+      child: body,
+    );
+  }
+}
+
 /// Shown under the house until the Solaris device sends its first reading.
 class _NoReadings extends StatelessWidget {
   const _NoReadings();
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
-        child: SCard(
-          padding: const EdgeInsets.symmetric(vertical: S.x6, horizontal: S.x3),
-          child: Column(
-            children: [
-              const Icon(Icons.solar_power_rounded, color: C.orangeDeep, size: 32),
-              const SizedBox(height: S.x2),
-              Text('Wala pang reading mula sa device.', style: ts(13, w: FontWeight.w700), textAlign: TextAlign.center),
-              const SizedBox(height: 2),
-              Text(
-                'Lalabas sa bahay ang solar, battery at grid kapag naka-on na ang Solaris device.',
-                style: ts(11, color: C.label),
-                textAlign: TextAlign.center,
-              ),
-            ],
+    padding: const EdgeInsets.fromLTRB(S.gutter, S.x3, S.gutter, 0),
+    child: SCard(
+      padding: const EdgeInsets.symmetric(vertical: S.x6, horizontal: S.x3),
+      child: Column(
+        children: [
+          const Icon(Icons.solar_power_rounded, color: C.orangeDeep, size: 32),
+          const SizedBox(height: S.x2),
+          Text(
+            'Wala pang reading mula sa device.',
+            style: ts(13, w: FontWeight.w700),
+            textAlign: TextAlign.center,
           ),
-        ),
-      );
+          const SizedBox(height: 2),
+          Text(
+            'Lalabas sa bahay ang solar, battery at grid kapag naka-on na ang Solaris device.',
+            style: ts(11, color: C.label),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// One row of the dashboard list, Tesla-style: icon, label, the number, a short caption, and a
 /// chevron when it opens something.
+class _Tile extends StatelessWidget {
+  const _Tile(this.label, this.value, this.unit, {this.note});
+  final String label, value, unit;
+  final String? note;
+
+  @override
+  Widget build(BuildContext context) => Readout(
+    label: label,
+    value: value,
+    unit: unit,
+    note: note,
+    child: Container(
+      constraints: const BoxConstraints(minHeight: 77),
+      padding: const EdgeInsets.fromLTRB(S.x3, S.x3, S.x2, S.x2),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: R.tile,
+        border: Border.all(color: C.tileBorder, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: ts(11, w: FontWeight.w600, color: C.label, spacing: -0.1),
+          ),
+          if (note != null)
+            Text(
+              note!,
+              style: ts(10, w: FontWeight.w700, color: C.orangeText),
+            ),
+          const SizedBox(height: 8),
+          Reading(value, unit, valueColor: C.orangeDeep, unitWeight: FontWeight.w700),
+        ],
+      ),
+    ),
+  );
+}
+
 class _Row extends StatelessWidget {
   const _Row(this.icon, this.label, this.value, {this.caption, this.onTap});
   final IconData icon;
@@ -428,7 +643,10 @@ class _Row extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: ts(12, w: FontWeight.w600, color: C.label)),
+                Text(
+                  label,
+                  style: ts(12, w: FontWeight.w600, color: C.label),
+                ),
                 Text(value, style: ts(18, w: FontWeight.w700, height: 1.3)),
                 if (caption != null)
                   Text(
@@ -498,7 +716,10 @@ class _Summary extends StatelessWidget {
                       ? Text('Wala pang buod para kahapon.', style: ts(13, color: C.muted))
                       : Text.rich(TextSpan(children: _spans(summary))),
                 ),
-                Transform.translate(offset: const Offset(-8, 0), child: LinkButton('Ask Mira about yesterday', onTap: onAsk)),
+                Transform.translate(
+                  offset: const Offset(-8, 0),
+                  child: LinkButton('Ask Mira about yesterday', onTap: onAsk),
+                ),
               ],
             ),
           ),
@@ -516,11 +737,11 @@ class _DeviceHealth extends StatelessWidget {
   final Map<String, dynamic>? device;
 
   static (String, Color) _signal(num? rssi) => switch (rssi) {
-        null => ('—', C.muted),
-        >= -60 => ('Strong', C.green),
-        >= -75 => ('Fair', C.amber),
-        _ => ('Weak', C.red),
-      };
+    null => ('—', C.muted),
+    >= -60 => ('Strong', C.green),
+    >= -75 => ('Fair', C.amber),
+    _ => ('Weak', C.red),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -530,48 +751,59 @@ class _DeviceHealth extends StatelessWidget {
     final (signal, signalColor) = _signal(device?['rssi'] as num?);
 
     Widget item(IconData icon, Color color, String label, String value, {VoidCallback? onTap}) => Expanded(
-          child: Semantics(
-            button: onTap != null,
-            label: '$label: $value',
-            excludeSemantics: true,
-            child: InkWell(
-              borderRadius: R.control,
-              onTap: onTap,
-              child: Container(
-                constraints: const BoxConstraints(minHeight: kMinTap),
-                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-                child: Row(children: [
-                  Icon(icon, size: 16, color: color),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(label, style: ts(10, w: FontWeight.w600, color: C.label)),
-                        Text(value, overflow: TextOverflow.ellipsis, style: ts(11, w: FontWeight.w700, color: color)),
-                      ],
-                    ),
+      child: Semantics(
+        button: onTap != null,
+        label: '$label: $value',
+        excludeSemantics: true,
+        child: InkWell(
+          borderRadius: R.control,
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: kMinTap),
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+            child: Row(
+              children: [
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: ts(10, w: FontWeight.w600, color: C.label),
+                      ),
+                      Text(
+                        value,
+                        overflow: TextOverflow.ellipsis,
+                        style: ts(11, w: FontWeight.w700, color: color),
+                      ),
+                    ],
                   ),
-                ]),
-              ),
+                ),
+              ],
             ),
           ),
-        );
+        ),
+      ),
+    );
 
     return SCard(
       padding: const EdgeInsets.symmetric(horizontal: S.x3, vertical: S.x1),
-      child: Row(children: [
-        item(Icons.thermostat_rounded, tempColor, 'Inverter', temp == null ? '—' : '${temp.round()}°C'),
-        item(
-          fault == 0 ? Icons.check_circle_rounded : Icons.error_rounded,
-          fault == 0 ? C.green : C.red,
-          'Status',
-          fault == 0 ? 'No issues' : 'Fault $fault',
-          onTap: fault == 0 ? null : () => context.go(Routes.alerts),
-        ),
-        item(Icons.wifi_rounded, signalColor, 'Solaris device', signal),
-      ]),
+      child: Row(
+        children: [
+          item(Icons.thermostat_rounded, tempColor, 'Inverter', temp == null ? '—' : '${temp.round()}°C'),
+          item(
+            fault == 0 ? Icons.check_circle_rounded : Icons.error_rounded,
+            fault == 0 ? C.green : C.red,
+            'Status',
+            fault == 0 ? 'No issues' : 'Fault $fault',
+            onTap: fault == 0 ? null : () => context.go(Routes.alerts),
+          ),
+          item(Icons.wifi_rounded, signalColor, 'Solaris device', signal),
+        ],
+      ),
     );
   }
 }

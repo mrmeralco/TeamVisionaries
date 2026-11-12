@@ -41,6 +41,18 @@ class ApiService {
 
   /// System check: does the solar/battery/inverter still fit this household's use? (last 30 days)
   Future<Map<String, dynamic>> getUpgrade() => _get('/api/upgrade');
+
+  /// Solar tips: when and how to run the house on the sun, plus this month's CO₂ avoided.
+  Future<Map<String, dynamic>> getTips() => _get('/api/tips');
+
+  /// Household profile: routine, is anyone likely home now, always-on use, new appliance-sized loads.
+  Future<Map<String, dynamic>> getHousehold() => _get('/api/household');
+
+  /// No solar yet: suggested solar size (grid-tie / hybrid) from this home's use, plus sponsored slots.
+  Future<Map<String, dynamic>> getSolarPlan() => _get('/api/solar-plan');
+
+  /// Smart meter mode: latest meter reading, voltage and power factor, usage pattern, Meralco level, insights.
+  Future<Map<String, dynamic>> getMeter() => _get('/api/meter');
   Future<Map<String, dynamic>> getAlerts({bool unreadOnly = false}) =>
       _get(unreadOnly ? '/api/alerts?unread_only=true' : '/api/alerts');
   Future<Map<String, dynamic>> markAlertRead(int id) => _send('POST', '/api/alerts/$id/read');
