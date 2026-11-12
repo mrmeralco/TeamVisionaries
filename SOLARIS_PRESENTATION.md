@@ -163,18 +163,24 @@ Instead of waiting for the final bill, the customer receives an early warning an
 
 ### App features to show
 
-- Expected solar production
-- Weather-informed solar forecast
+- Expected solar production for the next 48 hours
+- Weather-informed forecast using hourly solar radiation and cloud conditions
+- Forecast calibrated with the home’s actual solar performance
 - Projected battery percentage
 - Expected grid consumption
 - Estimated time until the battery reaches its reserve
 - Estimated battery runtime during a brownout
+- History-based forecast when weather data is unavailable
 
 ### Speaker script
 
 Solaris also looks ahead.
 
-Using the home’s previous energy behavior and expected solar conditions, Solaris estimates future solar production and projects the battery level.
+Solaris estimates the next 48 hours of solar generation using hourly solar-radiation forecasts from Open-Meteo. It calibrates the forecast using the home’s actual solar production from the previous seven days, allowing the prediction to reflect the performance of that specific installation.
+
+If there is not yet enough household data, Solaris starts with the configured solar-panel capacity and typical system losses. If weather information or internet access is unavailable, it falls back to the home’s average solar production for each hour from the previous 14 days.
+
+Solaris combines the expected solar generation with the household’s usual hourly consumption. It then projects the battery percentage, expected grid use, the time when the battery may reach its reserve, and whether the next day’s sunlight may recharge it.
 
 During a brownout, the app estimates how long the battery can support the current household load. This helps the customer decide whether to continue normal use or turn off appliances that consume a large amount of electricity.
 
