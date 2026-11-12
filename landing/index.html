@@ -15,9 +15,9 @@
 <!-- <link rel="canonical" href="https://[the domain, once there is one]/"> -->
 <meta name="site-kind" content="software">
 <meta name="page-type" content="software">
-<!-- the theme before the first paint: the visitor's own choice, else the system's (backgrounds.js and system.js
+<!-- the theme before the first paint: the visitor's own choice, else light (backgrounds.js and system.js
      read the palette right after this, so a dark page never paints one light frame) -->
-<script>(function(){var t;try{t=localStorage.getItem('solaris-theme')}catch(e){}var q=/[?&]theme=(dark|light)/.exec(location.search);if(q){t=q[1]}if(t!=='dark'&&t!=='light'){t=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.dataset.theme=t})()</script>
+<script>(function(){var t;try{t=localStorage.getItem('solaris-theme')}catch(e){}var q=/[?&]theme=(dark|light)/.exec(location.search);if(q){t=q[1]}if(t!=='dark'&&t!=='light'){t='light'}document.documentElement.dataset.theme=t})()</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&display=swap" rel="stylesheet">
@@ -688,7 +688,7 @@ html[data-theme="dark"][data-ground="orange"] { --ground-bg: #1a2440; --ground-s
         </div>
         <div class="span-2 start-7 footer__col"><h3>Product</h3><ul><li><a href="#top">Home</a></li><li><a href="#app">Alerts</a></li><li><a href="#forecast">Forecasts</a></li><li><a href="#setup">Setup</a></li></ul></div>
         <div class="span-2 footer__col"><h3>Help</h3><ul><li><a href="#questions">Questions</a></li><li><a href="mailto:hello@solaris.example?subject=Solaris%20question">Email the team</a></li></ul></div>
-        <div class="span-2 footer__col"><h3>Team</h3><ul><li>Team Visionaries</li><li>PLV, Valenzuela</li><li>IDOL Hackathon 2026</li></ul></div>
+        <div class="span-2 footer__col"><h3>Team</h3><ul><li>Team Visionaries</li><li>Adrian, Lead developer</li><li>PLV, Valenzuela</li><li>IDOL Hackathon 2026</li></ul></div>
       </div>
       <div class="footer__legal">
         <span>&copy; 2026 Team Visionaries &middot; Readings stay on your home network.</span>

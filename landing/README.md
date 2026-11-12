@@ -9,7 +9,7 @@ cd landing && python -m http.server 8080   # then http://localhost:8080
 ```
 
 `?theme=light` or `?theme=dark` on the URL forces a theme (handy for sharing a screenshot). Without it the page
-follows the visitor's choice (the sun/moon button, remembered) or else the system setting.
+follows the visitor's choice (the sun/moon button, remembered) or else opens in light mode.
 
 ## What is on it
 
