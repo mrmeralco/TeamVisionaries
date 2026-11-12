@@ -32,6 +32,8 @@ server/
 
 ## Setup (server laptop)
 
+**Easiest:** use the one-click scripts in [host/](host/README.md) (Windows `setup-windows.bat` / `start-windows.bat`, macOS `setup-mac.sh` / `start-mac.sh`). Manual steps below.
+
 ```bash
 cd server
 python3 -m venv .venv && source .venv/bin/activate

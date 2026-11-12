@@ -849,9 +849,25 @@ void setup() {
 }
 
 // ------------------------------------------------------------------ loop ---
+// USB serial command: "mode inverter" | "mode meter" | "mode meralco"
+static void serialCmd() {
+  static String line;
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c != '\n' && c != '\r') { if (line.length() < 32) line += c; continue; }
+    line.trim();
+    if (line.startsWith("mode "))
+      for (uint8_t m = 0; m < NUM_MODES; m++)
+        if (line.substring(5) == MODE_IDS[m]) setMode((Mode)m);
+    line = "";
+  }
+}
+
 void loop() {
   static uint32_t tPot = 0, tSim = 0, tLcd = 0, tLog = 0, tSave = 0;
   uint32_t now = millis();
+
+  serialCmd();
 
   commPoll();                                   // keep this first and frequent
   readButton();
