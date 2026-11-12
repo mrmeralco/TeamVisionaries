@@ -1,0 +1,13 @@
+{
+  "date": "2026-11-11",
+  "summary": "Kahapon, 62% ng kuryente mo ay galing sa solar at battery. ₱74 lang ang nagastos sa grid at ₱122 ang natipid mo. Tip: gamitin ang washing machine at plantsa habang maaraw.",
+  "totals": {
+    "pv_kwh": 9.46,
+    "load_kwh": 15.09,
+    "grid_import_kwh": 5.67,
+    "cost_php": 73.68,
+    "savings_php": 122.42,
+    "self_sufficiency_pct": 62.4
+  },
+  "source": "fallback"
+}

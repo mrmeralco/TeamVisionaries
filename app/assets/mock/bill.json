@@ -1,0 +1,37 @@
+{
+  "month": "2026-11",
+  "days_elapsed": 12,
+  "days_in_month": 30,
+  "rate_php_per_kwh": 13.0,
+  "month_to_date_kwh": 57.37,
+  "month_to_date_php": 745.78,
+  "forecast_php": 1994.6,
+  "forecast_low_php": 1833.46,
+  "forecast_high_php": 2155.74,
+  "last_month_php": 2180.23,
+  "vs_last_month_pct": -8.5,
+  "savings_today_php": 23.82,
+  "savings_month_php": 1694.47,
+  "weekly_costs": [
+    {
+      "week_start_ts": 1792339200,
+      "label": "Oct 19",
+      "php": 442.22
+    },
+    {
+      "week_start_ts": 1792944000,
+      "label": "Oct 26",
+      "php": 374.2
+    },
+    {
+      "week_start_ts": 1793548800,
+      "label": "Nov 2",
+      "php": 479.76
+    },
+    {
+      "week_start_ts": 1794153600,
+      "label": "Nov 9",
+      "php": 223.64
+    }
+  ]
+}

@@ -1,7 +1,67 @@
 # Sinag Flutter app
 
-Owners: **Aldrin** (dev) + **Shane** (UI/UX). This folder is reserved for the Flutter project.
-Run `flutter create --org ph.sinag --project-name sinag .` here (or move your existing project in).
+Owners: **Aldrin** (dev) + **Shane** (UI/UX). Flutter 3.44, targets **web + Android**
+(`ph.sinag.sinag`). The server connection is done; screens are placeholders that show the raw
+server data until Shane's Figma design is implemented.
+
+## Run
+
+```bash
+flutter pub get
+```
+
+```bash
+flutter run -d chrome
+```
+
+```bash
+flutter run -d <android-device> --dart-define=SINAG_SERVER=http://192.168.43.100:8000
+```
+
+```bash
+flutter run -d chrome --dart-define=SINAG_MOCK=true
+```
+
+Default server: `SINAG_SERVER` if given, else on web the page's host on port 8000, else on Android
+`http://10.0.2.2:8000` (emulator → your machine). On a real phone, type the laptop IP in
+Settings (gear icon); it's saved on the device. Settings also has **Test connection** (`/api/health`)
+and a **mock data** toggle (no server needed). Android allows plain `http://` (hotspot LAN).
+
+## Layout
+
+```
+lib/
+  main.dart                       ProviderScope + MaterialApp.router
+  core/config/server_config.dart  default URL, URL normalising ("192.168.43.100" → http://…:8000)
+  core/router.dart                go_router: 5-tab shell + /settings, /brownout
+  core/theme/app_theme.dart       placeholder tokens → replace with Figma styles
+  core/utils/format.dart          ₱, W/kW, kWh, Manila time from Unix seconds
+  services/api_service.dart       every Contract C call (spec-tested)
+  services/mock_api_service.dart  same API from assets/mock/*.json
+  services/live_connection.dart   /ws/live with reconnect + backoff
+  providers/                      Riverpod: server config, live state, per-tab data, alerts, chat
+  features/<tab>/                 one folder per screen (placeholders now)
+  features/common/placeholder.dart  temporary raw-JSON widgets; delete as screens get designed
+```
+
+Libraries: `http`, `web_socket_channel`, `flutter_riverpod` (state), `go_router` (navigation),
+`fl_chart` (Energy/Bill charts), `shared_preferences` (saved server URL), `intl` (₱, dates),
+`flutter_svg` (Figma icon exports). Fonts from Figma go in `assets/fonts/` (the demo is offline,
+so no runtime font downloads).
+
+What the screens read: Home → `liveProvider` (updates on every `/ws/live` message, `link` says
+connected / reconnecting); Energy → `energyProvider('day'|'week'|'month')`; Bill → `billProvider`;
+Brownout → `brownoutProvider`; Alerts → `alertsProvider` (+ `unreadAlertsProvider` for the badge,
+live alerts merged in); Ask → `chatProvider`; Settings → `serverConfigProvider`, `serverSettingsProvider`.
+
+## Tests
+
+```bash
+flutter test
+```
+
+`test/spec/` is a copy of `test_spec/` (the contract spec, 30 tests); `test/connection_test.dart`
+covers URL parsing and WebSocket reconnect; `test/widget_test.dart` boots the app in mock mode.
 
 ## Tests to build against
 

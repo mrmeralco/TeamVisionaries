@@ -1,0 +1,24 @@
+{
+  "device": {
+    "id": "sinag-001",
+    "online": true,
+    "rssi": -55,
+    "fw": "0.3.0",
+    "last_seen_ts": 1794446366
+  },
+  "telemetry": {
+    "ts": 1794446366,
+    "pv_w": 3200,
+    "load_w": 1800,
+    "grid_w": 0,
+    "batt_soc": 78,
+    "batt_w": -1400,
+    "grid_on": true,
+    "inv_temp_c": 42,
+    "fault_code": 0
+  },
+  "state": "solar",
+  "status_line": "Araw ang nagpapagana sa bahay mo ngayon, at nagcha-charge pa ang battery.",
+  "saved_today_php": 23.82,
+  "rate_php_per_kwh": 13.0
+}
