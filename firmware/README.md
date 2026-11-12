@@ -134,7 +134,9 @@ An alert (`!! BROWNOUT !!` / `!LOW VOLTAGE!`) shows every other slot, as in inve
 
 On boot the LCD shows the IP address. Open `http://<that IP>/` or `http://sinag-sim.local/`.
 If the hotspot isn't reachable within 15 s, the simulator makes its own Wi-Fi network
-**Sinag-Sim** (password `sinag1234`) at `http://192.168.4.1`.
+**Sinag-Sim** (password `sinag1234`) at `http://192.168.4.1`. It keeps looking for the hotspot
+every 30 s (`WIFI_RETRY_MS`; phones on Sinag-Sim may blip for a moment then) and closes
+Sinag-Sim once it joins, so switching the hotspot on late needs no reboot.
 
 The page has a mode switch at the top (Hybrid inverter / Smart meter). It shows
 live values for the current mode, and the active register map is shown decoded and
@@ -146,7 +148,9 @@ reading. JSON is at `/api/state`. Controls are at `POST /api/control` (`mode`,
 
 ## Using the Sinag device
 
-1. In `sinag-device/config.h`, set `WIFI_SSID`, `WIFI_PASS`, `MQTT_HOST` (the server laptop IP) and `DEVICE_ID`.
+1. In `sinag-device/config.h`, set `WIFI_SSID`, `WIFI_PASS`, `DEVICE_ID`, and the server laptop:
+   `MQTT_MDNS_HOST` (its computer name, found as `<name>.local` whatever IP the hotspot gives it)
+   and `MQTT_HOST` (its IP, used if the name doesn't answer). The host start script prints both.
 2. Upload it and open Serial Monitor at 115200. Each poll prints the JSON it published:
    ```
    [pub] OK  sinag/sinag-001/telemetry {"ts":1731300000,"pv_w":3000,...}    ← inverter mode
@@ -168,6 +172,13 @@ with just the serial monitor. Read errors print a hint (for example `timeout (no
 
 Status LED (GPIO2): fast blink = no Wi-Fi · slow blink = no MQTT broker ·
 double blink = no device answering · solid = all good (flicks off on each publish).
+
+Self-protection:
+- **Watchdog:** if `loop()` hangs for `WDT_TIMEOUT_S` (30 s), the board reboots itself. Each boot
+  prints `[boot] reset reason: ...`; `WATCHDOG: the loop hung` means it recovered from a hang.
+- **Meter password:** if the utility meter (MERALCO mode) refuses the logon or password, C12 polling
+  stops until reboot (`[c12] ... STOPPED`), so the device never retries its way into a meter lockout.
+  Fix `C12_PASSWORD` in both `config.h` files and reflash.
 
 Real hardware: add a profile in `sinag-device/profiles.h` and point `PROFILE`
 (inverter) or `METER_PROFILE` (meter) in `config.h` at it. For an inverter, give the

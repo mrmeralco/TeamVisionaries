@@ -14,6 +14,8 @@
 //    solid on ............ all good (blinks off briefly on every publish)
 // =============================================================================
 #include <WiFi.h>
+#include <ESPmDNS.h>
+#include <esp_task_wdt.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <ModbusMaster.h>
@@ -21,7 +23,7 @@
 #include "config.h"
 #include "profiles.h"
 
-#define FW_VERSION "0.3.0"
+#define FW_VERSION "0.3.1"
 
 static const BrandProfile &P = PROFILE;
 static const MeterProfile &MP = METER_PROFILE;
@@ -240,6 +242,17 @@ static uint8_t c12ReadTable(uint16_t id, uint8_t *resp, uint16_t cap, const uint
 static uint32_t rd32(const uint8_t *p) { return p[0] | (p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24); }
 static uint16_t rd16(const uint8_t *p) { return p[0] | (p[1] << 8); }
 
+// A meter that refuses our password counts every attempt and locks out after a
+// few (the simulator after C12_MAX_BAD_PW, a real Meralco meter too). So the
+// first refusal stops C12 polling until reboot instead of retrying every 15 s.
+static bool isC12Error(uint8_t r) { return (r & 0xF0) == C12_ERR_BASE; }
+static void c12StopAuth(uint8_t r, const char *step) {
+  ansiLink.enabled = false;
+  Serial.printf("[c12] %s refused (0x%02X: %s)\n", step, r, mbErrorText(r));
+  Serial.println("[c12] utility meter polling STOPPED until reboot so the meter doesn't lock us out. "
+                 "Check C12_USER_ID / C12_USER / C12_PASSWORD in config.h, then reflash.");
+}
+
 static uint8_t pollAnsiMeter() {
   uint8_t resp[96];
   uint16_t rlen;
@@ -261,12 +274,15 @@ static uint8_t pollAnsiMeter() {
   memcpy(logon + 3, C12_USER, min((size_t)10, strlen(C12_USER)));
   if ((r = c12Request(logon, sizeof logon, resp, rlen, sizeof resp))) {
     const uint8_t t[1] = { 0x21 }; c12Request(t, 1, resp, rlen, sizeof resp);   // end the session cleanly
+    if (r == (C12_ERR_BASE | 0x06)) c12StopAuth(r, "logon");                    // bsy = already locked out
     return r;
   }
 
   uint8_t sec[21] = { 0x51 };
   memcpy(sec + 1, C12_PASSWORD, min((size_t)20, strlen(C12_PASSWORD)));
-  if (!(r = c12Request(sec, sizeof sec, resp, rlen, sizeof resp))) {
+  r = c12Request(sec, sizeof sec, resp, rlen, sizeof resp);
+  if (isC12Error(r)) c12StopAuth(r, "password");      // the session is still closed below
+  if (!r) {
     if (!c12IdentLogged && !c12ReadTable(1, resp, sizeof resp, d, cnt) && cnt >= 32) {
       Serial.printf("[c12] meter %.4s model %.8s serial %.16s\n", d, d + 4, d + 16);
       c12IdentLogged = true;
@@ -345,12 +361,35 @@ static void publishMeterAs(const char *type) {
 static void publishMeter()     { publishMeterAs("sdm120"); }
 static void publishAnsiMeter() { publishMeterAs("ansi-c12"); }
 
-static bool mqttConnect() {
+// Broker address: the laptop's mDNS name (MQTT_MDNS_HOST) when it answers, so a
+// new hotspot IP needs no reflash; otherwise the fixed MQTT_HOST. Looked up again
+// on every connect attempt, so an IP change after a reconnect is picked up too.
+static bool mdnsStarted = false;
+static void resolveBroker(char *desc, size_t n) {
+  if (strlen(MQTT_MDNS_HOST)) {
+    char name[64];
+    strlcpy(name, MQTT_MDNS_HOST, sizeof name);
+    if (char *dot = strstr(name, ".local")) *dot = 0;           // queryHost wants the bare name
+    if (!mdnsStarted) mdnsStarted = MDNS.begin(deviceId);       // also makes us reachable as <deviceId>.local
+    IPAddress ip = mdnsStarted ? MDNS.queryHost(name, MDNS_TIMEOUT_MS) : IPAddress();
+    if (ip != IPAddress()) {
+      mqtt.setServer(ip, MQTT_PORT);
+      snprintf(desc, n, "%s.local (%s)", name, ip.toString().c_str());
+      return;
+    }
+    Serial.printf("[mqtt] %s.local did not answer, falling back to %s\n", name, MQTT_HOST);
+  }
   mqtt.setServer(MQTT_HOST, MQTT_PORT);
+  strlcpy(desc, MQTT_HOST, n);
+}
+
+static bool mqttConnect() {
+  char broker[64];
+  resolveBroker(broker, sizeof broker);
   const char *will = "{\"online\":false}";
   const char *user = strlen(MQTT_USER) ? MQTT_USER : nullptr;
   const char *pass = strlen(MQTT_PASS) ? MQTT_PASS : nullptr;
-  Serial.printf("[mqtt] connecting to %s:%d as %s ... ", MQTT_HOST, MQTT_PORT, deviceId);
+  Serial.printf("[mqtt] connecting to %s:%d as %s ... ", broker, MQTT_PORT, deviceId);
   if (mqtt.connect(deviceId, user, pass, topicStatus, 1, true, will)) {
     Serial.println("connected");
     publishStatus();
@@ -406,11 +445,46 @@ static void updateLed() {
   digitalWrite(LED_PIN, on);
 }
 
+// ------------------------------------------------------------- watchdog ----
+// If loop() stops coming round (stuck serial read, network stall), the ESP32
+// reboots itself after WDT_TIMEOUT_S instead of sitting dead until someone
+// power-cycles it. A normal loop is well under 10 s even with every device
+// timing out, so 30 s only catches real hangs.
+static void watchdogStart() {
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  esp_task_wdt_config_t cfg = {};
+  cfg.timeout_ms     = WDT_TIMEOUT_S * 1000;
+  cfg.idle_core_mask = 0;                       // watch only the loop task
+  cfg.trigger_panic  = true;                    // panic -> reboot
+  if (esp_task_wdt_reconfigure(&cfg) != ESP_OK) esp_task_wdt_init(&cfg);
+#else
+  esp_task_wdt_init(WDT_TIMEOUT_S, true);       // IDF 4: re-inits if already running
+#endif
+  esp_task_wdt_add(NULL);                       // this task (setup + loop)
+  Serial.printf("[wdt] watchdog on, reboot if the loop hangs for %d s\n", WDT_TIMEOUT_S);
+}
+
+static const char *resetReasonText() {
+  switch (esp_reset_reason()) {
+    case ESP_RST_POWERON:  return "power on";
+    case ESP_RST_SW:       return "software restart";
+    case ESP_RST_PANIC:    return "crash (panic)";
+    case ESP_RST_INT_WDT:  return "interrupt watchdog";
+    case ESP_RST_TASK_WDT: return "WATCHDOG: the loop hung";
+    case ESP_RST_WDT:      return "watchdog";
+    case ESP_RST_BROWNOUT: return "power brownout (weak USB / supply)";
+    case ESP_RST_EXT:      return "reset button";
+    default:               return "other";
+  }
+}
+
 // ---------------------------------------------------------------- setup ----
 void setup() {
   Serial.begin(115200);
   delay(200);
   pinMode(LED_PIN, OUTPUT);
+  Serial.printf("\n[boot] reset reason: %s\n", resetReasonText());
+  watchdogStart();
 
   if (strlen(DEVICE_ID)) strlcpy(deviceId, DEVICE_ID, sizeof deviceId);
   else {
@@ -460,6 +534,7 @@ void loop() {
   static uint32_t tPoll = 0, tStatus = 0, tMqttTry = 0, tWifiLost = 0;
   static bool     wifiWasUp = false, firstPoll = true;
   uint32_t now = millis();
+  esp_task_wdt_reset();                         // loop came round: feed the watchdog
 
   // Wi-Fi watchdog: auto-reconnect usually works; kick it if it's been down 20 s.
   if (WiFi.status() == WL_CONNECTED) {

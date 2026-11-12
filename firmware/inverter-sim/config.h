@@ -3,9 +3,11 @@
 // ESP32 #2. Edit these, then upload.
 
 // ---- Wi-Fi (the team hotspot). If it can't connect in 15 s, the simulator
-//      starts its own AP "Sinag-Sim" (password below) at http://192.168.4.1
+//      starts its own AP "Sinag-Sim" (password below) at http://192.168.4.1 and
+//      keeps looking for the hotspot every WIFI_RETRY_MS. Once it joins, the AP closes.
 #define WIFI_SSID       "YOUR_HOTSPOT_SSID"
 #define WIFI_PASS       "YOUR_HOTSPOT_PASSWORD"
+#define WIFI_RETRY_MS   30000              // hotspot retry while in AP mode (AP clients blip briefly)
 #define AP_SSID         "Sinag-Sim"
 #define AP_PASS         "sinag1234"        // min 8 chars
 #define MDNS_NAME       "sinag-sim"        // -> http://sinag-sim.local

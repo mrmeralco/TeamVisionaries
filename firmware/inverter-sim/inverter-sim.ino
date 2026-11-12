@@ -32,7 +32,7 @@
 #include "config.h"
 #include "web_page.h"
 
-#define FW_VERSION      "0.3.0"
+#define FW_VERSION      "0.3.1"
 #define NUM_REGS        8          // inverter map: 0..7
 #define METER_NUM_REGS  0x15A      // meter map: up to total kWh at 0x0156
 
@@ -103,6 +103,11 @@ int      potPct      = 0;
 int      lastAppliedPot = -1;    // knob only writes when it moves (so SOC can still drift)
 
 Preferences prefs;
+
+// Wi-Fi state (up here: the LCD and the web page read apMode)
+bool     apMode = false;         // fallback AP is on (possibly with the hotspot still being retried)
+bool     mdnsUp = false;
+uint32_t wifiStartMs = 0;        // last attempt to join the hotspot
 
 static bool isMeter() { return S.mode != MODE_INVERTER; }   // both meter modes share physics, knobs, LCD
 static bool isAnsi()  { return S.mode == MODE_METER_ANSI; }
@@ -646,7 +651,7 @@ static void pageText(Page pg, char *out, size_t n) {
       else                     snprintf(out, n, "%s LOST %4lus", isAnsi() ? "C12" : "MB", (unsigned long)((millis() - mb.lastReqMs) / 1000));
       break;
     case PG_IP: {
-      bool ap = WiFi.getMode() == WIFI_AP;
+      bool ap = apMode;
       IPAddress ip = ap ? WiFi.softAPIP() : WiFi.localIP();
       if (!ap && WiFi.status() != WL_CONNECTED) snprintf(out, n, "WiFi connecting");
       else snprintf(out, n, "%s%s", ap ? "AP " : "", ip.toString().c_str());   // IP alone can be 15 chars
@@ -768,7 +773,7 @@ static void sendState() {
        mb.lastReqMs ? "false" : "true", mb.lastRx, mb.lastTx, activeSlaveId(), MB_BAUD,
        RS485_DE_PIN >= 0 ? "true" : "false", isAnsi() ? "ansi-c12.18" : "modbus-rtu");
 
-  bool ap = WiFi.getMode() == WIFI_AP;
+  bool ap = apMode;
   jcat("\"sys\":{\"fw\":\"%s\",\"uptime_s\":%lu,\"rssi\":%d,\"ip\":\"%s\",\"ap\":%s}}",
        FW_VERSION, (unsigned long)(millis() / 1000), ap ? 0 : (int)WiFi.RSSI(),
        (ap ? WiFi.softAPIP() : WiFi.localIP()).toString().c_str(), ap ? "true" : "false");
@@ -799,22 +804,37 @@ static void handleControl() {
 }
 
 // ------------------------------------------------------------------ wifi ---
-bool     apMode = false;
-bool     mdnsUp = false;
-uint32_t wifiStartMs = 0;
+static bool staConfigured() { return strlen(WIFI_SSID) && strcmp(WIFI_SSID, "YOUR_HOTSPOT_SSID") != 0; }
 
+// Fallback AP. With a hotspot configured it runs as AP+STA, so the hotspot is
+// still retried (e.g. the phone hotspot was switched on after the simulator).
 static void startAp() {
-  WiFi.disconnect(true);
-  WiFi.mode(WIFI_AP);
+  WiFi.mode(staConfigured() ? WIFI_AP_STA : WIFI_AP);
   WiFi.softAP(AP_SSID, AP_PASS);
   apMode = true;
-  Serial.printf("[wifi] AP mode: join \"%s\" / \"%s\" -> http://%s\n", AP_SSID, AP_PASS, WiFi.softAPIP().toString().c_str());
+  wifiStartMs = millis();
+  Serial.printf("[wifi] AP mode: join \"%s\" / \"%s\" -> http://%s%s\n", AP_SSID, AP_PASS, WiFi.softAPIP().toString().c_str(),
+                staConfigured() ? "  (still looking for the hotspot)" : "");
   flash("AP " AP_SSID, WiFi.softAPIP().toString().c_str(), 6000);
 }
 
 static void wifiLoop() {
+  uint32_t now = millis();
+  if (apMode && WiFi.status() == WL_CONNECTED) {        // hotspot showed up: close the fallback AP
+    Serial.println("[wifi] hotspot found, closing the fallback AP");
+    WiFi.softAPdisconnect(true);
+    WiFi.mode(WIFI_STA);
+    apMode = false;
+    if (mdnsUp) { MDNS.end(); mdnsUp = false; }         // re-announced on the hotspot below
+  }
   if (apMode) {
     if (!mdnsUp) { mdnsUp = MDNS.begin(MDNS_NAME); if (mdnsUp) MDNS.addService("http", "tcp", 80); }
+    if (staConfigured() && now - wifiStartMs > WIFI_RETRY_MS) {
+      wifiStartMs = now;
+      Serial.printf("[wifi] retrying hotspot \"%s\"...\n", WIFI_SSID);
+      WiFi.disconnect();                                // station only; the AP stays up
+      WiFi.begin(WIFI_SSID, WIFI_PASS);
+    }
     return;
   }
   if (WiFi.status() == WL_CONNECTED) {
@@ -868,7 +888,7 @@ void setup() {
   lockKnob();                                   // don't let the knob jump the defaults at boot
   simTick(0);
 
-  if (strcmp(WIFI_SSID, "YOUR_HOTSPOT_SSID") == 0 || strlen(WIFI_SSID) == 0) {
+  if (!staConfigured()) {
     startAp();
   } else {
     WiFi.mode(WIFI_STA);
