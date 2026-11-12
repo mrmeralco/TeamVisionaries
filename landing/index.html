@@ -145,6 +145,12 @@
   #setup .frame .dg { position: absolute; inset: 0; }
   .facts-list { display: grid; gap: var(--s-2); margin: 0; padding: 0; list-style: none; }
   .close__word { line-height: 1.02; }
+  /* short laptop windows (1536x730 at 125% scaling): the name scales with the height too, and the closing
+     screen grows rather than let the name run over the links row */
+  @media (min-width: 640px) {
+    .close__word { font-size: clamp(64px, min(14.5vw, 26svh), 216px); }
+    footer.closing { height: auto; min-height: calc(var(--h, 1) * 100svh); }
+  }
   .facts-list li { font-size: var(--t-body); }
   .facts-list b { font-weight: 500; }
 </style>
